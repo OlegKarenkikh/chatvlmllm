@@ -1,0 +1,83 @@
+# Model configurations
+
+models:
+  got_ocr:
+    name: "GOT-OCR 2.0"
+    model_id: "stepfun-ai/GOT-OCR2_0"
+    precision: "fp16"
+    device_map: "auto"
+    max_length: 2048
+    description: "Specialized OCR model for complex document layouts"
+    
+  qwen_vl_2b:
+    name: "Qwen2-VL 2B"
+    model_id: "Qwen/Qwen2-VL-2B-Instruct"
+    precision: "fp16"
+    device_map: "auto"
+    max_length: 4096
+    description: "Lightweight multimodal chat model"
+    
+  qwen_vl_7b:
+    name: "Qwen2-VL 7B"
+    model_id: "Qwen/Qwen2-VL-7B-Instruct"
+    precision: "fp16"
+    device_map: "auto"
+    max_length: 8192
+    description: "Advanced multimodal model for complex tasks"
+
+# Application settings
+app:
+  title: "ChatVLMLLM - Document OCR & VLM Chat"
+  page_icon: "🔬"
+  layout: "wide"
+  initial_sidebar_state: "expanded"
+  
+# OCR settings
+ocr:
+  supported_formats:
+    - "jpg"
+    - "jpeg"
+    - "png"
+    - "bmp"
+    - "tiff"
+  max_image_size: 10485760  # 10MB
+  resize_max_dimension: 2048
+  
+# Document field extraction templates
+document_templates:
+  passport:
+    fields:
+      - "Surname"
+      - "Given Names"
+      - "Passport Number"
+      - "Date of Birth"
+      - "Place of Birth"
+      - "Date of Issue"
+      - "Date of Expiry"
+      - "Authority"
+      
+  invoice:
+    fields:
+      - "Invoice Number"
+      - "Invoice Date"
+      - "Due Date"
+      - "Vendor Name"
+      - "Total Amount"
+      - "Tax Amount"
+      - "Currency"
+      
+  receipt:
+    fields:
+      - "Store Name"
+      - "Date"
+      - "Time"
+      - "Total Amount"
+      - "Items"
+      - "Payment Method"
+
+# Chat settings
+chat:
+  max_history: 10
+  temperature: 0.7
+  top_p: 0.9
+  system_prompt: "You are a helpful AI assistant that can analyze images and documents. Provide clear and accurate responses."
