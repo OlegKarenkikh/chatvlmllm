@@ -23,60 +23,109 @@ share/python-wheels/
 *.egg
 PIPFILE.lock
 
-# Virtual environments
+# Virtual Environment
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.cursor/
-
-# OS
 .DS_Store
-Thumbs.db
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
 
 # Logs
-*.log
 logs/
+*.log
+
+# Application cache
+.cache/
+*.cache
+
+# Results and outputs
+results/
+outputs/
+
+# Model cache (HuggingFace)
+.cache/huggingface/
+models/cache/
 
 # Streamlit
 .streamlit/
 
-# Models (large files)
-models/checkpoints/
-models/*.bin
-models/*.safetensors
-
-# Data
-data/raw/
-data/processed/
+# Data files (don't commit large files)
+*.h5
 *.pkl
 *.pickle
+*.joblib
 
-# Environment
-.env
-.env.local
+# Images (unless in examples/)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.svg
+# But keep examples
+!examples/**/*.jpg
+!examples/**/*.jpeg
+!examples/**/*.png
+!examples/**/*.gif
+!examples/**/*.bmp
+!examples/**/*.tiff
 
-# Cache
-.cache/
-*.cache
+# Documents
+*.pdf
+*.docx
+*.xlsx
 
-# HuggingFace cache (optional, uncomment if needed)
-# .cache/huggingface/
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+Thumbs.db
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
+
+# Docker
+.dockerignore
+
+# Backup files
+*.bak
+*.backup
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+*.7z
