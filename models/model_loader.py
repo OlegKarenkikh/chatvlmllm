@@ -7,6 +7,7 @@ import yaml
 from models.base_model import BaseModel
 from models.got_ocr import GOTOCRModel
 from models.qwen_vl import QwenVLModel
+from models.dots_ocr import DotsOCRModel
 from utils.model_cache import ModelCacheManager, check_model_availability
 from utils.logger import logger
 
@@ -19,6 +20,7 @@ class ModelLoader:
         "got_ocr": GOTOCRModel,
         "qwen_vl_2b": QwenVLModel,
         "qwen_vl_7b": QwenVLModel,
+        "dots_ocr": DotsOCRModel,
     }
     
     # Cache for loaded model instances

@@ -1,6 +1,15 @@
-"""Model integration modules for VLM/LLM OCR."""
+"""Models package for ChatVLMLLM."""
 
-from .base_model import BaseVLMModel
-from .model_loader import ModelLoader
+from models.base_model import BaseModel
+from models.got_ocr import GOTOCRModel
+from models.qwen_vl import QwenVLModel
+from models.dots_ocr import DotsOCRModel
+from models.model_loader import ModelLoader
 
-__all__ = ['BaseVLMModel', 'ModelLoader']
+__all__ = [
+    "BaseModel",
+    "GOTOCRModel",
+    "QwenVLModel",
+    "DotsOCRModel",
+    "ModelLoader",
+]
