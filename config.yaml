@@ -1,38 +1,54 @@
-# Model configurations
+# ChatVLMLLM Configuration
+# Model and application settings
 
+# Model configurations following official recommendations
 models:
   got_ocr:
     name: "GOT-OCR 2.0"
-    model_id: "stepfun-ai/GOT-OCR2_0"
-    precision: "fp16"
-    device_map: "auto"
-    max_length: 2048
     description: "Specialized OCR model for complex document layouts"
+    model_path: "stepfun-ai/GOT-OCR2_0"
+    # Official: https://huggingface.co/stepfun-ai/GOT-OCR2_0
+    model_type: "ocr"
+    max_length: 4096
+    precision: "fp16"  # fp32, fp16, or int8
+    device_map: "auto"
+    trust_remote_code: true  # Required for GOT-OCR
+    use_flash_attention: true
+    # GOT-OCR specific settings
+    ocr_type: "format"  # format, ocr, or multi-crop
+    ocr_color: ""  # Optional color specification
     
   qwen_vl_2b:
     name: "Qwen2-VL 2B"
-    model_id: "Qwen/Qwen2-VL-2B-Instruct"
+    description: "Lightweight vision-language model for document analysis"
+    model_path: "Qwen/Qwen2-VL-2B-Instruct"
+    # Official: https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct
+    model_type: "vlm"
+    max_length: 4096
     precision: "fp16"
     device_map: "auto"
-    max_length: 4096
-    description: "Lightweight multimodal chat model"
+    trust_remote_code: true
+    use_flash_attention: true
+    # Qwen2-VL specific settings
+    min_pixels: 256
+    max_pixels: 1280
     
   qwen_vl_7b:
     name: "Qwen2-VL 7B"
-    model_id: "Qwen/Qwen2-VL-7B-Instruct"
+    description: "Advanced vision-language model for complex document understanding"
+    model_path: "Qwen/Qwen2-VL-7B-Instruct"
+    # Official: https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct
+    model_type: "vlm"
+    max_length: 4096
     precision: "fp16"
     device_map: "auto"
-    max_length: 8192
-    description: "Advanced multimodal model for complex tasks"
+    trust_remote_code: true
+    use_flash_attention: true
+    # Qwen2-VL specific settings
+    min_pixels: 256
+    max_pixels: 1280
 
-# Application settings
-app:
-  title: "ChatVLMLLM - Document OCR & VLM Chat"
-  page_icon: "🔬"
-  layout: "wide"
-  initial_sidebar_state: "expanded"
-  
-# OCR settings
+# OCR processing settings
 ocr:
   supported_formats:
     - "jpg"
@@ -40,44 +56,89 @@ ocr:
     - "png"
     - "bmp"
     - "tiff"
-  max_image_size: 10485760  # 10MB
+  max_image_size: 10485760  # 10MB in bytes
   resize_max_dimension: 2048
+  enable_preprocessing: true
+  preprocessing_steps:
+    - "resize"
+    - "normalize"
+    - "enhance"  # Optional
   
-# Document field extraction templates
+# Document templates for field extraction
 document_templates:
   passport:
+    name: "Passport"
     fields:
-      - "Surname"
-      - "Given Names"
-      - "Passport Number"
-      - "Date of Birth"
-      - "Place of Birth"
-      - "Date of Issue"
-      - "Date of Expiry"
-      - "Authority"
-      
+      - "document_number"
+      - "surname"
+      - "given_names"
+      - "nationality"
+      - "date_of_birth"
+      - "sex"
+      - "place_of_birth"
+      - "date_of_issue"
+      - "date_of_expiry"
+      - "authority"
+  
   invoice:
+    name: "Invoice"
     fields:
-      - "Invoice Number"
-      - "Invoice Date"
-      - "Due Date"
-      - "Vendor Name"
-      - "Total Amount"
-      - "Tax Amount"
-      - "Currency"
-      
+      - "invoice_number"
+      - "date"
+      - "seller_name"
+      - "seller_address"
+      - "buyer_name"
+      - "buyer_address"
+      - "items"
+      - "subtotal"
+      - "tax"
+      - "total_amount"
+  
   receipt:
+    name: "Receipt"
     fields:
-      - "Store Name"
-      - "Date"
-      - "Time"
-      - "Total Amount"
-      - "Items"
-      - "Payment Method"
+      - "store_name"
+      - "store_address"
+      - "date"
+      - "time"
+      - "items"
+      - "subtotal"
+      - "tax"
+      - "total"
+      - "payment_method"
 
-# Chat settings
-chat:
-  max_history: 10
-  temperature: 0.7
-  top_p: 0.9
-  system_prompt: "You are a helpful AI assistant that can analyze images and documents. Provide clear and accurate responses."
+# Application settings
+app:
+  title: "ChatVLMLLM - Document OCR & VLM Chat"
+  page_icon: "🔬"
+  layout: "wide"
+  theme: "light"
+  
+# Cache settings
+cache:
+  enable: true
+  directory: ".cache/app"
+  max_age_seconds: 3600  # 1 hour
+  
+# Export settings
+export:
+  default_format: "json"
+  formats:
+    - "json"
+    - "csv"
+    - "txt"
+  include_metadata: true
+  
+# Logging settings
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "logs/chatvlmllm.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# Performance settings
+performance:
+  enable_flash_attention: true
+  use_int8_quantization: false
+  optimize_memory: true
+  max_batch_size: 4
+  inference_timeout: 30  # seconds
