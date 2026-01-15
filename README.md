@@ -1,58 +1,27 @@
-# ChatVLMLLM - Document OCR & Vision Language Models
+# ChatVLMLLM - Document OCR & Vision-Language Models
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
-A comprehensive educational research project exploring **Vision Language Models (VLM)** for document OCR tasks. This project provides a production-ready implementation with modern UI, comparing different model architectures and their performance on real-world document processing.
-
-<p align="center">
-  <img src="https://img.icons8.com/fluency/96/000000/artificial-intelligence.png" width="100"/>
-</p>
-
-## 🎯 Project Goals
-
-This educational project aims to:
-
-1. 🔬 **Research** - Compare specialized OCR models vs. general VLM models
-2. 📊 **Benchmark** - Measure accuracy, speed, and resource usage
-3. 🛠️ **Develop** - Build production-quality document processing application
-4. 📚 **Learn** - Understand VLM architectures and their applications
-5. 🌐 **Share** - Provide open-source implementation for community
+A comprehensive toolkit for document OCR, visual understanding, and multimodal AI applications using state-of-the-art vision-language models.
 
 ## ✨ Features
 
-### 🤖 Model Support
+### Supported Models
 
-- **GOT-OCR 2.0** - Specialized OCR for complex layouts
-- **Qwen2-VL 2B** - Lightweight vision-language model
-- **Qwen2-VL 7B** - Advanced multimodal understanding
+- 🔍 **GOT-OCR 2.0** - Specialized OCR for complex layouts
+- 🤖 **Qwen2-VL** (2B, 7B) - Advanced vision-language understanding
+- ⭐ **Qwen3-VL** (2B, 4B, 8B) - Latest VLM with 32 languages OCR, visual agent, 256K context
+- 📚 **dots.ocr** - SOTA multilingual document parser (100+ languages)
 
-### 📄 Processing Modes
+### Key Capabilities
 
-- **OCR Mode** - Extract text and structured data from documents
-- **Chat Mode** - Interactive Q&A about document content
-- **Batch Processing** - Process multiple documents efficiently
-- **Comparison** - Side-by-side model performance analysis
-
-### 💎 Production Features
-
-- ✅ Modern Streamlit UI with custom styling
-- ✅ HuggingFace model cache management
-- ✅ Automatic model detection and download
-- ✅ Export results (JSON, CSV, TXT)
-- ✅ Input validation and error handling
-- ✅ Comprehensive logging system
-- ✅ Docker containerization
-- ✅ Jupyter notebooks for exploration
+- 🌐 **Multilingual OCR** - 32+ languages with high accuracy
+- 🤖 **Visual Agent** - GUI interaction and automation (Qwen3-VL)
+- 📊 **Document Analysis** - Layout detection, table extraction, structure parsing
+- 🧠 **Visual Reasoning** - Complex reasoning about images and diagrams
+- 🎥 **Video Understanding** - 256K context for long videos (Qwen3-VL)
+- 📦 **Flexible Quantization** - FP16, INT8, INT4 support
+- ⚡ **Flash Attention 2** - Faster inference with lower memory
 
 ## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.10+
-- CUDA-capable GPU (recommended, 6GB+ VRAM)
-- 30GB+ free disk space (for models)
 
 ### Installation
 
@@ -61,268 +30,213 @@ This educational project aims to:
 git clone https://github.com/OlegKarenkikh/chatvlmllm.git
 cd chatvlmllm
 
-# Automated setup
-bash scripts/setup.sh  # Linux/Mac
-# or
-scripts\setup.bat      # Windows
+# Install dependencies
+pip install -r requirements.txt
+
+# Install latest transformers for Qwen3-VL
+pip install git+https://github.com/huggingface/transformers
 ```
 
-### Check Environment
+### Check GPU Compatibility
 
 ```bash
-# Verify installation
-python scripts/check_setup.py
-
-# Check model cache status
-python scripts/check_models.py
+python scripts/check_gpu.py
 ```
 
-### Download Models (Optional)
+### Basic Usage
 
-Models download automatically on first use, but you can pre-download:
+```python
+from models import ModelLoader
+from PIL import Image
 
-```bash
-python scripts/download_models.py
+# Load Qwen3-VL 2B
+model = ModelLoader.load_model('qwen3_vl_2b')
+
+# Process image
+image = Image.open('document.jpg')
+result = model.chat(
+    image=image,
+    prompt="Extract all text from this document"
+)
+
+print(result)
 ```
 
-### Run Application
+### Streamlit App
 
 ```bash
 streamlit run app.py
 ```
 
-Open browser to: http://localhost:8501
+## 📊 GPU Requirements
+
+| GPU | VRAM | Best Model | Status |
+|-----|------|-----------|--------|
+| RTX 5090 | 32GB | Qwen3-VL 8B@FP16 | ✅ Perfect |
+| RTX 5080 | 16GB | Qwen3-VL 8B@INT8 | ✅ Excellent |
+| RTX 5070 | 12GB | Qwen3-VL 4B@FP16 | ✅ Good |
+| RTX 5060 Ti | 16GB | Qwen3-VL 8B@INT8 | ✅ Best Value |
+| RTX 5060 Ti | 8GB | Qwen3-VL 4B@INT4 | ⚠️ Limited |
+
+See [GPU Requirements Guide](docs/gpu_requirements.md) for detailed compatibility.
 
 ## 📖 Documentation
 
-### Core Documentation
+- [GPU Requirements](docs/gpu_requirements.md) - Comprehensive GPU compatibility guide
+- [Qwen3-VL Guide](docs/qwen3_vl_guide.md) - Qwen3-VL usage and optimization
+- [Model Cache Guide](docs/model_cache_guide.md) - Managing model downloads
 
-- [**Quick Start Guide**](QUICKSTART.md) - Get started in 5 minutes
-- [**Model Documentation**](docs/models.md) - Detailed model information
-- [**Architecture Overview**](docs/architecture.md) - System design
-- [**Developer Guide**](README_DEV.md) - Development setup and workflow
-- [**Model Cache Guide**](docs/model_cache_guide.md) - Cache management
+## 🛠️ Configuration
 
-### Additional Resources
+### config.yaml
 
-- [Research Log Template](docs/research_log.md) - Track your experiments
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
-- [Project Summary](PROJECT_SUMMARY.md) - Complete project overview
-- [Changelog](CHANGELOG.md) - Version history
-
-## 🎓 Using the Project
-
-### For Students
-
-1. **Explore Models**
-   ```bash
-   jupyter notebook notebooks/01_model_exploration.ipynb
-   ```
-
-2. **Run Experiments**
-   - Process test documents
-   - Compare model outputs
-   - Measure performance metrics
-
-3. **Document Results**
-   - Fill in [research_log.md](docs/research_log.md)
-   - Create comparison charts
-   - Write analysis report
-
-### For Developers
-
-1. **Extend Functionality**
-   ```python
-   # Add custom model
-   from models.base_model import BaseModel
-   
-   class MyModel(BaseModel):
-       def load_model(self):
-           # Your implementation
-           pass
-   ```
-
-2. **Run Tests**
-   ```bash
-   pytest
-   pytest --cov=models --cov=utils
-   ```
-
-3. **Deploy**
-   ```bash
-   docker-compose -f docker/docker-compose.yml up
-   ```
-
-## 🔧 Model Cache Management
-
-### Check Cache Status
-
-```bash
-python scripts/check_models.py
+```yaml
+models:
+  qwen3_vl_8b:
+    model_path: "Qwen/Qwen3-VL-8B-Instruct"
+    precision: "int8"  # fp16, bf16, int8, int4
+    use_flash_attention: true
+    device_map: "auto"
 ```
 
-Output example:
-```
-✅ GOT-OCR 2.0: Found in cache (2.8 GB)
-⚠️  Qwen2-VL 2B: Not cached - will download on first use
-✅ Qwen2-VL 7B: Found in cache (14.2 GB)
+### INT4 Quantization (66% VRAM Reduction)
 
-Total: 2 models, 17.0 GB
-```
-
-### Cache Location
-
-Default: `~/.cache/huggingface/hub/`
-
-Custom location:
-```bash
-export HF_HOME="/path/to/cache"
+```yaml
+models:
+  qwen3_vl_8b:
+    precision: "int4"  # 17.6GB -> 6GB
 ```
 
-See [Model Cache Guide](docs/model_cache_guide.md) for details.
+## ✨ What's New
 
-## 📊 Model Comparison
+### Qwen3-VL (Latest)
 
-| Model | Parameters | VRAM | Speed | Best For |
-|-------|-----------|------|-------|----------|
-| GOT-OCR 2.0 | 580M | ~3GB | Fast | Complex layouts, tables, formulas |
-| Qwen2-VL 2B | 2B | ~5GB | Fast | General OCR, lightweight deployment |
-| Qwen2-VL 7B | 7B | ~14GB | Medium | Advanced analysis, reasoning |
+- 🌐 **32 languages OCR** (vs 19 in Qwen2-VL)
+- 🤖 **Visual agent** capabilities
+- 📚 **256K context** (expandable to 1M)
+- 🎯 **3D grounding** for spatial reasoning
+- 🧠 **Thinking mode** for complex tasks
+- 📦 **INT4 support** - 66% less VRAM
 
-## 🛠️ Development
+## 💻 Usage Examples
+
+### Document OCR
+
+```python
+# Extract text from document
+text = model.extract_text(image, language="Russian")
+```
+
+### Document Analysis
+
+```python
+# Analyze document structure
+analysis = model.analyze_document(image, focus="layout")
+```
+
+### Visual Reasoning
+
+```python
+# Complex reasoning
+reasoning = model.visual_reasoning(
+    image, 
+    question="Explain the workflow in this diagram"
+)
+```
+
+### Visual Agent (Qwen3-VL)
+
+```python
+# GUI interaction
+actions = model.chat(
+    image=screenshot,
+    prompt="Find and click the Submit button"
+)
+```
+
+## 💡 Tips & Best Practices
+
+### For 8GB VRAM
+
+```python
+# Use INT4 quantization
+model = ModelLoader.load_model(
+    'qwen3_vl_8b',
+    precision='int4'  # 6GB instead of 17.6GB
+)
+```
+
+### For 12GB VRAM
+
+```python
+# Run multiple models
+qwen4b = ModelLoader.load_model('qwen3_vl_4b')  # 8.9GB
+qwen2b = ModelLoader.load_model('qwen3_vl_2b')  # 4.4GB
+# Total: 11.1GB with INT8
+```
+
+### For 16GB+ VRAM
+
+```python
+# Optimal quality
+model = ModelLoader.load_model(
+    'qwen3_vl_8b',
+    precision='int8',  # 10GB
+    use_flash_attention=True
+)
+```
+
+## 🔧 Development
 
 ### Project Structure
 
 ```
 chatvlmllm/
-├── app.py                 # Streamlit application
-├── config.yaml           # Configuration
-├── models/               # Model integrations
-│   ├── got_ocr.py       # GOT-OCR 2.0
-│   ├── qwen_vl.py       # Qwen2-VL
-│   └── model_loader.py  # Factory with cache
-├── utils/                # Utilities
-│   ├── model_cache.py   # Cache management
-│   ├── logger.py        # Logging
-│   └── validators.py    # Validation
-├── ui/                   # UI components
-├── tests/                # Test suite
-├── notebooks/            # Jupyter notebooks
-├── scripts/              # Utility scripts
-└── docs/                 # Documentation
+├── models/
+│   ├── got_ocr.py          # GOT-OCR integration
+│   ├── qwen_vl.py          # Qwen2-VL integration
+│   ├── qwen3_vl.py         # Qwen3-VL integration
+│   ├── dots_ocr.py         # dots.ocr integration
+│   └── model_loader.py     # Model factory
+├── utils/
+│   ├── logger.py
+│   └── model_cache.py
+├── scripts/
+│   ├── check_gpu.py        # GPU compatibility checker
+│   └── check_models.py     # Model cache checker
+├── docs/
+│   ├── gpu_requirements.md
+│   └── qwen3_vl_guide.md
+├── app.py                  # Streamlit app
+└── config.yaml             # Configuration
 ```
 
 ### Testing
 
 ```bash
-# Run all tests
-pytest
-
-# With coverage
-pytest --cov=models --cov=utils --cov-report=html
-
-# Specific test
-pytest tests/test_models.py::test_model_loading
-```
-
-### Code Quality
-
-```bash
-# Format code
-black .
-
-# Lint
-flake8 .
-
-# Type check
-mypy models/ utils/
-```
-
-## 🐳 Docker Deployment
-
-```bash
-# Build image
-docker build -t chatvlmllm -f docker/Dockerfile .
-
-# Run with GPU
-docker-compose -f docker/docker-compose.yml up
-```
-
-## 📈 Benchmarking
-
-Run benchmark tests:
-
-```python
-from notebooks import run_benchmark
-
-results = run_benchmark(
-    models=['got_ocr', 'qwen_vl_2b'],
-    test_set='examples/',
-    metrics=['cer', 'wer', 'speed']
-)
+pytest tests/
 ```
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! Please open an issue or PR.
 
-### Areas for Contribution
+## 📝 License
 
-- 🐛 Bug fixes
-- ✨ New features
-- 📝 Documentation improvements
-- 🧪 Additional tests
-- 🎨 UI enhancements
-- 🌐 Translations
-
-## 📝 Citation
-
-If you use this project in your research, please cite:
-
-```bibtex
-@software{chatvlmllm2026,
-  author = {Oleg Karenkikh},
-  title = {ChatVLMLLM: Document OCR with Vision Language Models},
-  year = {2026},
-  url = {https://github.com/OlegKarenkikh/chatvlmllm}
-}
-```
-
-## 🙏 Acknowledgments
-
-### Models
-
-- **GOT-OCR 2.0**: [stepfun-ai/GOT-OCR2_0](https://huggingface.co/stepfun-ai/GOT-OCR2_0)
-- **Qwen2-VL**: [Qwen/Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
-
-### Frameworks
-
-- [Streamlit](https://streamlit.io/) - Web interface
-- [HuggingFace](https://huggingface.co/) - Model hub
-- [PyTorch](https://pytorch.org/) - ML framework
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License
 
 ## 🔗 Links
 
-- **Repository**: [github.com/OlegKarenkikh/chatvlmllm](https://github.com/OlegKarenkikh/chatvlmllm)
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/OlegKarenkikh/chatvlmllm/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/OlegKarenkikh/chatvlmllm/discussions)
+- **Qwen3-VL**: https://github.com/QwenLM/Qwen3-VL
+- **GOT-OCR**: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
+- **dots.ocr**: https://github.com/rednote-hilab/dots.ocr
 
-## 📞 Support
+## ⭐ Acknowledgments
 
-Need help?
-
-- 📖 Check [documentation](docs/)
-- 🐛 [Report issues](https://github.com/OlegKarenkikh/chatvlmllm/issues)
-- 💬 [Ask questions](https://github.com/OlegKarenkikh/chatvlmllm/discussions)
+- Qwen Team for Qwen3-VL
+- Stepfun AI for GOT-OCR 2.0
+- RedNote for dots.ocr
 
 ---
 
-<p align="center">
-  Made with ❤️ for education and research<br>
-  <b>ChatVLMLLM</b> - Exploring Vision Language Models for Document OCR
-</p>
+**Star ⭐ this repo if you find it useful!**
