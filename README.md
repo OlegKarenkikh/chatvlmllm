@@ -20,6 +20,8 @@ A comprehensive toolkit for document OCR, visual understanding, and multimodal A
 - 🎥 **Video Understanding** - 256K context for long videos (Qwen3-VL)
 - 📦 **Flexible Quantization** - FP16, INT8, INT4 support
 - ⚡ **Flash Attention 2** - Faster inference with lower memory
+- 🚀 **REST API** - Production-ready FastAPI endpoints
+- 🐳 **Docker Support** - GPU-enabled containerization
 
 ## 🚀 Quick Start
 
@@ -45,6 +47,8 @@ python scripts/check_gpu.py
 
 ### Basic Usage
 
+#### Python API
+
 ```python
 from models import ModelLoader
 from PIL import Image
@@ -54,18 +58,41 @@ model = ModelLoader.load_model('qwen3_vl_2b')
 
 # Process image
 image = Image.open('document.jpg')
-result = model.chat(
-    image=image,
-    prompt="Extract all text from this document"
-)
+result = model.extract_text(image)
 
 print(result)
 ```
 
-### Streamlit App
+#### Streamlit App
 
 ```bash
 streamlit run app.py
+```
+
+Access: http://localhost:8501
+
+#### REST API
+
+```bash
+# Start API server
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+# Use API
+curl -X POST "http://localhost:8000/ocr?model=qwen3_vl_2b" \
+  -F "file=@document.jpg"
+```
+
+API Docs: http://localhost:8000/docs
+
+#### Docker
+
+```bash
+# Build and run
+docker-compose up -d
+
+# Access services
+# Streamlit: http://localhost:8501
+# API: http://localhost:8000/docs
 ```
 
 ## 📊 GPU Requirements
@@ -84,7 +111,83 @@ See [GPU Requirements Guide](docs/gpu_requirements.md) for detailed compatibilit
 
 - [GPU Requirements](docs/gpu_requirements.md) - Comprehensive GPU compatibility guide
 - [Qwen3-VL Guide](docs/qwen3_vl_guide.md) - Qwen3-VL usage and optimization
+- [API Guide](docs/api_guide.md) - REST API documentation
 - [Model Cache Guide](docs/model_cache_guide.md) - Managing model downloads
+
+## 🔧 API Usage
+
+### Python Client
+
+```python
+import requests
+
+# OCR
+with open('document.jpg', 'rb') as f:
+    response = requests.post(
+        'http://localhost:8000/ocr',
+        files={'file': f},
+        params={'model': 'qwen3_vl_2b'}
+    )
+    print(response.json()['text'])
+
+# Chat
+with open('image.jpg', 'rb') as f:
+    response = requests.post(
+        'http://localhost:8000/chat',
+        files={'file': f},
+        data={'prompt': 'What\'s in this image?'}
+    )
+    print(response.json()['response'])
+```
+
+See [examples/api_usage.py](examples/api_usage.py) for more examples.
+
+### cURL
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# OCR
+curl -X POST "http://localhost:8000/ocr" \
+  -F "file=@document.jpg" \
+  -F "model=qwen3_vl_2b"
+
+# Chat
+curl -X POST "http://localhost:8000/chat" \
+  -F "file=@image.jpg" \
+  -F "prompt=Describe this image"
+```
+
+See [examples/api_curl.sh](examples/api_curl.sh) for more examples.
+
+## 🐳 Docker Deployment
+
+### Using docker-compose
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Services
+
+- **API**: http://localhost:8000
+  - Swagger UI: http://localhost:8000/docs
+  - ReDoc: http://localhost:8000/redoc
+- **Streamlit**: http://localhost:8501
+
+### Requirements
+
+- Docker 20.10+
+- NVIDIA Docker runtime
+- 16GB+ VRAM recommended
 
 ## 🛠️ Configuration
 
@@ -109,7 +212,17 @@ models:
 
 ## ✨ What's New
 
-### Qwen3-VL (Latest)
+### v1.0.0 (2026-01-15)
+
+#### 🎉 Major Features
+
+- ✅ **Qwen3-VL Support** - All three models (2B, 4B, 8B)
+- ✅ **REST API** - Production-ready FastAPI
+- ✅ **Docker** - Full containerization with GPU support
+- ✅ **Streamlit App** - Updated with all models
+- ✅ **Documentation** - Complete API and usage guides
+
+#### 🔥 Qwen3-VL Highlights
 
 - 🌐 **32 languages OCR** (vs 19 in Qwen2-VL)
 - 🤖 **Visual agent** capabilities
@@ -172,7 +285,7 @@ model = ModelLoader.load_model(
 # Run multiple models
 qwen4b = ModelLoader.load_model('qwen3_vl_4b')  # 8.9GB
 qwen2b = ModelLoader.load_model('qwen3_vl_2b')  # 4.4GB
-# Total: 11.1GB with INT8
+# Total: ~11GB with INT8
 ```
 
 ### For 16GB+ VRAM
@@ -192,6 +305,8 @@ model = ModelLoader.load_model(
 
 ```
 chatvlmllm/
+├── api.py                  # FastAPI REST API
+├── app.py                  # Streamlit application
 ├── models/
 │   ├── got_ocr.py          # GOT-OCR integration
 │   ├── qwen_vl.py          # Qwen2-VL integration
@@ -206,8 +321,13 @@ chatvlmllm/
 │   └── check_models.py     # Model cache checker
 ├── docs/
 │   ├── gpu_requirements.md
-│   └── qwen3_vl_guide.md
-├── app.py                  # Streamlit app
+│   ├── qwen3_vl_guide.md
+│   └── api_guide.md
+├── examples/
+│   ├── api_usage.py
+│   └── api_curl.sh
+├── Dockerfile              # Docker image
+├── docker-compose.yml      # Docker services
 └── config.yaml             # Configuration
 ```
 
@@ -221,12 +341,15 @@ pytest tests/
 
 Contributions welcome! Please open an issue or PR.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## 📝 License
 
 MIT License
 
 ## 🔗 Links
 
+- **GitHub**: https://github.com/OlegKarenkikh/chatvlmllm
 - **Qwen3-VL**: https://github.com/QwenLM/Qwen3-VL
 - **GOT-OCR**: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
 - **dots.ocr**: https://github.com/rednote-hilab/dots.ocr
@@ -240,3 +363,11 @@ MIT License
 ---
 
 **Star ⭐ this repo if you find it useful!**
+
+## 📊 Status
+
+![GitHub stars](https://img.shields.io/github/stars/OlegKarenkikh/chatvlmllm?style=social)
+![GitHub forks](https://img.shields.io/github/forks/OlegKarenkikh/chatvlmllm?style=social)
+![License](https://img.shields.io/github/license/OlegKarenkikh/chatvlmllm)
+
+**Production Ready** | **7 Models** | **REST API** | **Docker Support**
