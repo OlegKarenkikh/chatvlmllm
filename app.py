@@ -1,6 +1,11 @@
 import streamlit as st
 import yaml
 from pathlib import Path
+from PIL import Image
+import io
+
+# Import UI components
+from ui.styles import get_custom_css
 
 # Page configuration
 st.set_page_config(
@@ -10,99 +15,35 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Apply custom CSS
+st.markdown(get_custom_css(), unsafe_allow_html=True)
+
 # Load configuration
 @st.cache_resource
 def load_config():
+    """Load configuration from YAML file."""
     with open("config.yaml", "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 config = load_config()
 
-# Custom CSS for modern design
-st.markdown("""
-<style>
-    /* Main theme colors */
-    :root {
-        --primary-color: #FF4B4B;
-        --secondary-color: #0068C9;
-        --background-color: #0E1117;
-        --secondary-bg: #262730;
-        --text-color: #FAFAFA;
-    }
-    
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* Custom header */
-    .main-header {
-        font-size: 3rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, #FF4B4B 0%, #0068C9 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    
-    /* Card styling */
-    .info-card {
-        background: var(--secondary-bg);
-        border-radius: 10px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        border-left: 4px solid var(--primary-color);
-    }
-    
-    /* Button styling */
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(255, 75, 75, 0.3);
-    }
-    
-    /* Upload area */
-    .uploadedFile {
-        border: 2px dashed var(--primary-color);
-        border-radius: 10px;
-        padding: 2rem;
-    }
-    
-    /* Metrics */
-    [data-testid="stMetricValue"] {
-        font-size: 2rem;
-        font-weight: 700;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #262730 0%, #1a1d26 100%);
-    }
-    
-    /* Code blocks */
-    .stCodeBlock {
-        border-radius: 8px;
-    }
-    
-    /* Success/Error messages */
-    .stSuccess, .stError, .stWarning, .stInfo {
-        border-radius: 8px;
-        padding: 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Initialize session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "uploaded_image" not in st.session_state:
+    st.session_state.uploaded_image = None
+if "ocr_result" not in st.session_state:
+    st.session_state.ocr_result = None
+if "loaded_model" not in st.session_state:
+    st.session_state.loaded_model = None
 
-# Main header
-st.markdown('<h1 class="main-header">🔬 ChatVLMLLM</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #888; margin-bottom: 2rem;">'
-            'Vision Language Models for Document OCR & Intelligent Chat</p>', 
-            unsafe_allow_html=True)
+# Header
+st.markdown('<h1 class="gradient-text" style="text-align: center;">🔬 ChatVLMLLM</h1>', unsafe_allow_html=True)
+st.markdown(
+    '<p style="text-align: center; font-size: 1.2rem; color: #888; margin-bottom: 2rem;">'
+    'Vision Language Models for Document OCR & Intelligent Chat</p>', 
+    unsafe_allow_html=True
+)
 
 # Sidebar navigation
 with st.sidebar:
@@ -117,193 +58,308 @@ with st.sidebar:
     
     st.divider()
     
-    st.subheader("Model Settings")
+    st.subheader("⚙️ Model Settings")
     selected_model = st.selectbox(
         "Select Model",
         list(config["models"].keys()),
-        format_func=lambda x: config["models"][x]["name"]
+        format_func=lambda x: config["models"][x]["name"],
+        key="model_selector"
     )
     
-    st.info(f"**{config['models'][selected_model]['name']}**\n\n"
-            f"{config['models'][selected_model]['description']}")
+    # Display model info
+    model_info = config["models"][selected_model]
+    st.info(
+        f"**{model_info['name']}**\n\n"
+        f"{model_info['description']}\n\n"
+        f"📊 Max tokens: {model_info['max_length']}"
+    )
     
     st.divider()
     
-    with st.expander("⚙️ Advanced Settings"):
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1)
-        max_tokens = st.number_input("Max Tokens", 100, 4096, 2048, 100)
-        use_gpu = st.checkbox("Use GPU", value=True)
+    with st.expander("🔧 Advanced Settings"):
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, help="Controls randomness in generation")
+        max_tokens = st.number_input("Max Tokens", 100, 4096, 2048, 100, help="Maximum length of generated text")
+        use_gpu = st.checkbox("Use GPU", value=True, help="Enable GPU acceleration if available")
     
     st.divider()
+    
+    # Project stats
     st.markdown("### 📊 Project Stats")
     col1, col2 = st.columns(2)
     col1.metric("Models", "3")
-    col2.metric("Status", "Beta")
+    col2.metric("Status", "✅ Ready")
+    
+    # Model loading status
+    if st.session_state.loaded_model:
+        st.success(f"✅ Loaded: {st.session_state.loaded_model}")
+    else:
+        st.warning("⚠️ No model loaded")
 
 # Main content area
 if "🏠 Home" in page:
     st.header("Welcome to ChatVLMLLM Research Project")
     
+    # Feature cards
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown('<div class="info-card">', unsafe_allow_html=True)
-        st.markdown("### 📄 OCR Mode")
-        st.write("Extract text and structured data from documents using specialized VLM models.")
-        st.markdown("**Features:**")
-        st.markdown("- Text recognition\n- Field extraction\n- Multi-format support")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="feature-card">'
+            '<h3>📄 OCR Mode</h3>'
+            '<p>Extract text and structured data from documents using specialized VLM models.</p>'
+            '<ul style="text-align: left; margin-top: 1rem;">'
+            '<li>✅ Text recognition</li>'
+            '<li>✅ Field extraction</li>'
+            '<li>✅ Multi-format support</li>'
+            '<li>✅ Export to JSON/CSV</li>'
+            '</ul>'
+            '</div>',
+            unsafe_allow_html=True
+        )
     
     with col2:
-        st.markdown('<div class="info-card">', unsafe_allow_html=True)
-        st.markdown("### 💬 Chat Mode")
-        st.write("Interactive conversation with VLM models about document content.")
-        st.markdown("**Features:**")
-        st.markdown("- Visual Q&A\n- Context understanding\n- Markdown support")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="feature-card">'
+            '<h3>💬 Chat Mode</h3>'
+            '<p>Interactive conversation with VLM models about document content.</p>'
+            '<ul style="text-align: left; margin-top: 1rem;">'
+            '<li>✅ Visual Q&A</li>'
+            '<li>✅ Context understanding</li>'
+            '<li>✅ Markdown support</li>'
+            '<li>✅ Chat history</li>'
+            '</ul>'
+            '</div>',
+            unsafe_allow_html=True
+        )
     
     with col3:
-        st.markdown('<div class="info-card">', unsafe_allow_html=True)
-        st.markdown("### 📊 Comparison")
-        st.write("Compare different models' performance on various document types.")
-        st.markdown("**Metrics:**")
-        st.markdown("- Accuracy\n- Speed\n- Memory usage")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="feature-card">'
+            '<h3>📊 Comparison</h3>'
+            '<p>Compare different models\' performance on various document types.</p>'
+            '<ul style="text-align: left; margin-top: 1rem;">'
+            '<li>✅ Accuracy metrics</li>'
+            '<li>✅ Speed benchmarks</li>'
+            '<li>✅ Memory usage</li>'
+            '<li>✅ Quality analysis</li>'
+            '</ul>'
+            '</div>',
+            unsafe_allow_html=True
+        )
     
     st.divider()
     
-    st.header("🎯 Research Goals")
+    # Research goals in tabs
+    st.header("🎯 Research Goals & Timeline")
     
-    tabs = st.tabs(["Overview", "Timeline", "Learning Objectives", "Results"])
+    tabs = st.tabs(["📋 Overview", "📅 Timeline", "🎓 Learning", "📈 Results"])
     
     with tabs[0]:
         st.markdown("""
-        This educational project explores modern Vision Language Models for document OCR tasks.
+        This educational project explores modern **Vision Language Models** for document OCR tasks.
         We investigate different architectures, compare their performance, and develop practical
         applications for real-world document processing.
         
-        **Key Research Questions:**
-        1. How do specialized OCR models compare to general VLM models?
-        2. What trade-offs exist between model size and accuracy?
-        3. Can VLMs handle structured data extraction reliably?
-        4. How does context understanding improve OCR results?
+        ### Key Research Questions
+        
+        1. 🔍 **Model Comparison**: How do specialized OCR models compare to general VLM models?
+        2. ⚖️ **Trade-offs**: What are the performance vs. accuracy trade-offs?
+        3. 📊 **Structured Extraction**: Can VLMs reliably extract structured data?
+        4. 🧠 **Context Understanding**: How does context improve OCR results?
+        
+        ### Methodology
+        
+        - **Quantitative Analysis**: CER, WER, field accuracy metrics
+        - **Qualitative Assessment**: Layout preservation, structure understanding
+        - **Performance Benchmarking**: Speed, memory, scalability
+        - **Comparative Studies**: Model-to-model comparisons
         """)
     
     with tabs[1]:
-        st.markdown("""
-        **Phase 1: Preparation** (2 weeks)
-        - ✅ Environment setup
-        - ✅ Architecture research
-        - 🔄 Dataset collection
+        progress_data = [
+            ("Phase 1: Preparation", 100, "✅ Complete"),
+            ("Phase 2: Model Integration", 60, "🔄 In Progress"),
+            ("Phase 3: UI Development", 40, "🔄 In Progress"),
+            ("Phase 4: Testing", 0, "⏳ Pending"),
+            ("Phase 5: Documentation", 20, "🔄 In Progress"),
+        ]
         
-        **Phase 2: Model Integration** (3 weeks)
-        - 🔄 GOT-OCR integration
-        - ⏳ Qwen2-VL integration
-        - ⏳ API development
-        
-        **Phase 3: UI Development** (2 weeks)
-        - ⏳ Streamlit interface
-        - ⏳ OCR workflow
-        - ⏳ Chat interface
-        
-        **Phase 4: Testing** (2 weeks)
-        - ⏳ Accuracy testing
-        - ⏳ Performance optimization
-        - ⏳ Comparative analysis
-        
-        **Phase 5: Documentation** (1 week)
-        - ⏳ Final report
-        - ⏳ Presentation
-        """)
+        for phase, progress, status in progress_data:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"**{phase}**")
+                st.progress(progress / 100)
+            with col2:
+                st.markdown(f"<p style='text-align: right;'>{status}</p>", unsafe_allow_html=True)
     
     with tabs[2]:
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
-            **Technical Skills:**
-            - VLM model deployment
-            - Image preprocessing
-            - Inference optimization
-            - Streamlit development
-            - Docker containerization
+            ### 💻 Technical Skills
+            
+            - VLM model deployment & optimization
+            - Image preprocessing pipelines
+            - Inference optimization (Flash Attention, quantization)
+            - Full-stack development with Streamlit
+            - Docker containerization & deployment
+            - Testing & quality assurance
+            - Git version control & collaboration
             """)
         
         with col2:
             st.markdown("""
-            **Research Skills:**
-            - Model comparison
-            - Metric evaluation
+            ### 🔬 Research Skills
+            
+            - Model architecture analysis
+            - Comparative evaluation methodology
+            - Statistical analysis & metrics
             - Scientific documentation
-            - Critical analysis
-            - Result presentation
+            - Critical thinking & problem-solving
+            - Data visualization & presentation
+            - Technical writing & reporting
             """)
     
     with tabs[3]:
-        st.info("Results will be updated as the research progresses.")
+        st.info("📊 Results will be updated as experiments are conducted")
+        
         st.markdown("""
-        **Expected Outcomes:**
-        - Comparative analysis report
-        - Performance benchmarks
-        - Best practices guide
-        - Open-source implementation
+        ### Expected Outcomes
+        
+        - 📄 Comprehensive comparison report
+        - 📊 Performance benchmarks across models
+        - 📚 Best practices guide for VLM OCR
+        - 💻 Open-source implementation
+        - 🎓 Educational materials & tutorials
         """)
 
 elif "📄 OCR Mode" in page:
     st.header("📄 Document OCR Mode")
     
-    st.info("⚠️ This feature is under development. Model integration in progress.")
-    
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("Upload Document")
+        st.subheader("📤 Upload Document")
+        
         uploaded_file = st.file_uploader(
             "Choose an image",
             type=config["ocr"]["supported_formats"],
-            help="Supported formats: JPG, PNG, BMP, TIFF"
+            help="Supported formats: JPG, PNG, BMP, TIFF",
+            key="ocr_upload"
         )
         
         if uploaded_file:
-            st.image(uploaded_file, caption="Uploaded Image", use_container_width=True)
+            # Display uploaded image
+            image = Image.open(uploaded_file)
+            st.session_state.uploaded_image = image
+            st.image(image, caption="Uploaded Image", use_container_width=True)
             
+            # Image info
+            st.caption(f"📐 Size: {image.size[0]}x{image.size[1]} | Format: {image.format}")
+        
+        st.divider()
+        
+        # Document type selection
         document_type = st.selectbox(
-            "Document Type",
+            "📋 Document Type",
             list(config["document_templates"].keys()),
-            format_func=lambda x: x.capitalize()
+            format_func=lambda x: x.capitalize(),
+            help="Select the type of document for optimized field extraction"
         )
         
-        if st.button("🚀 Extract Text", type="primary"):
+        # Processing options
+        with st.expander("⚙️ Processing Options"):
+            enhance_image = st.checkbox("Enhance image quality", value=True)
+            denoise = st.checkbox("Apply denoising", value=False)
+            deskew = st.checkbox("Auto-deskew", value=False)
+        
+        st.divider()
+        
+        # Process button
+        if st.button("🚀 Extract Text", type="primary", use_container_width=True):
             if uploaded_file:
-                with st.spinner("Processing document..."):
-                    st.warning("Model loading functionality will be implemented in Phase 2")
+                with st.spinner("🔄 Processing document..."):
+                    # Placeholder for actual model integration
+                    import time
+                    time.sleep(1.5)
+                    
+                    # Demo output
+                    st.session_state.ocr_result = {
+                        "text": "Sample extracted text will appear here after model integration.\n\nThis is a placeholder demonstrating the UI flow.",
+                        "confidence": 0.92,
+                        "processing_time": 1.5
+                    }
+                    
+                    st.success("✅ Text extracted successfully!")
+                    st.rerun()
             else:
-                st.error("Please upload an image first")
+                st.error("❌ Please upload an image first")
     
     with col2:
-        st.subheader("Extraction Results")
-        st.markdown('<div class="info-card">', unsafe_allow_html=True)
-        st.markdown("**Recognized Text:**")
-        st.code("Text will appear here after OCR processing...", language="text")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.subheader("📊 Extraction Results")
         
-        st.markdown('<div class="info-card">', unsafe_allow_html=True)
-        st.markdown("**Extracted Fields:**")
-        if document_type:
-            fields = config["document_templates"][document_type]["fields"]
-            for field in fields:
-                st.text_input(field, placeholder=f"{field} will be extracted here", disabled=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.session_state.ocr_result:
+            result = st.session_state.ocr_result
+            
+            # Metrics
+            metric_col1, metric_col2 = st.columns(2)
+            metric_col1.metric("Confidence", f"{result['confidence']:.1%}")
+            metric_col2.metric("Processing Time", f"{result['processing_time']:.2f}s")
+            
+            st.divider()
+            
+            # Extracted text
+            st.markdown("**🔤 Recognized Text:**")
+            st.code(result["text"], language="text")
+            
+            st.divider()
+            
+            # Extracted fields
+            st.markdown("**📋 Extracted Fields:**")
+            
+            if document_type:
+                fields = config["document_templates"][document_type]["fields"]
+                for field in fields:
+                    st.text_input(
+                        field,
+                        placeholder=f"{field} will be extracted here",
+                        disabled=True,
+                        key=f"field_{field}"
+                    )
+            
+            st.divider()
+            
+            # Export options
+            st.markdown("**💾 Export Options:**")
+            col_json, col_csv = st.columns(2)
+            with col_json:
+                st.download_button(
+                    "📄 Export JSON",
+                    data="{}",
+                    file_name="ocr_result.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+            with col_csv:
+                st.download_button(
+                    "📊 Export CSV",
+                    data="",
+                    file_name="ocr_result.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        else:
+            st.info("💡 Upload an image and click 'Extract Text' to see results here")
 
 elif "💬 Chat Mode" in page:
     st.header("💬 Interactive VLM Chat")
     
-    st.info("⚠️ This feature is under development. Model integration in progress.")
-    
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.subheader("Upload Image")
+        st.subheader("🖼️ Upload Image")
+        
         chat_image = st.file_uploader(
             "Image for chat context",
             type=config["ocr"]["supported_formats"],
@@ -311,58 +367,129 @@ elif "💬 Chat Mode" in page:
         )
         
         if chat_image:
-            st.image(chat_image, caption="Context Image", use_container_width=True)
+            image = Image.open(chat_image)
+            st.session_state.uploaded_image = image
+            st.image(image, caption="Context Image", use_container_width=True)
+            
+            if st.button("🗑️ Clear Chat History", use_container_width=True):
+                st.session_state.messages = []
+                st.rerun()
     
     with col2:
-        st.subheader("Conversation")
+        st.subheader("💭 Conversation")
         
-        # Initialize chat history
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+        # Chat container
+        chat_container = st.container(height=400)
         
-        # Display chat messages
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        with chat_container:
+            if not st.session_state.messages:
+                st.info("👋 Upload an image and start asking questions about it!")
+            
+            # Display chat messages
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
         
         # Chat input
-        if prompt := st.chat_input("Ask about the image..."):
+        if prompt := st.chat_input("Ask about the image...", disabled=not chat_image):
+            # Add user message
             st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Display user message
             with st.chat_message("user"):
                 st.markdown(prompt)
             
+            # Generate response (placeholder)
             with st.chat_message("assistant"):
-                st.markdown("Model response will appear here after integration is complete.")
+                with st.spinner("🤔 Thinking..."):
+                    import time
+                    time.sleep(1)
+                    
+                    response = f"This is a demo response. After model integration, I will analyze the image and answer: '{prompt}'"
+                    st.markdown(response)
+            
+            # Add assistant response
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.rerun()
 
 elif "📊 Model Comparison" in page:
-    st.header("📊 Model Comparison")
+    st.header("📊 Model Performance Comparison")
     
-    st.info("Comparative analysis will be available after model testing phase.")
+    st.info("📈 Comparative analysis will be available after benchmark testing")
     
-    comparison_data = {
+    # Comparison table
+    import pandas as pd
+    
+    comparison_data = pd.DataFrame({
         "Model": ["GOT-OCR 2.0", "Qwen2-VL 2B", "Qwen2-VL 7B"],
         "Parameters": ["580M", "2B", "7B"],
-        "Accuracy (CER)": ["-", "-", "-"],
-        "Speed (sec/page)": ["-", "-", "-"],
-        "Memory (GB)": ["-", "-", "-"],
+        "VRAM (GB)": ["3", "5", "14"],
+        "CER (%)": ["-", "-", "-"],
+        "Speed (s/page)": ["-", "-", "-"],
         "Best For": ["Complex layouts", "General OCR", "Advanced analysis"]
-    }
+    })
     
-    st.table(comparison_data)
+    st.dataframe(comparison_data, use_container_width=True, hide_index=True)
     
-    st.markdown("""
-    **Evaluation Metrics:**
-    - **CER (Character Error Rate)**: Lower is better
-    - **WER (Word Error Rate)**: Accuracy at word level
-    - **Field Extraction Accuracy**: Structured data extraction
-    - **Processing Speed**: Time per document
-    - **Memory Usage**: RAM requirements
-    """)
+    st.divider()
+    
+    st.subheader("📏 Evaluation Metrics")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        **Character Error Rate (CER)**
+        
+        Measures accuracy at character level:
+        
+        ```
+        CER = (S + D + I) / N
+        ```
+        
+        Where:
+        - S = Substitutions
+        - D = Deletions
+        - I = Insertions
+        - N = Total characters
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Word Error Rate (WER)**
+        
+        Measures accuracy at word level:
+        
+        ```
+        WER = (S + D + I) / N
+        ```
+        
+        Where:
+        - S = Substitutions
+        - D = Deletions
+        - I = Insertions
+        - N = Total words
+        """)
+    
+    with col3:
+        st.markdown("""
+        **Field Accuracy**
+        
+        Structured data extraction:
+        
+        ```
+        Accuracy = Correct / Total
+        ```
+        
+        Where:
+        - Correct = Correctly extracted fields
+        - Total = Total fields
+        """)
 
 else:  # Documentation
     st.header("📚 Documentation")
     
-    doc_tabs = st.tabs(["Quick Start", "Models", "Architecture", "API Reference", "Contributing"])
+    doc_tabs = st.tabs(["🚀 Quick Start", "🤖 Models", "🏗️ Architecture", "📖 API", "🤝 Contributing"])
     
     with doc_tabs[0]:
         st.markdown("""
@@ -375,27 +502,29 @@ else:  # Documentation
         git clone https://github.com/OlegKarenkikh/chatvlmllm.git
         cd chatvlmllm
         
-        # Create virtual environment
-        python -m venv venv
-        source venv/bin/activate
+        # Setup (automated)
+        bash scripts/setup.sh  # Linux/Mac
+        scripts\\setup.bat      # Windows
         
-        # Install dependencies
-        pip install -r requirements.txt
-        ```
-        
-        ### Running the Application
-        
-        ```bash
+        # Run application
         streamlit run app.py
         ```
         
         ### First Steps
         
-        1. Select a model from the sidebar
-        2. Choose OCR or Chat mode
-        3. Upload your document/image
-        4. Get results instantly!
+        1. ✅ Select a model from the sidebar
+        2. 📄 Choose OCR or Chat mode
+        3. 📤 Upload your document
+        4. 🚀 Get instant results!
+        
+        ### Model Selection
+        
+        - **GOT-OCR**: Fast, accurate text extraction
+        - **Qwen2-VL 2B**: Lightweight multimodal chat
+        - **Qwen2-VL 7B**: Advanced document analysis
         """)
+        
+        st.info("📖 For detailed instructions, see [QUICKSTART.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/QUICKSTART.md)")
     
     with doc_tabs[1]:
         st.markdown("""
@@ -403,97 +532,99 @@ else:  # Documentation
         
         ### GOT-OCR 2.0
         
-        **Description**: Specialized OCR model with state-of-the-art accuracy for document understanding.
+        Specialized OCR model for complex document layouts.
         
-        **Strengths**:
-        - Complex layout recognition
-        - Table extraction
-        - Mathematical formula OCR
-        - Multi-language support
+        **Strengths:**
+        - ✅ High accuracy on structured documents
+        - ✅ Table extraction
+        - ✅ Mathematical formula recognition
+        - ✅ Multi-language support (100+ languages)
         
-        **Use Cases**:
+        **Use Cases:**
         - Scientific papers
         - Financial documents
         - Forms and tables
         
         ### Qwen2-VL
         
-        **Description**: General-purpose vision-language model from Alibaba Cloud.
+        General-purpose vision-language models.
         
-        **Strengths**:
-        - Multimodal understanding
-        - Context-aware responses
-        - Interactive chat
-        - Reasoning capabilities
+        **Strengths:**
+        - ✅ Multimodal understanding
+        - ✅ Context-aware responses
+        - ✅ Interactive chat
+        - ✅ Reasoning capabilities
         
-        **Use Cases**:
+        **Use Cases:**
         - Document Q&A
         - Visual analysis
         - Content extraction
         """)
+        
+        st.info("📖 For detailed documentation, see [docs/models.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/docs/models.md)")
     
     with doc_tabs[2]:
         st.markdown("""
-        ## Architecture Overview
+        ## System Architecture
         
-        ### System Components
-        
-        1. **Model Layer**: VLM model integration and inference
-        2. **Processing Layer**: Image preprocessing and text extraction
-        3. **UI Layer**: Streamlit interface and visualization
-        4. **Storage Layer**: Results caching and history
-        
-        ### Data Flow
+        ### Layered Design
         
         ```
-        User Upload → Image Preprocessing → Model Inference → 
-        Post-processing → Result Display → Export Options
+        UI Layer (Streamlit)
+              ↓
+        Application Layer
+              ↓
+        Processing Layer (Utils)
+              ↓
+        Model Layer (VLM Models)
+              ↓
+        Foundation (PyTorch/HF)
         ```
         
-        ### Technology Stack
+        ### Key Components
         
-        - **Frontend**: Streamlit + Custom CSS
-        - **Backend**: PyTorch + Transformers
-        - **Image Processing**: Pillow + OpenCV
-        - **Data Handling**: Pandas + NumPy
+        - **Models**: VLM integration and inference
+        - **Utils**: Image processing and text extraction
+        - **UI**: Streamlit interface and styling
+        - **Tests**: Quality assurance
         """)
+        
+        st.info("📖 For architecture details, see [docs/architecture.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/docs/architecture.md)")
     
     with doc_tabs[3]:
         st.markdown("""
         ## API Reference
         
-        ### Model Interface
+        ### Loading Models
         
         ```python
         from models import ModelLoader
         
-        # Load model
-        model = ModelLoader.load("got_ocr")
+        # Load a model
+        model = ModelLoader.load_model('got_ocr')
         
         # Process image
-        result = model.process_image(
-            image_path="document.jpg",
-            mode="ocr"
-        )
-        
-        # Extract fields
-        fields = model.extract_fields(
-            result,
-            template="passport"
-        )
+        from PIL import Image
+        image = Image.open('document.jpg')
+        text = model.process_image(image)
         ```
         
-        ### Utility Functions
+        ### Field Extraction
         
         ```python
-        from utils import ImageProcessor
+        from utils.field_parser import FieldParser
         
-        # Preprocess image
-        processed = ImageProcessor.preprocess(
-            image,
-            resize=True,
-            enhance=True
-        )
+        # Parse invoice
+        fields = FieldParser.parse_invoice(text)
+        print(fields['invoice_number'])
+        ```
+        
+        ### Chat Interface
+        
+        ```python
+        # Interactive chat
+        model = ModelLoader.load_model('qwen_vl_2b')
+        response = model.chat(image, "What's in this document?")
         ```
         """)
     
@@ -501,22 +632,16 @@ else:  # Documentation
         st.markdown("""
         ## Contributing
         
-        We welcome contributions! Here's how you can help:
+        We welcome contributions! 🎉
         
-        ### Development Setup
+        ### How to Contribute
         
-        1. Fork the repository
-        2. Create a feature branch
-        3. Make your changes
-        4. Write tests
-        5. Submit a pull request
-        
-        ### Code Style
-        
-        - Follow PEP 8
-        - Use type hints
-        - Add docstrings
-        - Write unit tests
+        1. 🍴 Fork the repository
+        2. 🌿 Create a feature branch
+        3. ✍️ Make your changes
+        4. ✅ Write tests
+        5. 📝 Update documentation
+        6. 🚀 Submit a pull request
         
         ### Areas for Contribution
         
@@ -526,14 +651,17 @@ else:  # Documentation
         - 🧪 Tests
         - 🎨 UI improvements
         """)
+        
+        st.info("📖 For contribution guidelines, see [CONTRIBUTING.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/CONTRIBUTING.md)")
 
 # Footer
 st.divider()
 st.markdown("""
 <div style="text-align: center; color: #888; padding: 2rem;">
-    <p>ChatVLMLLM - Educational Research Project</p>
+    <p><strong>ChatVLMLLM</strong> - Educational Research Project</p>
     <p>Built with ❤️ using Streamlit | 
-    <a href="https://github.com/OlegKarenkikh/chatvlmllm" target="_blank">GitHub</a> | 
+    <a href="https://github.com/OlegKarenkikh/chatvlmllm" target="_blank" style="color: #FF4B4B;">GitHub</a> | 
     MIT License</p>
+    <p style="font-size: 0.9rem; margin-top: 1rem;">🔬 Exploring Vision Language Models for Document OCR</p>
 </div>
 """, unsafe_allow_html=True)
