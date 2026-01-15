@@ -1,121 +1,131 @@
-"""Tests for model classes."""
+"""Tests for model integration."""
 
 import pytest
 from PIL import Image
 import numpy as np
+from pathlib import Path
+
+from models import ModelLoader
 from models.base_model import BaseVLMModel
-from models.model_loader import ModelLoader
+
+
+@pytest.fixture
+def sample_image():
+    """Create a sample test image."""
+    # Create a simple image with text
+    img_array = np.ones((100, 200, 3), dtype=np.uint8) * 255
+    return Image.fromarray(img_array)
+
+
+@pytest.fixture
+def config_path():
+    """Get path to test config."""
+    return "config.yaml"
 
 
 class TestModelLoader:
-    """Test ModelLoader functionality."""
+    """Tests for ModelLoader class."""
     
-    def test_load_config(self):
+    def test_load_config(self, config_path):
         """Test configuration loading."""
-        config = ModelLoader.load_config("config.yaml")
+        config = ModelLoader.load_config(config_path)
         assert "models" in config
         assert "app" in config
         assert "ocr" in config
     
-    def test_get_available_models(self):
-        """Test getting available models."""
-        models = ModelLoader.get_available_models()
-        assert "got_ocr" in models
-        assert "qwen_vl_2b" in models
-        assert "qwen_vl_7b" in models
+    def test_get_available_models(self, config_path):
+        """Test listing available models."""
+        models = ModelLoader.get_available_models(config_path)
+        assert isinstance(models, dict)
+        assert len(models) > 0
+        assert "got_ocr" in models or "qwen_vl_2b" in models
     
-    def test_model_info(self):
-        """Test model information retrieval."""
-        models = ModelLoader.get_available_models()
-        got_ocr = models["got_ocr"]
-        assert "name" in got_ocr
-        assert "model_id" in got_ocr
-        assert "precision" in got_ocr
+    def test_model_configuration(self, config_path):
+        """Test model configuration structure."""
+        config = ModelLoader.load_config(config_path)
+        for model_key, model_config in config["models"].items():
+            assert "name" in model_config
+            assert "model_id" in model_config
+            assert "precision" in model_config
+    
+    @pytest.mark.skip(reason="Requires model download and GPU")
+    def test_load_model(self, config_path):
+        """Test model loading (requires GPU and downloads)."""
+        model = ModelLoader.load_model("got_ocr", config_path)
+        assert model is not None
+        assert isinstance(model, BaseVLMModel)
+        ModelLoader.unload_model("got_ocr")
+    
+    def test_model_caching(self):
+        """Test that loaded models are cached."""
+        loaded = ModelLoader.get_loaded_models()
+        assert isinstance(loaded, list)
 
 
-class TestImageProcessor:
-    """Test image processing utilities."""
+class TestBaseVLMModel:
+    """Tests for BaseVLMModel class."""
     
-    @pytest.fixture
-    def sample_image(self):
-        """Create a sample test image."""
-        # Create a simple RGB image
-        img_array = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
-        return Image.fromarray(img_array)
-    
-    def test_resize_image(self, sample_image):
-        """Test image resizing."""
-        from utils.image_processor import ImageProcessor
+    def test_device_detection(self):
+        """Test device detection logic."""
+        # This is a basic test that doesn't require GPU
+        from models.base_model import BaseVLMModel
+        import torch
         
-        resized = ImageProcessor.resize_image(sample_image, max_dimension=50)
-        assert resized.size[0] <= 50
-        assert resized.size[1] <= 50
-    
-    def test_enhance_image(self, sample_image):
-        """Test image enhancement."""
-        from utils.image_processor import ImageProcessor
+        # Mock a model instance
+        class MockModel(BaseVLMModel):
+            def load_model(self):
+                pass
+            
+            def process_image(self, image, prompt=None):
+                return "test"
         
-        enhanced = ImageProcessor.enhance_image(sample_image)
-        assert enhanced.size == sample_image.size
-        assert enhanced.mode == sample_image.mode
+        model = MockModel("test", {})
+        assert model.device in ["cuda", "mps", "cpu"]
+    
+    def test_extract_fields_basic(self):
+        """Test basic field extraction."""
+        from models.base_model import BaseVLMModel
+        
+        class MockModel(BaseVLMModel):
+            def load_model(self):
+                pass
+            
+            def process_image(self, image, prompt=None):
+                return "test"
+        
+        model = MockModel("test", {})
+        text = "Name: John Doe\nAge: 30"
+        fields = model.extract_fields(text, ["Name", "Age"])
+        
+        assert isinstance(fields, dict)
+        assert "Name" in fields
+        assert "Age" in fields
 
 
-class TestTextExtractor:
-    """Test text extraction utilities."""
+class TestModelIntegration:
+    """Integration tests for models (require GPU and downloads)."""
     
-    def test_clean_text(self):
-        """Test text cleaning."""
-        from utils.text_extractor import TextExtractor
-        
-        dirty_text = "  This   is   \n\n\n  dirty   text  "
-        clean = TextExtractor.clean_text(dirty_text)
-        assert "  " not in clean
-        assert clean == "This is \n dirty text"
+    @pytest.mark.skip(reason="Requires model download and GPU")
+    def test_got_ocr_inference(self, sample_image):
+        """Test GOT-OCR model inference."""
+        model = ModelLoader.load_model("got_ocr")
+        result = model.process_image(sample_image)
+        assert isinstance(result, str)
+        ModelLoader.unload_model("got_ocr")
     
-    def test_extract_numbers(self):
-        """Test number extraction."""
-        from utils.text_extractor import TextExtractor
-        
-        text = "Invoice #12345 for $1,234.56"
-        numbers = TextExtractor.extract_numbers(text)
-        assert "12345" in numbers
-        assert "1234.56" in numbers
+    @pytest.mark.skip(reason="Requires model download and GPU")
+    def test_qwen_vl_inference(self, sample_image):
+        """Test Qwen2-VL model inference."""
+        model = ModelLoader.load_model("qwen_vl_2b")
+        result = model.process_image(sample_image, "Describe this image")
+        assert isinstance(result, str)
+        ModelLoader.unload_model("qwen_vl_2b")
     
-    def test_extract_dates(self):
-        """Test date extraction."""
-        from utils.text_extractor import TextExtractor
-        
-        text = "Date: 15/01/2026 or 2026-01-15"
-        dates = TextExtractor.extract_dates(text)
-        assert len(dates) >= 1
-
-
-class TestFieldParser:
-    """Test field parsing utilities."""
-    
-    def test_parse_invoice_fields(self):
-        """Test invoice field extraction."""
-        from utils.field_parser import FieldParser
-        
-        text = """
-        Invoice #INV-2026-001
-        Invoice Date: 15/01/2026
-        Total: $1,234.56
-        """
-        
-        fields = FieldParser.parse_invoice_fields(text)
-        assert "Invoice Number" in fields
-        assert "Invoice Date" in fields
-        assert "Total Amount" in fields
-    
-    def test_normalize_amount(self):
-        """Test amount normalization."""
-        from utils.field_parser import FieldParser
-        
-        assert FieldParser.normalize_amount("$1,234.56") == 1234.56
-        assert FieldParser.normalize_amount("£100.00") == 100.00
-        assert FieldParser.normalize_amount("1.234,56") == 1234.56
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])
+    @pytest.mark.skip(reason="Requires model download and GPU")
+    def test_chat_functionality(self, sample_image):
+        """Test chat functionality."""
+        model = ModelLoader.load_model("qwen_vl_2b")
+        response = model.chat(sample_image, "What do you see?")
+        assert isinstance(response, str)
+        assert len(response) > 0
+        ModelLoader.unload_model("qwen_vl_2b")

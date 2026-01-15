@@ -1,97 +1,95 @@
 # Example Documents
 
-This directory contains sample documents for testing the OCR and VLM capabilities of ChatVLMLLM.
+This directory contains example documents for testing the OCR and VLM capabilities.
 
 ## Directory Structure
 
 ```
 examples/
-├── passports/          # Sample passport documents
-├── invoices/           # Sample invoices and bills
-├── receipts/           # Sample receipts
-├── forms/              # Sample forms and applications
-└── technical/          # Technical documents and papers
+├── passports/       # Passport document examples
+├── invoices/        # Invoice and bill examples
+├── receipts/        # Receipt examples
+├── forms/           # Form examples
+└── mixed/           # Mixed document types
 ```
 
-## Usage
+## Adding Examples
 
-### Testing OCR
+### Guidelines
 
-1. Open the ChatVLMLLM application
-2. Navigate to OCR Mode
-3. Upload a sample document from this directory
-4. Select the appropriate document type
-5. Click "Extract Text" to process
+1. **Privacy**: Use only synthetic or public domain documents
+2. **Quality**: Provide both high and low quality samples
+3. **Variety**: Include different layouts, fonts, and languages
+4. **Format**: Save as JPG or PNG
+5. **Naming**: Use descriptive names (e.g., `passport_us_sample.jpg`)
 
-### Testing Chat Mode
+### Sample Documents
 
-1. Open the ChatVLMLLM application
-2. Navigate to Chat Mode
-3. Upload a sample document
-4. Ask questions about the document content
+For testing, you can:
 
-## Sample Queries
+1. Create synthetic documents using tools like:
+   - Faker (Python library)
+   - Online document generators
+   - Design tools (Figma, Canva)
 
-### For Invoices
-- "What is the total amount on this invoice?"
-- "When is the payment due?"
-- "Who is the vendor?"
-- "List all items with their prices"
+2. Use public datasets:
+   - RVL-CDIP (document classification)
+   - FUNSD (form understanding)
+   - SROIE (receipt OCR)
 
-### For Passports
-- "Extract all personal information"
-- "What is the expiry date?"
-- "What is the passport number?"
+3. Generate your own test documents
 
-### For Receipts
-- "What items were purchased?"
-- "What is the total amount?"
-- "When was this purchase made?"
+## Example Use Cases
 
-## Adding Your Own Examples
+### Passport OCR
+```python
+from PIL import Image
+from models import ModelLoader
 
-Feel free to add your own test documents to this directory. Supported formats:
-- JPEG (.jpg, .jpeg)
-- PNG (.png)
-- BMP (.bmp)
-- TIFF (.tiff)
-
-**Note**: Please ensure you have the right to use and share any documents you add.
-
-## Privacy Notice
-
-The example documents provided are either:
-1. Synthetic/generated samples
-2. Publicly available documents
-3. Anonymized real documents
-
-Do not upload sensitive or confidential documents without proper authorization.
-
-## Dataset Attribution
-
-If you use public datasets, please provide attribution:
-
-- **[Dataset Name]**: Source and license information
-- **[Dataset Name]**: Source and license information
-
-## Creating Test Cases
-
-### Ground Truth Format
-
-For each test image, you can create a corresponding `.json` file with ground truth:
-
-```json
-{
-  "filename": "invoice_001.jpg",
-  "type": "invoice",
-  "fields": {
-    "invoice_number": "INV-2026-001",
-    "date": "2026-01-15",
-    "total": "1234.56",
-    "vendor": "Example Corp"
-  },
-  "full_text": "Complete text content..."
-}
+model = ModelLoader.load_model("got_ocr")
+image = Image.open("examples/passports/sample_passport.jpg")
+result = model.process_image(image)
+print(result)
 ```
 
-This allows for automated testing and accuracy measurement.
+### Invoice Field Extraction
+```python
+from PIL import Image
+from models import ModelLoader
+from utils.field_parser import FieldParser
+
+model = ModelLoader.load_model("qwen_vl_2b")
+image = Image.open("examples/invoices/sample_invoice.jpg")
+text = model.process_image(image)
+fields = FieldParser.parse_invoice(text)
+print(fields)
+```
+
+## Benchmark Results
+
+Results from processing example documents will be documented here.
+
+| Document Type | Model | Accuracy | Speed |
+|---------------|-------|----------|-------|
+| Passport | GOT-OCR | TBD | TBD |
+| Invoice | Qwen2-VL-2B | TBD | TBD |
+| Receipt | GOT-OCR | TBD | TBD |
+
+## Contributing Examples
+
+If you have interesting example documents (ensuring privacy compliance):
+
+1. Fork the repository
+2. Add your examples to appropriate directory
+3. Update this README with description
+4. Submit a pull request
+
+## Legal Notice
+
+All example documents must be:
+- Non-confidential
+- Synthetic or anonymized
+- Properly licensed
+- Free from personal information
+
+Do not upload real identity documents or sensitive information.

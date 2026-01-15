@@ -25,61 +25,58 @@ PIPFILE.lock
 
 # Virtual environments
 venv/
-ENV/
 env/
-.venv
+ENV/
+env.bak/
+venv.bak/
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.cursor/
+
+# OS
 .DS_Store
+Thumbs.db
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
-# Models and data
-models_cache/
-data/
-*.pth
-*.bin
-*.onnx
-*.ckpt
-
-# Streamlit
-.streamlit/
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+.nox/
 
 # Logs
 *.log
 logs/
 
-# Environment variables
+# Streamlit
+.streamlit/
+
+# Models (large files)
+models/checkpoints/
+models/*.bin
+models/*.safetensors
+
+# Data
+data/raw/
+data/processed/
+*.pkl
+*.pickle
+
+# Environment
 .env
 .env.local
 
-# Temporary files
-*.tmp
-temp/
-tmp/
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Hugging Face cache
+# Cache
 .cache/
-huggingface/
+*.cache
+
+# HuggingFace cache (optional, uncomment if needed)
+# .cache/huggingface/
