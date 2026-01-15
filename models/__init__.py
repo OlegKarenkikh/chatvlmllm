@@ -1,4 +1,4 @@
-"""Model integration modules for VLM/LLM models."""
+"""Models package for VLM/LLM integration."""
 
 from .base_model import BaseVLMModel
 from .model_loader import ModelLoader

@@ -1,4 +1,4 @@
-"""Base class for VLM models."""
+"""Base class for all VLM models."""
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
@@ -9,27 +9,26 @@ import torch
 class BaseVLMModel(ABC):
     """Abstract base class for Vision Language Models."""
     
-    def __init__(self, model_config: Dict[str, Any]):
+    def __init__(self, model_id: str, device: str = "auto", precision: str = "fp16"):
         """
-        Initialize base VLM model.
+        Initialize the base model.
         
         Args:
-            model_config: Configuration dictionary for the model
+            model_id: HuggingFace model identifier
+            device: Device to load model on ('cuda', 'cpu', or 'auto')
+            precision: Model precision ('fp16', 'fp32', 'int8')
         """
-        self.model_config = model_config
-        self.model_name = model_config.get("name")
-        self.model_id = model_config.get("model_id")
-        self.device = self._setup_device()
+        self.model_id = model_id
+        self.device = self._setup_device(device)
+        self.precision = precision
         self.model = None
         self.processor = None
         
-    def _setup_device(self) -> str:
-        """Setup computation device (CPU/GPU)."""
-        if torch.cuda.is_available():
-            return "cuda"
-        elif torch.backends.mps.is_available():
-            return "mps"
-        return "cpu"
+    def _setup_device(self, device: str) -> str:
+        """Setup and validate device."""
+        if device == "auto":
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        return device
     
     @abstractmethod
     def load_model(self) -> None:
@@ -37,45 +36,59 @@ class BaseVLMModel(ABC):
         pass
     
     @abstractmethod
-    def process_image(self, image: Image.Image, **kwargs) -> Dict[str, Any]:
-        """Process image and return results."""
+    def process_image(self, image: Image.Image, prompt: str = "") -> str:
+        """Process an image and return text output.
+        
+        Args:
+            image: PIL Image object
+            prompt: Optional text prompt for the model
+            
+        Returns:
+            Extracted text or model response
+        """
         pass
     
     @abstractmethod
-    def extract_text(self, image: Image.Image) -> str:
-        """Extract text from image."""
+    def extract_fields(self, image: Image.Image, field_names: List[str]) -> Dict[str, str]:
+        """Extract specific fields from a document image.
+        
+        Args:
+            image: PIL Image object
+            field_names: List of field names to extract
+            
+        Returns:
+            Dictionary mapping field names to extracted values
+        """
         pass
     
-    def extract_fields(self, text: str, template: Dict[str, List[str]]) -> Dict[str, str]:
-        """Extract structured fields from text using template."""
-        fields = {}
-        lines = text.split('\n')
+    def chat(self, image: Image.Image, message: str, history: Optional[List[Dict]] = None) -> str:
+        """Interactive chat about an image.
         
-        for field_name in template.get('fields', []):
-            # Simple pattern matching for field extraction
-            for line in lines:
-                if field_name.lower() in line.lower():
-                    # Extract value after colon or field name
-                    parts = line.split(':', 1)
-                    if len(parts) == 2:
-                        fields[field_name] = parts[1].strip()
-                        break
+        Args:
+            image: PIL Image object
+            message: User message
+            history: Optional conversation history
             
-            if field_name not in fields:
-                fields[field_name] = ""
-        
-        return fields
-    
-    def is_loaded(self) -> bool:
-        """Check if model is loaded."""
-        return self.model is not None
+        Returns:
+            Model response
+        """
+        return self.process_image(image, message)
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information."""
         return {
-            'name': self.model_name,
-            'model_id': self.model_id,
-            'device': self.device,
-            'loaded': self.is_loaded(),
-            'config': self.model_config
+            "model_id": self.model_id,
+            "device": self.device,
+            "precision": self.precision,
+            "loaded": self.model is not None
         }
+    
+    def unload_model(self) -> None:
+        """Unload model from memory."""
+        if self.model is not None:
+            del self.model
+            del self.processor
+            self.model = None
+            self.processor = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
