@@ -1,146 +1,132 @@
 """Markdown rendering utilities."""
 
 import re
-from typing import List, Dict
+from typing import Dict, List
 
 
 class MarkdownRenderer:
-    """Utilities for rendering and formatting Markdown content."""
+    """Utilities for rendering text with Markdown formatting."""
     
     @staticmethod
-    def format_ocr_result(text: str, fields: Dict[str, str] = None) -> str:
+    def format_ocr_result(text: str, confidence: float = None) -> str:
         """
-        Format OCR result as Markdown.
+        Format OCR result with Markdown.
         
         Args:
-            text: Raw OCR text
-            fields: Extracted fields dictionary
+            text: OCR extracted text
+            confidence: Optional confidence score
             
         Returns:
             Formatted Markdown string
         """
-        markdown = "## OCR Result\n\n"
+        output = "### Extracted Text\n\n"
         
-        if fields:
-            markdown += "### Extracted Fields\n\n"
-            for key, value in fields.items():
-                markdown += f"- **{key}**: {value}\n"
-            markdown += "\n"
+        if confidence is not None:
+            output += f"**Confidence:** {confidence:.1%}\n\n"
         
-        markdown += "### Full Text\n\n"
-        markdown += f"```\n{text}\n```\n"
+        output += "```\n"
+        output += text
+        output += "\n```"
         
-        return markdown
+        return output
     
     @staticmethod
-    def format_table(data: List[List[str]], headers: List[str] = None) -> str:
+    def format_fields_table(fields: Dict[str, str], title: str = "Extracted Fields") -> str:
         """
-        Format data as Markdown table.
+        Format extracted fields as Markdown table.
         
         Args:
-            data: 2D list of data
-            headers: Optional column headers
+            fields: Dictionary of field names and values
+            title: Table title
             
         Returns:
-            Markdown table string
+            Formatted Markdown table
         """
-        if not data:
-            return ""
+        output = f"### {title}\n\n"
+        output += "| Field | Value |\n"
+        output += "|-------|-------|\n"
         
-        # Use headers if provided, otherwise use first row
-        if headers:
-            rows = [headers] + data
-        else:
-            rows = data
+        for field, value in fields.items():
+            # Escape pipe characters in values
+            safe_value = str(value).replace('|', '\\|')
+            output += f"| **{field}** | {safe_value} |\n"
         
-        # Calculate column widths
-        col_widths = [max(len(str(row[i])) for row in rows) for i in range(len(rows[0]))]
-        
-        # Build table
-        markdown = ""
-        
-        # Header row
-        header_row = "| " + " | ".join(str(rows[0][i]).ljust(col_widths[i]) for i in range(len(rows[0]))) + " |\n"
-        markdown += header_row
-        
-        # Separator
-        separator = "| " + " | ".join("-" * col_widths[i] for i in range(len(rows[0]))) + " |\n"
-        markdown += separator
-        
-        # Data rows
-        for row in rows[1:]:
-            data_row = "| " + " | ".join(str(row[i]).ljust(col_widths[i]) for i in range(len(row))) + " |\n"
-            markdown += data_row
-        
-        return markdown
+        return output
     
     @staticmethod
-    def add_code_block(content: str, language: str = "") -> str:
+    def format_comparison(results: Dict[str, Dict[str, any]]) -> str:
         """
-        Wrap content in Markdown code block.
+        Format model comparison results.
         
         Args:
-            content: Content to wrap
-            language: Optional language identifier
+            results: Dictionary mapping model names to their metrics
             
         Returns:
-            Markdown code block
+            Formatted Markdown comparison
         """
-        return f"```{language}\n{content}\n```"
+        output = "## Model Comparison\n\n"
+        output += "| Model | Accuracy | Speed | Memory |\n"
+        output += "|-------|----------|-------|--------|\n"
+        
+        for model_name, metrics in results.items():
+            accuracy = metrics.get('accuracy', 'N/A')
+            speed = metrics.get('speed', 'N/A')
+            memory = metrics.get('memory', 'N/A')
+            output += f"| {model_name} | {accuracy} | {speed} | {memory} |\n"
+        
+        return output
     
     @staticmethod
-    def add_quote(text: str) -> str:
+    def highlight_entities(text: str, entities: Dict[str, List[str]]) -> str:
         """
-        Format text as Markdown quote.
+        Highlight extracted entities in text.
         
         Args:
-            text: Text to quote
+            text: Original text
+            entities: Dictionary mapping entity types to lists of values
             
         Returns:
-            Markdown quote
+            Text with Markdown highlights
         """
-        lines = text.split('\n')
-        return '\n'.join(f"> {line}" for line in lines)
+        highlighted = text
+        
+        for entity_type, values in entities.items():
+            for value in values:
+                # Escape special regex characters
+                escaped_value = re.escape(value)
+                highlighted = re.sub(
+                    f'\\b{escaped_value}\\b',
+                    f'**{value}**',
+                    highlighted
+                )
+        
+        return highlighted
     
     @staticmethod
-    def create_list(items: List[str], ordered: bool = False) -> str:
+    def create_collapsible_section(title: str, content: str) -> str:
         """
-        Create Markdown list.
+        Create a collapsible Markdown section.
         
         Args:
-            items: List items
-            ordered: Use ordered list (numbered)
+            title: Section title
+            content: Section content
             
         Returns:
-            Markdown list
+            Markdown with collapsible section
         """
-        if ordered:
-            return '\n'.join(f"{i+1}. {item}" for i, item in enumerate(items))
-        else:
-            return '\n'.join(f"- {item}" for item in items)
+        return f"<details>\n<summary>{title}</summary>\n\n{content}\n\n</details>"
     
     @staticmethod
-    def highlight_text(text: str) -> str:
+    def format_chat_message(role: str, content: str) -> str:
         """
-        Highlight text (bold).
+        Format chat message with role indicator.
         
         Args:
-            text: Text to highlight
+            role: Message role (user/assistant)
+            content: Message content
             
         Returns:
-            Bold Markdown text
+            Formatted message
         """
-        return f"**{text}**"
-    
-    @staticmethod
-    def italicize_text(text: str) -> str:
-        """
-        Italicize text.
-        
-        Args:
-            text: Text to italicize
-            
-        Returns:
-            Italic Markdown text
-        """
-        return f"*{text}*"
+        icon = "👤" if role == "user" else "🤖"
+        return f"{icon} **{role.capitalize()}:**\n\n{content}"

@@ -2,344 +2,400 @@
 
 ## System Overview
 
-ChatVLMLLM is designed as a modular, extensible system for document OCR and vision-language interaction. The architecture follows clean separation of concerns with distinct layers for model management, processing, and presentation.
+ChatVLMLLM is a modular research application for exploring Vision Language Models in document OCR tasks. The architecture follows a layered design pattern with clear separation of concerns.
 
-## Architecture Diagram
+## Architecture Layers
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     User Interface Layer                     │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────────────┐│
-│  │ OCR Page   │  │ Chat Page  │  │  Model Comparison     ││
-│  └────────────┘  └────────────┘  └────────────────────────┘│
-│                   Streamlit Components                        │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Application Logic Layer                    │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │              Model Loader & Manager                      ││
-│  │  - Model caching                                         ││
-│  │  - Configuration management                              ││
-│  │  - Resource optimization                                 ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Processing Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ Image        │  │ Text         │  │ Field Parser     │  │
-│  │ Processor    │  │ Extractor    │  │                  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Model Layer                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ GOT-OCR 2.0  │  │ Qwen2-VL 2B  │  │ Qwen2-VL 7B      │  │
-│  │              │  │              │  │                  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-│                   Base VLM Model                             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│         UI Layer (Streamlit)            │
+│  - OCR Interface                        │
+│  - Chat Interface                       │
+│  - Comparison Dashboard                 │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│       Application Layer (app.py)        │
+│  - Route handling                       │
+│  - State management                     │
+│  - User interaction logic               │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│       Processing Layer (utils/)         │
+│  - Image preprocessing                  │
+│  - Text extraction & cleaning           │
+│  - Field parsing                        │
+│  - Markdown rendering                   │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│        Model Layer (models/)            │
+│  - Model loading & management           │
+│  - Inference execution                  │
+│  - Post-processing                      │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│     Foundation (PyTorch, HF)            │
+│  - GOT-OCR 2.0                          │
+│  - Qwen2-VL                             │
+└─────────────────────────────────────────┘
 ```
 
 ## Component Details
 
-### 1. User Interface Layer
+### 1. UI Layer
 
-**Responsibility**: User interaction and result presentation
+**Technology:** Streamlit with custom CSS
 
-**Components**:
-- `app.py`: Main Streamlit application
-- `ui/styles.py`: Custom CSS styling
-- Page components (OCR, Chat, Comparison)
+**Components:**
+- `app.py`: Main application entry point
+- `ui/styles.py`: Custom styling
+- `ui/ocr_page.py`: OCR interface
+- `ui/chat_page.py`: Chat interface
 
-**Key Features**:
-- Modern, responsive design
-- Real-time feedback
-- Multiple view modes
-- Export capabilities
+**Responsibilities:**
+- Render user interface
+- Handle user inputs
+- Display results
+- Manage session state
 
-### 2. Application Logic Layer
+### 2. Application Layer
 
-**Responsibility**: Business logic and workflow orchestration
+**Technology:** Python, Streamlit
 
-**Components**:
-- `models/model_loader.py`: Model factory and caching
-- Configuration management
-- Request routing
-- Resource management
-
-**Key Features**:
-- Model lifecycle management
-- Configuration-driven behavior
-- Memory optimization
+**Components:**
+- Route handling for different pages
+- Configuration loading
+- State management
 - Error handling
+
+**Responsibilities:**
+- Coordinate between UI and processing layers
+- Manage application flow
+- Handle configuration
+- Cache management
 
 ### 3. Processing Layer
 
-**Responsibility**: Data preprocessing and post-processing
+**Technology:** Python, PIL, OpenCV, NumPy
 
-**Components**:
-- `utils/image_processor.py`: Image preprocessing
-- `utils/text_extractor.py`: Text extraction and cleaning
-- `utils/field_parser.py`: Structured data extraction
-- `utils/markdown_renderer.py`: Output formatting
+**Components:**
 
-**Key Features**:
-- Image enhancement
-- Text normalization
+#### ImageProcessor (`utils/image_processor.py`)
+- Image preprocessing
+- Resizing and normalization
+- Enhancement (contrast, sharpness)
+- Denoising
+- Deskewing
+- Border cropping
+
+#### TextExtractor (`utils/text_extractor.py`)
+- Text cleaning and normalization
+- Entity extraction (dates, emails, phones)
 - Pattern matching
-- Format conversion
+- Confidence scoring
+
+#### FieldParser (`utils/field_parser.py`)
+- Structured field extraction
+- Document-type-specific parsing
+- Key-value pair extraction
+
+#### MarkdownRenderer (`utils/markdown_renderer.py`)
+- Result formatting
+- Table generation
+- Highlighting
+
+**Responsibilities:**
+- Prepare images for inference
+- Clean and structure OCR output
+- Extract specific information
+- Format results for display
 
 ### 4. Model Layer
 
-**Responsibility**: ML model integration and inference
+**Technology:** PyTorch, Transformers
 
-**Components**:
-- `models/base_model.py`: Abstract base class
-- `models/got_ocr.py`: GOT-OCR implementation
-- `models/qwen_vl.py`: Qwen2-VL implementation
+**Components:**
 
-**Key Features**:
-- Unified interface
-- Device management
-- Precision control
-- Inference optimization
+#### BaseVLMModel (`models/base_model.py`)
+- Abstract base class
+- Common interface
+- Shared utilities
+
+#### GOTOCRModel (`models/got_ocr.py`)
+- GOT-OCR 2.0 integration
+- OCR-specific methods
+- Format preservation
+
+#### Qwen2VLModel (`models/qwen_vl.py`)
+- Qwen2-VL integration
+- Chat capabilities
+- Multimodal understanding
+
+#### ModelLoader (`models/model_loader.py`)
+- Factory pattern for model creation
+- Model lifecycle management
+- Configuration handling
+- Caching loaded models
+
+**Responsibilities:**
+- Load and initialize models
+- Execute inference
+- Manage GPU memory
+- Provide unified API
 
 ## Data Flow
 
 ### OCR Workflow
 
 ```
-1. User uploads image
-   │
-   ▼
-2. Image preprocessing
-   │ - Resize
-   │ - Enhance
-   │ - Denoise (optional)
-   │ - Deskew (optional)
-   │
-   ▼
-3. Model selection and loading
-   │
-   ▼
-4. OCR inference
-   │ - Image encoding
-   │ - Model forward pass
-   │ - Text generation
-   │
-   ▼
-5. Post-processing
-   │ - Text cleaning
-   │ - Field extraction
-   │ - Formatting
-   │
-   ▼
-6. Result display
-   │ - Text output
-   │ - Extracted fields
-   │ - Export options
+User Upload
+    ↓
+Image Validation
+    ↓
+Preprocessing
+  - Resize
+  - Enhance
+  - Denoise
+    ↓
+Model Selection
+    ↓
+Inference
+  - GOT-OCR or Qwen2-VL
+    ↓
+Post-processing
+  - Text cleaning
+  - Field extraction
+    ↓
+Result Formatting
+  - Markdown rendering
+  - Table generation
+    ↓
+Display to User
+    ↓
+Export Options
+  - JSON
+  - CSV
+  - Text
 ```
 
 ### Chat Workflow
 
 ```
-1. User uploads image + enters message
-   │
-   ▼
-2. Image preprocessing
-   │
-   ▼
-3. Conversation history management
-   │ - Load previous context
-   │ - Append new message
-   │
-   ▼
-4. Model inference
-   │ - Multimodal input encoding
-   │ - Response generation
-   │
-   ▼
-5. Response formatting
-   │ - Markdown rendering
-   │ - Code highlighting
-   │
-   ▼
-6. Display and history update
+User Upload Image
+    ↓
+Image Preprocessing
+    ↓
+User Message
+    ↓
+Context Building
+  - Image context
+  - Chat history
+    ↓
+Model Inference
+  - Qwen2-VL
+    ↓
+Response Generation
+    ↓
+Markdown Rendering
+    ↓
+Display with History
+    ↓
+Continue Conversation
 ```
-
-## Technology Stack
-
-### Core Technologies
-
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|----------|
-| Language | Python | 3.10+ | Core development |
-| ML Framework | PyTorch | 2.1+ | Model inference |
-| Transformers | HuggingFace | 4.36+ | Model loading |
-| UI Framework | Streamlit | 1.30+ | Web interface |
-| Image Processing | Pillow + OpenCV | Latest | Preprocessing |
-
-### Key Libraries
-
-- **transformers**: Model loading and inference
-- **accelerate**: Multi-GPU support and optimization
-- **flash-attn**: Attention optimization
-- **bitsandbytes**: Quantization
-- **streamlit**: Web UI
-- **pyyaml**: Configuration
-- **pandas**: Data handling
-
-## Design Patterns
-
-### 1. Factory Pattern
-**Location**: `models/model_loader.py`
-**Purpose**: Create model instances based on configuration
-
-### 2. Strategy Pattern
-**Location**: `models/base_model.py`
-**Purpose**: Different model implementations with unified interface
-
-### 3. Singleton Pattern
-**Location**: Model caching in `ModelLoader`
-**Purpose**: Reuse loaded models to save memory
-
-### 4. Template Method
-**Location**: `models/base_model.py`
-**Purpose**: Define common model workflow with customizable steps
 
 ## Configuration Management
 
-Configuration is managed through `config.yaml`:
+**File:** `config.yaml`
 
+**Structure:**
 ```yaml
 models:
-  model_name:
-    name: "Display Name"
-    model_id: "HuggingFace ID"
-    precision: "fp16"
-    device_map: "auto"
-    max_length: 2048
-    description: "Model description"
+  model_key:
+    name: Display name
+    model_id: HuggingFace ID
+    precision: fp16/fp32/int8
+    device_map: auto/cuda/cpu
+    max_length: token limit
+
+app:
+  title: Application title
+  page_icon: Emoji
+  layout: wide/centered
+
+ocr:
+  supported_formats: [jpg, png, ...]
+  max_image_size: bytes
+  resize_max_dimension: pixels
+
+document_templates:
+  document_type:
+    fields: [field1, field2, ...]
 ```
 
-**Benefits**:
-- Easy model addition
-- Environment-specific settings
-- No code changes needed
-- Version control friendly
+## State Management
 
-## Scalability Considerations
+**Streamlit Session State:**
 
-### Horizontal Scaling
-- Stateless design allows multiple instances
-- Load balancer friendly
-- Shared model storage
+```python
+st.session_state = {
+    "loaded_model": None,
+    "chat_history": [],
+    "uploaded_image": None,
+    "ocr_result": None,
+    "extracted_fields": {},
+}
+```
 
-### Vertical Scaling
-- GPU utilization optimization
-- Memory management
-- Batch processing support
+## Error Handling
 
-### Future Enhancements
-- Model serving with FastAPI
-- Async processing queue
-- Result caching
-- API rate limiting
+**Strategy:**
+- Try-except blocks at each layer
+- User-friendly error messages
+- Logging for debugging
+- Graceful degradation
+
+**Example:**
+```python
+try:
+    result = model.process_image(image)
+except torch.cuda.OutOfMemoryError:
+    st.error("GPU out of memory. Try smaller image or model.")
+except Exception as e:
+    st.error(f"Processing failed: {str(e)}")
+    logger.exception("Model inference error")
+```
+
+## Performance Optimizations
+
+### Caching
+
+```python
+@st.cache_resource
+def load_model(model_key):
+    return ModelLoader.load_model(model_key)
+
+@st.cache_data
+def preprocess_image(image_bytes):
+    return ImageProcessor.preprocess(image)
+```
+
+### Memory Management
+
+- Lazy model loading
+- Explicit GPU memory clearing
+- Model unloading when switching
+- Batch processing optimization
+
+### Inference Optimization
+
+- Flash Attention 2 (when available)
+- Mixed precision (FP16)
+- Quantization (INT8)
+- Device mapping (auto)
 
 ## Security Considerations
 
-1. **Input Validation**
-   - File type checking
-   - Size limits
-   - Image format validation
+### Input Validation
 
-2. **Resource Limits**
-   - Memory caps
-   - Processing timeouts
-   - Rate limiting
+```python
+# File size limits
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-3. **Data Privacy**
-   - No persistent storage of uploads
-   - Session isolation
-   - Secure model access
+# Format validation
+ALLOWED_FORMATS = ["jpg", "jpeg", "png", "bmp"]
+
+# Sanitize user inputs
+def sanitize_prompt(prompt: str) -> str:
+    # Remove potentially harmful content
+    return prompt.strip()[:500]
+```
+
+### Resource Limits
+
+- Maximum image dimensions
+- Token generation limits
+- Timeout for inference
+- Rate limiting (if deployed)
 
 ## Testing Strategy
 
 ### Unit Tests
-- Model loading
-- Image processing functions
-- Text extraction utilities
-- Field parsers
+
+```python
+# tests/test_models.py
+def test_model_loading():
+    model = ModelLoader.load_model("got_ocr")
+    assert model is not None
+
+# tests/test_utils.py
+def test_image_preprocessing():
+    image = Image.open("test.jpg")
+    processed = ImageProcessor.preprocess(image)
+    assert processed.size[0] <= 2048
+```
 
 ### Integration Tests
+
 - End-to-end OCR workflow
-- Chat interactions
+- Chat conversation flow
 - Model switching
 
-### Performance Tests
-- Inference speed
-- Memory usage
-- Concurrent requests
+## Deployment Considerations
 
-## Deployment
+### Docker
 
-### Local Development
-```bash
-streamlit run app.py
+```dockerfile
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0
+
+# Install Python packages
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy application
+COPY . /app
+WORKDIR /app
+
+# Run
+CMD ["streamlit", "run", "app.py"]
 ```
 
-### Docker Deployment
-```bash
-docker build -t chatvlmllm .
-docker run -p 8501:8501 chatvlmllm
-```
+### Resource Requirements
 
-### Production Considerations
-- Use process manager (systemd, supervisord)
-- Configure reverse proxy (nginx)
-- Enable HTTPS
-- Set up monitoring
-- Configure logging
+**Minimum:**
+- 8GB RAM
+- 4GB VRAM (for small models)
+- 2 CPU cores
 
-## Monitoring and Logging
+**Recommended:**
+- 16GB RAM
+- 16GB VRAM (for large models)
+- 4+ CPU cores
+- SSD storage
 
-### Metrics to Track
-- Request count
-- Average response time
-- Error rate
-- Memory usage
-- GPU utilization
+## Future Enhancements
 
-### Logging Strategy
-- Application logs: INFO level
-- Error logs: ERROR level with stack traces
-- Performance logs: DEBUG level
-- User actions: audit log
+### Planned Features
 
-## Future Architecture Plans
+1. **Model Quantization**: INT8/INT4 support
+2. **Batch Processing**: Multiple documents at once
+3. **API Server**: REST API for programmatic access
+4. **Results Database**: Store and search past results
+5. **Fine-tuning**: Custom model training
+6. **Multi-page PDFs**: Full document processing
+7. **Cloud Deployment**: AWS/GCP hosting
+8. **Authentication**: User accounts and permissions
 
-1. **Microservices Split**
-   - Model service
-   - Processing service
-   - API gateway
+### Architecture Evolution
 
-2. **Async Processing**
-   - Job queue (Celery/RQ)
-   - Background workers
-   - Status tracking
-
-3. **Caching Layer**
-   - Redis for results
-   - Model output caching
-   - Session management
-
-4. **API Layer**
-   - RESTful API
-   - WebSocket support
-   - API documentation
+- Microservices architecture for scaling
+- Message queue for async processing
+- Distributed model inference
+- CDN for static assets

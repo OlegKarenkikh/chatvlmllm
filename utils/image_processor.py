@@ -2,124 +2,98 @@
 
 from typing import Tuple, Optional
 from PIL import Image, ImageEnhance, ImageFilter
-import cv2
 import numpy as np
+import cv2
 
 
 class ImageProcessor:
     """Image preprocessing for OCR optimization."""
     
     @staticmethod
-    def load_image(image_path: str) -> Image.Image:
-        """Load image from file path."""
-        return Image.open(image_path).convert("RGB")
-    
-    @staticmethod
-    def resize_image(
+    def preprocess(
         image: Image.Image,
+        resize: bool = True,
         max_dimension: int = 2048,
-        maintain_aspect: bool = True
+        enhance: bool = True,
+        denoise: bool = False
     ) -> Image.Image:
         """
-        Resize image to maximum dimension.
+        Preprocess image for optimal OCR results.
         
         Args:
             image: Input PIL Image
-            max_dimension: Maximum width or height
-            maintain_aspect: Keep aspect ratio
+            resize: Whether to resize large images
+            max_dimension: Maximum dimension for resizing
+            enhance: Whether to enhance contrast and sharpness
+            denoise: Whether to apply denoising
             
         Returns:
-            Resized image
+            Preprocessed PIL Image
         """
+        # Convert to RGB if needed
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Resize if too large
+        if resize:
+            image = ImageProcessor.resize_if_needed(image, max_dimension)
+        
+        # Enhance image quality
+        if enhance:
+            image = ImageProcessor.enhance_image(image)
+        
+        # Denoise if requested
+        if denoise:
+            image = ImageProcessor.denoise(image)
+        
+        return image
+    
+    @staticmethod
+    def resize_if_needed(image: Image.Image, max_dimension: int) -> Image.Image:
+        """Resize image if any dimension exceeds max_dimension."""
         width, height = image.size
         
         if width <= max_dimension and height <= max_dimension:
             return image
         
-        if maintain_aspect:
-            if width > height:
-                new_width = max_dimension
-                new_height = int((max_dimension / width) * height)
-            else:
-                new_height = max_dimension
-                new_width = int((max_dimension / height) * width)
+        # Calculate new size maintaining aspect ratio
+        if width > height:
+            new_width = max_dimension
+            new_height = int(height * (max_dimension / width))
         else:
-            new_width = new_height = max_dimension
+            new_height = max_dimension
+            new_width = int(width * (max_dimension / height))
         
         return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
     
     @staticmethod
-    def enhance_image(
-        image: Image.Image,
-        contrast: float = 1.2,
-        sharpness: float = 1.5,
-        brightness: float = 1.0
-    ) -> Image.Image:
-        """
-        Enhance image for better OCR results.
-        
-        Args:
-            image: Input PIL Image
-            contrast: Contrast factor (1.0 = original)
-            sharpness: Sharpness factor
-            brightness: Brightness factor
-            
-        Returns:
-            Enhanced image
-        """
-        # Enhance contrast
+    def enhance_image(image: Image.Image) -> Image.Image:
+        """Enhance image contrast and sharpness."""
+        # Increase contrast slightly
         enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(contrast)
+        image = enhancer.enhance(1.2)
         
-        # Enhance sharpness
+        # Increase sharpness
         enhancer = ImageEnhance.Sharpness(image)
-        image = enhancer.enhance(sharpness)
-        
-        # Adjust brightness
-        if brightness != 1.0:
-            enhancer = ImageEnhance.Brightness(image)
-            image = enhancer.enhance(brightness)
+        image = enhancer.enhance(1.3)
         
         return image
     
     @staticmethod
-    def denoise_image(image: Image.Image, strength: int = 10) -> Image.Image:
-        """
-        Remove noise from image.
-        
-        Args:
-            image: Input PIL Image
-            strength: Denoising strength
-            
-        Returns:
-            Denoised image
-        """
+    def denoise(image: Image.Image) -> Image.Image:
+        """Apply denoising to reduce image noise."""
         # Convert to numpy array
         img_array = np.array(image)
         
-        # Apply denoising
-        denoised = cv2.fastNlMeansDenoisingColored(
-            img_array,
-            None,
-            strength,
-            strength,
-            7,
-            21
-        )
+        # Apply bilateral filter for noise reduction
+        denoised = cv2.bilateralFilter(img_array, 9, 75, 75)
         
+        # Convert back to PIL
         return Image.fromarray(denoised)
     
     @staticmethod
-    def deskew_image(image: Image.Image) -> Image.Image:
-        """
-        Correct image skew/rotation.
-        
-        Args:
-            image: Input PIL Image
-            
-        Returns:
-            Deskewed image
-        """
+    def deskew(image: Image.Image) -> Image.Image:
+        """Deskew tilted document images."""
         # Convert to numpy array
         img_array = np.array(image)
         gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
@@ -127,61 +101,66 @@ class ImageProcessor:
         # Detect edges
         edges = cv2.Canny(gray, 50, 150, apertureSize=3)
         
-        # Detect lines
-        lines = cv2.HoughLines(edges, 1, np.pi / 180, 200)
+        # Detect lines using Hough transform
+        lines = cv2.HoughLines(edges, 1, np.pi/180, 200)
         
         if lines is not None:
             # Calculate average angle
             angles = []
-            for line in lines:
-                rho, theta = line[0]
-                angle = theta * 180 / np.pi
-                if 85 < angle < 95 or -5 < angle < 5:
-                    angles.append(angle)
+            for rho, theta in lines[:, 0]:
+                angle = np.degrees(theta) - 90
+                angles.append(angle)
             
-            if angles:
-                median_angle = np.median(angles)
-                rotation_angle = median_angle - 90 if median_angle > 45 else median_angle
-                
-                # Rotate image
-                if abs(rotation_angle) > 0.5:
-                    return image.rotate(rotation_angle, expand=True, fillcolor=(255, 255, 255))
+            median_angle = np.median(angles)
+            
+            # Rotate image
+            if abs(median_angle) > 0.5:  # Only rotate if angle is significant
+                height, width = img_array.shape[:2]
+                center = (width // 2, height // 2)
+                rotation_matrix = cv2.getRotationMatrix2D(center, median_angle, 1.0)
+                rotated = cv2.warpAffine(img_array, rotation_matrix, (width, height),
+                                        flags=cv2.INTER_CUBIC,
+                                        borderMode=cv2.BORDER_REPLICATE)
+                return Image.fromarray(rotated)
         
         return image
     
     @staticmethod
-    def preprocess(
-        image: Image.Image,
-        resize: bool = True,
-        enhance: bool = True,
-        denoise: bool = False,
-        deskew: bool = False,
-        max_dimension: int = 2048
-    ) -> Image.Image:
-        """
-        Full preprocessing pipeline.
+    def crop_borders(image: Image.Image, threshold: int = 240) -> Image.Image:
+        """Crop white borders from document images."""
+        img_array = np.array(image)
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
         
-        Args:
-            image: Input PIL Image
-            resize: Apply resizing
-            enhance: Apply enhancement
-            denoise: Apply denoising
-            deskew: Apply deskewing
-            max_dimension: Maximum dimension for resizing
-            
-        Returns:
-            Preprocessed image
-        """
-        if resize:
-            image = ImageProcessor.resize_image(image, max_dimension)
+        # Find non-white pixels
+        mask = gray < threshold
+        coords = np.argwhere(mask)
         
-        if deskew:
-            image = ImageProcessor.deskew_image(image)
+        if len(coords) == 0:
+            return image
         
-        if denoise:
-            image = ImageProcessor.denoise_image(image)
+        # Get bounding box
+        y0, x0 = coords.min(axis=0)
+        y1, x1 = coords.max(axis=0)
         
-        if enhance:
-            image = ImageProcessor.enhance_image(image)
+        # Add small margin
+        margin = 10
+        y0 = max(0, y0 - margin)
+        x0 = max(0, x0 - margin)
+        y1 = min(img_array.shape[0], y1 + margin)
+        x1 = min(img_array.shape[1], x1 + margin)
         
-        return image
+        # Crop image
+        cropped = img_array[y0:y1, x0:x1]
+        return Image.fromarray(cropped)
+    
+    @staticmethod
+    def get_image_info(image: Image.Image) -> dict:
+        """Get image metadata and statistics."""
+        return {
+            "size": image.size,
+            "mode": image.mode,
+            "format": image.format,
+            "width": image.width,
+            "height": image.height,
+            "megapixels": round((image.width * image.height) / 1_000_000, 2)
+        }
