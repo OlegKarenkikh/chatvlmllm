@@ -7,6 +7,7 @@ import yaml
 from models.base_model import BaseModel
 from models.got_ocr import GOTOCRModel
 from models.qwen_vl import QwenVLModel
+from models.qwen3_vl import Qwen3VLModel
 from models.dots_ocr import DotsOCRModel
 from utils.model_cache import ModelCacheManager, check_model_availability
 from utils.logger import logger
@@ -20,6 +21,9 @@ class ModelLoader:
         "got_ocr": GOTOCRModel,
         "qwen_vl_2b": QwenVLModel,
         "qwen_vl_7b": QwenVLModel,
+        "qwen3_vl_2b": Qwen3VLModel,
+        "qwen3_vl_4b": Qwen3VLModel,
+        "qwen3_vl_8b": Qwen3VLModel,
         "dots_ocr": DotsOCRModel,
     }
     

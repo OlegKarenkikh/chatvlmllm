@@ -31,6 +31,9 @@ def get_vram_requirements():
         "got_ocr": {"fp16": 3.0, "int8": 2.0, "min": 4.0},
         "qwen_vl_2b": {"fp16": 4.7, "bf16": 4.7, "int8": 3.6, "min": 6.0},
         "qwen_vl_7b": {"fp16": 16.1, "bf16": 16.1, "int8": 10.1, "min": 12.0},
+        "qwen3_vl_2b": {"fp16": 4.4, "bf16": 4.4, "int8": 2.2, "min": 6.0},
+        "qwen3_vl_4b": {"fp16": 8.9, "bf16": 8.9, "int8": 3.8, "int4": 3.0, "min": 10.0},
+        "qwen3_vl_8b": {"fp16": 17.6, "bf16": 17.6, "int8": 10.0, "int4": 6.0, "min": 18.0},
         "dots_ocr": {"fp16": 8.0, "bf16": 8.0, "int8": 6.0, "min": 8.0}
     }
 
@@ -51,7 +54,7 @@ def check_compatibility(vram_gb, model_key, precision):
         return "⚠️", vram_needed, "Tight fit, no buffer"
     else:
         # Find compatible precision
-        for prec in ["int8", "fp16", "bf16"]:
+        for prec in ["int4", "int8", "fp16", "bf16"]:
             if prec in req and req[prec] + 1.0 <= vram_gb:
                 return "⚠️", req[prec], f"Use {prec.upper()} instead"
         return "❌", vram_needed, f"Need {req['min']:.1f}GB minimum"
@@ -83,30 +86,35 @@ def main():
         precision = cfg.get('precision', 'fp16')
         status, vram, msg = check_compatibility(gpu['vram_gb'], key, precision)
         
-        print(f"🤖 {cfg['name']}")
-        print(f"   Precision: {precision.upper()}")
-        print(f"   Required: {vram:.1f} GB (+1GB buffer)")
-        print(f"   Status: {status} {msg}\n")
+        if status:
+            print(f"🤖 {cfg['name']}")
+            print(f"   Precision: {precision.upper()}")
+            print(f"   Required: {vram:.1f} GB (+1GB buffer)")
+            print(f"   Status: {status} {msg}\n")
     
     print("="*60)
     print("Recommendations")
     print("="*60 + "\n")
     
-    if gpu['vram_gb'] >= 16:
-        print("✅ Excellent! Can run all models.")
+    if gpu['vram_gb'] >= 18:
+        print("✅ Excellent! Can run all models including Qwen3-VL 8B.")
+    elif gpu['vram_gb'] >= 16:
+        print("✅ Excellent! Can run most models.")
+        print("   Best: Qwen3-VL 8B (INT8) or Qwen2-VL 7B")
     elif gpu['vram_gb'] >= 12:
         print("✅ Good! Run most models with FP16/INT8.")
-        print("   Best: dots.ocr + Qwen2-VL 2B")
+        print("   Best: Qwen3-VL 4B + dots.ocr")
     elif gpu['vram_gb'] >= 8:
-        print("⚠️  Limited. Use INT8 quantization.")
-        print("   Best: GOT-OCR + Qwen2-VL 2B (INT8)")
+        print("⚠️  Limited. Use INT8/INT4 quantization.")
+        print("   Best: Qwen3-VL 2B + GOT-OCR")
     else:
         print("❌ Insufficient VRAM for most models.")
     
     print("\n💡 Tips:")
     print("  - Close other GPU applications")
-    print("  - Use INT8 for lower memory")
+    print("  - Use INT8/INT4 for lower memory")
     print("  - batch_size=1 for tight VRAM")
+    print("  - Qwen3-VL models support INT4 quantization")
     print("\n" + "="*60 + "\n")
     return 0
 
