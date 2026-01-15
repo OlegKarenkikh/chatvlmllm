@@ -14,6 +14,11 @@ from .validators import (
     validate_text_input,
     sanitize_filename
 )
+from .model_cache import (
+    ModelCacheManager,
+    check_model_availability,
+    format_size
+)
 
 __all__ = [
     # Image processing
@@ -51,5 +56,10 @@ __all__ = [
     'validate_image',
     'validate_model_key',
     'validate_text_input',
-    'sanitize_filename'
+    'sanitize_filename',
+    
+    # Model cache
+    'ModelCacheManager',
+    'check_model_availability',
+    'format_size'
 ]

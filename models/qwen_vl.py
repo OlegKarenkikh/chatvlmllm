@@ -1,201 +1,230 @@
-"""Qwen2-VL model integration."""
+"""Qwen2-VL model integration following official recommendations.
 
-from typing import Optional, List, Dict
+Official repository: https://github.com/QwenLM/Qwen2-VL
+HuggingFace: https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct
+              https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct
+
+Recommended usage (from official docs):
+    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from qwen_vl_utils import process_vision_info
+    
+    model = Qwen2VLForConditionalGeneration.from_pretrained(
+        "Qwen/Qwen2-VL-2B-Instruct",
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
+"""
+
+from typing import Any, Dict, List, Optional
 from PIL import Image
 import torch
-from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 
-from .base_model import BaseVLMModel
+from models.base_model import BaseModel
+from utils.logger import logger
 
 
-class Qwen2VLModel(BaseVLMModel):
-    """Qwen2-VL multimodal model for chat and OCR."""
+class QwenVLModel(BaseModel):
+    """Qwen2-VL model for vision-language tasks following official recommendations."""
     
-    def load_model(self) -> None:
-        """Load Qwen2-VL model and processor."""
-        print(f"Loading Qwen2-VL model: {self.model_id}")
-        
-        try:
-            # Load processor
-            self.processor = AutoProcessor.from_pretrained(
-                self.model_id,
-                trust_remote_code=True
-            )
-            
-            # Load model
-            self.model = Qwen2VLForConditionalGeneration.from_pretrained(
-                self.model_id,
-                trust_remote_code=True,
-                device_map=self.config.get("device_map", "auto"),
-                torch_dtype=torch.float16 if self.config.get("precision") == "fp16" else torch.float32,
-                attn_implementation="flash_attention_2" if torch.cuda.is_available() else "eager"
-            )
-            
-            self.model.eval()
-            print(f"Model loaded successfully on {self.device}")
-            
-        except Exception as e:
-            print(f"Error loading model: {e}")
-            # Fallback without flash attention
-            try:
-                self.model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    device_map=self.config.get("device_map", "auto"),
-                    torch_dtype=torch.float16 if self.config.get("precision") == "fp16" else torch.float32
-                )
-                self.model.eval()
-                print("Model loaded without flash attention")
-            except Exception as e2:
-                print(f"Error loading model (fallback): {e2}")
-                raise
-    
-    def process_image(self, image: Image.Image, prompt: Optional[str] = None) -> str:
-        """
-        Process image with Qwen2-VL.
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize Qwen2-VL model.
         
         Args:
-            image: PIL Image object
-            prompt: User prompt or question about the image
+            config: Model configuration dictionary
+        """
+        super().__init__(config)
+        self.model = None
+        self.processor = None
+        
+        # Qwen2-VL specific settings
+        self.min_pixels = config.get('min_pixels', 256)
+        self.max_pixels = config.get('max_pixels', 1280)
+    
+    def load_model(self) -> None:
+        """Load Qwen2-VL model following official recommendations."""
+        try:
+            logger.info(f"Loading Qwen2-VL model from {self.model_path}")
+            
+            # Check if required packages are available
+            try:
+                from transformers import (
+                    Qwen2VLForConditionalGeneration,
+                    AutoProcessor
+                )
+            except ImportError:
+                raise ImportError(
+                    "transformers library with Qwen2-VL support is required. "
+                    "Install with: pip install transformers>=4.37.0"
+                )
+            
+            # Determine device
+            device = self._get_device()
+            logger.info(f"Using device: {device}")
+            
+            # Load processor
+            logger.info("Loading processor...")
+            self.processor = AutoProcessor.from_pretrained(
+                self.model_path,
+                min_pixels=self.min_pixels * 28 * 28,
+                max_pixels=self.max_pixels * 28 * 28
+            )
+            
+            # Build loading kwargs following official recommendations
+            load_kwargs = {
+                'device_map': self.device_map,
+            }
+            
+            # Set precision (official recommendation: bfloat16 or float16)
+            if self.precision == "fp16":
+                load_kwargs['torch_dtype'] = torch.float16
+            elif self.precision == "bf16":
+                load_kwargs['torch_dtype'] = torch.bfloat16
+            elif self.precision == "int8":
+                load_kwargs['load_in_8bit'] = True
+            else:
+                # Default to bfloat16 as recommended
+                load_kwargs['torch_dtype'] = torch.bfloat16
+            
+            # Enable Flash Attention if requested
+            if self.config.get('use_flash_attention', False):
+                load_kwargs['attn_implementation'] = "flash_attention_2"
+            
+            # Load model
+            logger.info("Loading model weights...")
+            self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+                self.model_path,
+                **load_kwargs
+            )
+            
+            # Set to eval mode
+            self.model.eval()
+            
+            logger.info("Qwen2-VL model loaded successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to load Qwen2-VL model: {e}")
+            raise
+    
+    def process_image(self, image: Image.Image, prompt: str = "Extract all text from this image") -> str:
+        """Process image with default OCR prompt.
+        
+        Args:
+            image: PIL Image to process
+            prompt: OCR prompt (default: extract all text)
+            
+        Returns:
+            Extracted text
+        """
+        return self.chat(image, prompt)
+    
+    def chat(
+        self,
+        image: Image.Image,
+        prompt: str,
+        history: Optional[List[Dict[str, str]]] = None,
+        **kwargs
+    ) -> str:
+        """Chat with model about image following official API.
+        
+        Args:
+            image: PIL Image
+            prompt: User prompt
+            history: Optional conversation history
+            **kwargs: Additional generation arguments
             
         Returns:
             Model response
         """
-        if self.model is None:
+        if self.model is None or self.processor is None:
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         try:
-            # Default prompt for OCR
-            if prompt is None:
-                prompt = "Extract all text from this image in the original format and structure."
+            logger.info(f"Processing chat request: {prompt[:50]}...")
             
-            # Prepare conversation format
+            # Prepare messages following official format
             messages = [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image", "image": image},
-                        {"type": "text", "text": prompt}
-                    ]
+                        {
+                            "type": "image",
+                            "image": image,
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
                 }
             ]
             
-            # Prepare inputs
-            text_prompt = self.processor.apply_chat_template(
+            # Apply chat template
+            text = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True
             )
             
+            # Process inputs
+            # Note: process_vision_info is from qwen_vl_utils (may need separate install)
+            try:
+                from qwen_vl_utils import process_vision_info
+                image_inputs, video_inputs = process_vision_info(messages)
+            except ImportError:
+                # Fallback: basic processing
+                image_inputs = [image]
+                video_inputs = None
+            
             inputs = self.processor(
-                text=[text_prompt],
-                images=[image],
-                return_tensors="pt",
-                padding=True
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt"
             )
             
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            # Move to device
+            device = next(self.model.parameters()).device
+            inputs = inputs.to(device)
             
             # Generate response
             with torch.no_grad():
-                output_ids = self.model.generate(
+                generated_ids = self.model.generate(
                     **inputs,
-                    max_new_tokens=self.config.get("max_length", 2048),
-                    do_sample=False
-                )
-            
-            # Decode output
-            generated_ids = [
-                output_ids[len(input_ids):]
-                for input_ids, output_ids in zip(inputs.input_ids, output_ids)
-            ]
-            
-            response = self.processor.batch_decode(
-                generated_ids,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )[0]
-            
-            return response
-            
-        except Exception as e:
-            print(f"Error processing image: {e}")
-            return f"Error: {str(e)}"
-    
-    def chat(self, image: Image.Image, message: str, history: List[Dict[str, str]] = None) -> str:
-        """
-        Interactive chat with image context.
-        
-        Args:
-            image: Context image
-            message: User message
-            history: Previous conversation history
-            
-        Returns:
-            Model response
-        """
-        if self.model is None:
-            raise RuntimeError("Model not loaded.")
-        
-        try:
-            # Build conversation with history
-            messages = []
-            
-            # Add history if provided
-            if history:
-                for msg in history:
-                    messages.append({
-                        "role": msg["role"],
-                        "content": [{"type": "text", "text": msg["content"]}]
-                    })
-            
-            # Add current message with image
-            messages.append({
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": message}
-                ]
-            })
-            
-            # Process with model
-            text_prompt = self.processor.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
-            
-            inputs = self.processor(
-                text=[text_prompt],
-                images=[image],
-                return_tensors="pt",
-                padding=True
-            )
-            
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                output_ids = self.model.generate(
-                    **inputs,
-                    max_new_tokens=self.config.get("max_length", 2048),
-                    temperature=0.7,
-                    top_p=0.9,
+                    max_new_tokens=kwargs.get('max_new_tokens', 512),
+                    temperature=kwargs.get('temperature', 0.7),
                     do_sample=True
                 )
             
-            generated_ids = [
-                output_ids[len(input_ids):]
-                for input_ids, output_ids in zip(inputs.input_ids, output_ids)
+            # Decode response
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):]
+                for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
             
             response = self.processor.batch_decode(
-                generated_ids,
+                generated_ids_trimmed,
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False
             )[0]
             
+            logger.info("Chat response generated successfully")
             return response
             
         except Exception as e:
-            print(f"Error in chat: {e}")
-            return f"Error: {str(e)}"
+            logger.error(f"Error in chat: {e}")
+            raise
+    
+    def unload(self) -> None:
+        """Unload model from memory."""
+        if self.model is not None:
+            del self.model
+            self.model = None
+        
+        if self.processor is not None:
+            del self.processor
+            self.processor = None
+        
+        # Clear CUDA cache if available
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
+        logger.info("Qwen2-VL model unloaded")

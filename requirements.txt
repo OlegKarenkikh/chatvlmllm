@@ -1,44 +1,43 @@
-# Core ML frameworks
+# Core dependencies
+streamlit>=1.30.0
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+
+# Machine Learning
 torch>=2.1.0
-torchvision>=0.16.0
-transformers>=4.36.0
+transformers>=4.37.0
 accelerate>=0.25.0
 
-# Vision and image processing
+# Image processing
 Pillow>=10.0.0
 opencv-python>=4.8.0
 numpy>=1.24.0
 
-# Streamlit and UI
-streamlit>=1.30.0
-streamlit-option-menu>=0.3.6
-streamlit-extras>=0.3.0
+# Optional: Flash Attention (for performance)
+# Uncomment if you have compatible GPU
+# flash-attn>=2.3.0
 
-# Data processing
-pandas>=2.0.0
-pyyaml>=6.0
+# Optional: Quantization support
+# bitsandbytes>=0.41.0
 
-# Model optimization
-flash-attn>=2.3.0; platform_system != "Windows"
-bitsandbytes>=0.41.0
+# Optional: Qwen VL utils
+# Install from: https://github.com/QwenLM/Qwen2-VL
+# qwen-vl-utils
 
-# Utilities
-requests>=2.31.0
-tqdm>=4.66.0
-sentencepiece>=0.1.99
-protobuf>=3.20.0
-
-# OCR specific
-pytesseract>=0.3.10
-easyocr>=1.7.0
-
-# Development and testing
+# Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0
-black>=23.0.0
-flake8>=6.1.0
-mypy>=1.7.0
 
-# Markdown rendering
-markdown>=3.5.0
-pygments>=2.17.0
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Development
+jupyter>=1.0.0
+ipykernel>=6.25.0
+ipywidgets>=8.1.0
+
+# Utilities
+tqdm>=4.66.0
+requests>=2.31.0
