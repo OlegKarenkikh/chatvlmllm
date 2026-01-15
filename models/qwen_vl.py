@@ -1,6 +1,6 @@
 """Qwen2-VL model integration."""
 
-from typing import List, Dict, Optional
+from typing import Optional, List, Dict
 from PIL import Image
 import torch
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
@@ -9,53 +9,54 @@ from .base_model import BaseVLMModel
 
 
 class Qwen2VLModel(BaseVLMModel):
-    """Qwen2-VL multimodal model."""
+    """Qwen2-VL multimodal model for chat and OCR."""
     
-    def __init__(self, model_id: str = "Qwen/Qwen2-VL-2B-Instruct", **kwargs):
-        super().__init__(model_id, **kwargs)
-        self.conversation_history = []
-        
     def load_model(self) -> None:
         """Load Qwen2-VL model and processor."""
+        print(f"Loading Qwen2-VL model: {self.model_id}")
+        
         try:
-            print(f"Loading Qwen2-VL model from {self.model_id}...")
-            
             # Load processor
             self.processor = AutoProcessor.from_pretrained(
                 self.model_id,
                 trust_remote_code=True
             )
             
-            # Load model with appropriate settings
-            load_kwargs = {
-                "trust_remote_code": True,
-            }
-            
-            if self.device == "cuda":
-                load_kwargs["device_map"] = "auto"
-                if self.precision == "fp16":
-                    load_kwargs["torch_dtype"] = torch.float16
-                elif self.precision == "int8":
-                    load_kwargs["load_in_8bit"] = True
-            
+            # Load model
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                 self.model_id,
-                **load_kwargs
+                trust_remote_code=True,
+                device_map=self.config.get("device_map", "auto"),
+                torch_dtype=torch.float16 if self.config.get("precision") == "fp16" else torch.float32,
+                attn_implementation="flash_attention_2" if torch.cuda.is_available() else "eager"
             )
             
-            print(f"Qwen2-VL model loaded successfully on {self.device}")
+            self.model.eval()
+            print(f"Model loaded successfully on {self.device}")
             
         except Exception as e:
-            print(f"Error loading Qwen2-VL model: {e}")
-            raise
+            print(f"Error loading model: {e}")
+            # Fallback without flash attention
+            try:
+                self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+                    self.model_id,
+                    trust_remote_code=True,
+                    device_map=self.config.get("device_map", "auto"),
+                    torch_dtype=torch.float16 if self.config.get("precision") == "fp16" else torch.float32
+                )
+                self.model.eval()
+                print("Model loaded without flash attention")
+            except Exception as e2:
+                print(f"Error loading model (fallback): {e2}")
+                raise
     
-    def process_image(self, image: Image.Image, prompt: str = "") -> str:
+    def process_image(self, image: Image.Image, prompt: Optional[str] = None) -> str:
         """
         Process image with Qwen2-VL.
         
         Args:
-            image: PIL Image to process
-            prompt: Instruction for the model
+            image: PIL Image object
+            prompt: User prompt or question about the image
             
         Returns:
             Model response
@@ -64,11 +65,11 @@ class Qwen2VLModel(BaseVLMModel):
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         try:
-            # Default OCR prompt if none provided
-            if not prompt:
-                prompt = "Extract all text from this image in a structured format."
+            # Default prompt for OCR
+            if prompt is None:
+                prompt = "Extract all text from this image in the original format and structure."
             
-            # Prepare input
+            # Prepare conversation format
             messages = [
                 {
                     "role": "user",
@@ -79,28 +80,27 @@ class Qwen2VLModel(BaseVLMModel):
                 }
             ]
             
-            # Process with model
-            text = self.processor.apply_chat_template(
+            # Prepare inputs
+            text_prompt = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True
             )
             
             inputs = self.processor(
-                text=[text],
+                text=[text_prompt],
                 images=[image],
-                padding=True,
-                return_tensors="pt"
+                return_tensors="pt",
+                padding=True
             )
             
-            if self.device == "cuda":
-                inputs = inputs.to("cuda")
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
             
             # Generate response
             with torch.no_grad():
                 output_ids = self.model.generate(
                     **inputs,
-                    max_new_tokens=2048,
+                    max_new_tokens=self.config.get("max_length", 2048),
                     do_sample=False
                 )
             
@@ -122,29 +122,32 @@ class Qwen2VLModel(BaseVLMModel):
             print(f"Error processing image: {e}")
             return f"Error: {str(e)}"
     
-    def chat(self, image: Image.Image, message: str, history: List[Dict] = None) -> str:
+    def chat(self, image: Image.Image, message: str, history: List[Dict[str, str]] = None) -> str:
         """
-        Interactive chat with Qwen2-VL.
+        Interactive chat with image context.
         
         Args:
-            image: PIL Image for context
+            image: Context image
             message: User message
-            history: Previous conversation
+            history: Previous conversation history
             
         Returns:
             Model response
         """
         if self.model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
+            raise RuntimeError("Model not loaded.")
         
         try:
-            # Build conversation
+            # Build conversation with history
             messages = []
             
             # Add history if provided
             if history:
-                for h in history:
-                    messages.append(h)
+                for msg in history:
+                    messages.append({
+                        "role": msg["role"],
+                        "content": [{"type": "text", "text": msg["content"]}]
+                    })
             
             # Add current message with image
             messages.append({
@@ -155,34 +158,31 @@ class Qwen2VLModel(BaseVLMModel):
                 ]
             })
             
-            # Process
-            text = self.processor.apply_chat_template(
+            # Process with model
+            text_prompt = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True
             )
             
             inputs = self.processor(
-                text=[text],
+                text=[text_prompt],
                 images=[image],
-                padding=True,
-                return_tensors="pt"
+                return_tensors="pt",
+                padding=True
             )
             
-            if self.device == "cuda":
-                inputs = inputs.to("cuda")
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
             
-            # Generate
             with torch.no_grad():
                 output_ids = self.model.generate(
                     **inputs,
-                    max_new_tokens=2048,
+                    max_new_tokens=self.config.get("max_length", 2048),
                     temperature=0.7,
                     top_p=0.9,
                     do_sample=True
                 )
             
-            # Decode
             generated_ids = [
                 output_ids[len(input_ids):]
                 for input_ids, output_ids in zip(inputs.input_ids, output_ids)
@@ -199,7 +199,3 @@ class Qwen2VLModel(BaseVLMModel):
         except Exception as e:
             print(f"Error in chat: {e}")
             return f"Error: {str(e)}"
-    
-    def clear_history(self) -> None:
-        """Clear conversation history."""
-        self.conversation_history = []

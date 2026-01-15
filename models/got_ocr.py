@@ -1,6 +1,6 @@
 """GOT-OCR 2.0 model integration."""
 
-from typing import List, Dict
+from typing import Optional
 from PIL import Image
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -11,51 +11,40 @@ from .base_model import BaseVLMModel
 class GOTOCRModel(BaseVLMModel):
     """GOT-OCR 2.0 specialized OCR model."""
     
-    def __init__(self, model_id: str = "stepfun-ai/GOT-OCR2_0", **kwargs):
-        super().__init__(model_id, **kwargs)
-        self.tokenizer = None
-        
     def load_model(self) -> None:
         """Load GOT-OCR model and tokenizer."""
+        print(f"Loading GOT-OCR model: {self.model_id}")
+        
         try:
-            print(f"Loading GOT-OCR model from {self.model_id}...")
-            
-            # Load model with appropriate settings
-            load_kwargs = {
-                "trust_remote_code": True,
-                "low_cpu_mem_usage": True,
-            }
-            
-            if self.device == "cuda":
-                load_kwargs["device_map"] = "auto"
-                if self.precision == "fp16":
-                    load_kwargs["torch_dtype"] = torch.float16
-                elif self.precision == "int8":
-                    load_kwargs["load_in_8bit"] = True
-            
-            self.model = AutoModel.from_pretrained(
-                self.model_id,
-                **load_kwargs
-            )
-            
+            # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_id,
                 trust_remote_code=True
             )
             
-            print(f"GOT-OCR model loaded successfully on {self.device}")
+            # Load model with device mapping
+            self.model = AutoModel.from_pretrained(
+                self.model_id,
+                trust_remote_code=True,
+                device_map=self.config.get("device_map", "auto"),
+                torch_dtype=torch.float16 if self.config.get("precision") == "fp16" else torch.float32,
+                low_cpu_mem_usage=True
+            )
+            
+            self.model.eval()
+            print(f"Model loaded successfully on {self.device}")
             
         except Exception as e:
-            print(f"Error loading GOT-OCR model: {e}")
+            print(f"Error loading model: {e}")
             raise
     
-    def process_image(self, image: Image.Image, prompt: str = "") -> str:
+    def process_image(self, image: Image.Image, prompt: Optional[str] = None) -> str:
         """
-        Process image with GOT-OCR for text extraction.
+        Process image with GOT-OCR.
         
         Args:
-            image: PIL Image to process
-            prompt: OCR mode or specific instructions
+            image: PIL Image object
+            prompt: Optional OCR mode (e.g., 'ocr', 'format', 'table')
             
         Returns:
             Extracted text
@@ -64,17 +53,15 @@ class GOTOCRModel(BaseVLMModel):
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         try:
-            # GOT-OCR specific processing
-            # Default to plain OCR if no prompt specified
-            if not prompt:
-                prompt = "ocr"
+            # Default OCR mode
+            ocr_type = prompt if prompt in ['ocr', 'format', 'table'] else 'ocr'
             
-            # Process with model
+            # Process image through model
             with torch.no_grad():
                 result = self.model.chat(
                     self.tokenizer,
                     image,
-                    ocr_type=prompt
+                    ocr_type=ocr_type
                 )
             
             return result
@@ -83,35 +70,31 @@ class GOTOCRModel(BaseVLMModel):
             print(f"Error processing image: {e}")
             return f"Error: {str(e)}"
     
-    def chat(self, image: Image.Image, message: str, history: List[Dict] = None) -> str:
+    def process_with_boxes(self, image: Image.Image) -> dict:
         """
-        GOT-OCR is primarily for OCR, but can handle basic queries.
+        Process image and return text with bounding boxes.
         
         Args:
-            image: PIL Image
-            message: User question
-            history: Not used for GOT-OCR
+            image: PIL Image object
             
         Returns:
-            Response text
+            Dictionary with text and box coordinates
         """
-        # GOT-OCR is not designed for chat, so we route to OCR processing
-        return self.process_image(image, prompt="ocr")
-    
-    def extract_structured_text(self, image: Image.Image, format_type: str = "markdown") -> str:
-        """
-        Extract text with structure preservation.
+        if self.model is None:
+            raise RuntimeError("Model not loaded.")
         
-        Args:
-            image: Input image
-            format_type: Output format ('markdown', 'latex', 'plain')
+        try:
+            # Use box output mode if supported
+            with torch.no_grad():
+                result = self.model.chat(
+                    self.tokenizer,
+                    image,
+                    ocr_type='ocr',
+                    render=True
+                )
             
-        Returns:
-            Formatted text
-        """
-        if format_type == "markdown":
-            return self.process_image(image, prompt="format")
-        elif format_type == "latex":
-            return self.process_image(image, prompt="ocr")
-        else:
-            return self.process_image(image, prompt="ocr")
+            return result
+            
+        except Exception as e:
+            print(f"Error processing with boxes: {e}")
+            return {"text": "", "boxes": []}

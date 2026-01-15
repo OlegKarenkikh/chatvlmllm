@@ -1,6 +1,6 @@
-"""Model loader utility."""
+"""Model loader and manager."""
 
-from typing import Dict, Optional
+from typing import Dict, Any, Optional
 import yaml
 from pathlib import Path
 
@@ -10,18 +10,18 @@ from .qwen_vl import Qwen2VLModel
 
 
 class ModelLoader:
-    """Factory for loading VLM models."""
+    """Factory for loading and managing VLM models."""
     
-    _model_classes = {
+    _models = {
         "got_ocr": GOTOCRModel,
         "qwen_vl_2b": Qwen2VLModel,
-        "qwen_vl_7b": Qwen2VLModel,
+        "qwen_vl_7b": Qwen2VLModel
     }
     
     _loaded_models: Dict[str, BaseVLMModel] = {}
     
     @classmethod
-    def load_config(cls, config_path: str = "config.yaml") -> Dict:
+    def load_config(cls, config_path: str = "config.yaml") -> Dict[str, Any]:
         """Load configuration from YAML file."""
         config_file = Path(config_path)
         if not config_file.exists():
@@ -31,76 +31,69 @@ class ModelLoader:
             return yaml.safe_load(f)
     
     @classmethod
-    def load(cls, model_name: str, config: Optional[Dict] = None, force_reload: bool = False) -> BaseVLMModel:
+    def load_model(cls, model_key: str, config_path: str = "config.yaml") -> BaseVLMModel:
         """
-        Load a VLM model.
+        Load a VLM model by key.
         
         Args:
-            model_name: Model identifier from config
-            config: Optional config dict (loads from file if not provided)
-            force_reload: Force reload even if already loaded
+            model_key: Model identifier from config (e.g., 'got_ocr', 'qwen_vl_2b')
+            config_path: Path to configuration file
             
         Returns:
             Loaded model instance
         """
-        # Return cached model if available
-        if model_name in cls._loaded_models and not force_reload:
-            print(f"Using cached {model_name} model")
-            return cls._loaded_models[model_name]
+        # Check if already loaded
+        if model_key in cls._loaded_models:
+            print(f"Model {model_key} already loaded, returning cached instance")
+            return cls._loaded_models[model_key]
         
-        # Load config if not provided
-        if config is None:
-            config = cls.load_config()
+        # Load config
+        config = cls.load_config(config_path)
         
-        # Get model config
-        if model_name not in config.get("models", {}):
-            raise ValueError(f"Unknown model: {model_name}")
+        if model_key not in config["models"]:
+            raise ValueError(f"Model {model_key} not found in config")
         
-        model_config = config["models"][model_name]
+        model_config = config["models"][model_key]
+        model_id = model_config["model_id"]
         
         # Get model class
-        if model_name not in cls._model_classes:
-            raise ValueError(f"No implementation for model: {model_name}")
+        if model_key not in cls._models:
+            raise ValueError(f"No implementation for model: {model_key}")
         
-        model_class = cls._model_classes[model_name]
+        model_class = cls._models[model_key]
         
         # Create and load model
-        print(f"Loading {model_config['name']}...")
-        model = model_class(
-            model_id=model_config["model_id"],
-            device=model_config.get("device_map", "auto"),
-            precision=model_config.get("precision", "fp16")
-        )
-        
+        print(f"Creating model instance: {model_key}")
+        model = model_class(model_id, model_config)
         model.load_model()
         
-        # Cache model
-        cls._loaded_models[model_name] = model
+        # Cache the model
+        cls._loaded_models[model_key] = model
         
         return model
     
     @classmethod
-    def unload(cls, model_name: str) -> None:
+    def unload_model(cls, model_key: str) -> None:
         """Unload a model from memory."""
-        if model_name in cls._loaded_models:
-            print(f"Unloading {model_name}...")
-            cls._loaded_models[model_name].unload()
-            del cls._loaded_models[model_name]
+        if model_key in cls._loaded_models:
+            cls._loaded_models[model_key].unload_model()
+            del cls._loaded_models[model_key]
+            print(f"Model {model_key} unloaded")
     
     @classmethod
     def unload_all(cls) -> None:
-        """Unload all loaded models."""
-        for model_name in list(cls._loaded_models.keys()):
-            cls.unload(model_name)
+        """Unload all models from memory."""
+        for model_key in list(cls._loaded_models.keys()):
+            cls.unload_model(model_key)
+        print("All models unloaded")
     
     @classmethod
-    def get_available_models(cls, config: Optional[Dict] = None) -> Dict[str, Dict]:
-        """Get list of available models from config."""
-        if config is None:
-            config = cls.load_config()
-        return config.get("models", {})
+    def get_loaded_models(cls) -> list:
+        """Get list of currently loaded models."""
+        return list(cls._loaded_models.keys())
     
     @classmethod
-    def is_loaded(cls, model_name: str) -> bool:
-        """Check if a model is loaded."""
-        return model_name in cls._loaded_models
+    def get_available_models(cls, config_path: str = "config.yaml") -> Dict[str, Dict[str, Any]]:
+        """Get all available models from config."""
+        config = cls.load_config(config_path)
+        return config["models"]
