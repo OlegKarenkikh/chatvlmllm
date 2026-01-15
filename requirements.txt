@@ -1,43 +1,25 @@
-# Core dependencies
-streamlit>=1.30.0
-python-dotenv>=1.0.0
-pyyaml>=6.0.1
+# Core ML
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.36.0
+accele rate>=0.25.0
 
-# Machine Learning
-torch>=2.1.0
-transformers>=4.37.0
-accelerate>=0.25.0
+# VLM specific
+qwen-vl-utils
+flash-attn>=2.3.0
+bitsandbytes>=0.41.0
 
-# Image processing
+# API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# UI
+streamlit>=1.28.0
+
+# Utils
 Pillow>=10.0.0
-opencv-python>=4.8.0
-numpy>=1.24.0
-
-# Optional: Flash Attention (for performance)
-# Uncomment if you have compatible GPU
-# flash-attn>=2.3.0
-
-# Optional: Quantization support
-# bitsandbytes>=0.41.0
-
-# Optional: Qwen VL utils
-# Install from: https://github.com/QwenLM/Qwen2-VL
-# qwen-vl-utils
-
-# Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
-
-# Code quality
-black>=23.0.0
-flake8>=6.0.0
-mypy>=1.5.0
-
-# Development
-jupyter>=1.0.0
-ipykernel>=6.25.0
-ipywidgets>=8.1.0
-
-# Utilities
-tqdm>=4.66.0
+PyYAML>=6.0
 requests>=2.31.0
+numpy>=1.24.0
+pandas>=2.0.0
