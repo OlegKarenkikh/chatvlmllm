@@ -1,248 +1,328 @@
-# ChatVLMLLM - Vision Language Models for Document OCR
+# ChatVLMLLM - Document OCR & Vision Language Models
 
-🔬 **Образовательный исследовательский проект по изучению VLM/LLM моделей для распознавания текста в документах**
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B.svg)](https://streamlit.io)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+A comprehensive educational research project exploring **Vision Language Models (VLM)** for document OCR tasks. This project provides a production-ready implementation with modern UI, comparing different model architectures and their performance on real-world document processing.
 
-## 📋 О проекте
+<p align="center">
+  <img src="https://img.icons8.com/fluency/96/000000/artificial-intelligence.png" width="100"/>
+</p>
 
-Это образовательный проект, демонстрирующий современные подходы к распознаванию текста в документах с использованием Vision Language Models (VLM). Проект создан для изучения и сравнения различных моделей OCR нового поколения.
+## 🎯 Project Goals
 
-### Цели проекта
+This educational project aims to:
 
-1. **Исследование современных VLM моделей** для задач OCR
-2. **Сравнение производительности** различных архитектур
-3. **Извлечение структурированных данных** из документов
-4. **Интерактивное взаимодействие** с моделями через чат
-5. **Практическое применение** на реальных документах
+1. 🔬 **Research** - Compare specialized OCR models vs. general VLM models
+2. 📊 **Benchmark** - Measure accuracy, speed, and resource usage
+3. 🛠️ **Develop** - Build production-quality document processing application
+4. 📚 **Learn** - Understand VLM architectures and their applications
+5. 🌐 **Share** - Provide open-source implementation for community
 
-## 🎯 Функциональность
+## ✨ Features
 
-### Режим 1: OCR для документов
-- ✅ Распознавание текста из сканов и фотографий
-- ✅ Извлечение полей из структурированных документов
-- ✅ Поддержка различных типов документов (паспорта, счета, чеки)
-- ✅ Экспорт результатов в JSON/CSV
+### 🤖 Model Support
 
-### Режим 2: Интерактивный чат с VLM
-- ✅ Общение с моделью о содержимом изображений
-- ✅ Анализ документов в диалоговом режиме
-- ✅ Поддержка Markdown форматирования
-- ✅ История диалогов
+- **GOT-OCR 2.0** - Specialized OCR for complex layouts
+- **Qwen2-VL 2B** - Lightweight vision-language model
+- **Qwen2-VL 7B** - Advanced multimodal understanding
 
-## 🤖 Поддерживаемые модели
+### 📄 Processing Modes
 
-### 1. GOT-OCR 2.0
-- **Описание**: Специализированная модель для OCR с поддержкой сложных макетов
-- **Преимущества**: Высокая точность, распознавание таблиц, формул
-- **Размер**: ~580M параметров
+- **OCR Mode** - Extract text and structured data from documents
+- **Chat Mode** - Interactive Q&A about document content
+- **Batch Processing** - Process multiple documents efficiently
+- **Comparison** - Side-by-side model performance analysis
 
-### 2. Qwen2-VL
-- **Описание**: Универсальная VLM от Alibaba Cloud
-- **Преимущества**: Мультимодальный чат, понимание контекста
-- **Размер**: 2B/7B параметров
+### 💎 Production Features
 
-### 3. DeepSeek-VL (планируется)
-- **Описание**: Открытая VLM модель
-- **Преимущества**: Быстрая обработка, хорошее качество
+- ✅ Modern Streamlit UI with custom styling
+- ✅ HuggingFace model cache management
+- ✅ Automatic model detection and download
+- ✅ Export results (JSON, CSV, TXT)
+- ✅ Input validation and error handling
+- ✅ Comprehensive logging system
+- ✅ Docker containerization
+- ✅ Jupyter notebooks for exploration
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Требования
+### Prerequisites
 
-```bash
-Python 3.10+
-CUDA 11.8+ (для GPU)
-8GB+ RAM (16GB+ рекомендуется)
-```
+- Python 3.10+
+- CUDA-capable GPU (recommended, 6GB+ VRAM)
+- 30GB+ free disk space (for models)
 
-### Установка
+### Installation
 
 ```bash
-# Клонирование репозитория
+# Clone repository
 git clone https://github.com/OlegKarenkikh/chatvlmllm.git
 cd chatvlmllm
 
-# Создание виртуального окружения
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# или
-venv\Scripts\activate  # Windows
-
-# Установка зависимостей
-pip install -r requirements.txt
+# Automated setup
+bash scripts/setup.sh  # Linux/Mac
+# or
+scripts\setup.bat      # Windows
 ```
 
-### Запуск приложения
+### Check Environment
+
+```bash
+# Verify installation
+python scripts/check_setup.py
+
+# Check model cache status
+python scripts/check_models.py
+```
+
+### Download Models (Optional)
+
+Models download automatically on first use, but you can pre-download:
+
+```bash
+python scripts/download_models.py
+```
+
+### Run Application
 
 ```bash
 streamlit run app.py
 ```
 
-Приложение откроется в браузере по адресу `http://localhost:8501`
+Open browser to: http://localhost:8501
 
-## 📚 План исследования и разработки
+## 📖 Documentation
 
-### Этап 1: Подготовка (1-2 недели)
-- [x] Изучение архитектур VLM моделей
-- [x] Анализ существующих решений OCR
-- [x] Настройка окружения разработки
-- [ ] Сбор тестового датасета документов
+### Core Documentation
 
-### Этап 2: Интеграция моделей (2-3 недели)
-- [ ] Интеграция GOT-OCR 2.0
-- [ ] Интеграция Qwen2-VL
-- [ ] Разработка единого API для моделей
-- [ ] Оптимизация загрузки и инференса
+- [**Quick Start Guide**](QUICKSTART.md) - Get started in 5 minutes
+- [**Model Documentation**](docs/models.md) - Detailed model information
+- [**Architecture Overview**](docs/architecture.md) - System design
+- [**Developer Guide**](README_DEV.md) - Development setup and workflow
+- [**Model Cache Guide**](docs/model_cache_guide.md) - Cache management
 
-### Этап 3: Разработка интерфейса (1-2 недели)
-- [ ] Создание Streamlit UI
-- [ ] Реализация режима OCR
-- [ ] Реализация режима чата
-- [ ] Добавление визуализации результатов
+### Additional Resources
 
-### Этап 4: Тестирование и оптимизация (2 недели)
-- [ ] Тестирование на различных типах документов
-- [ ] Измерение метрик качества (accuracy, precision, recall)
-- [ ] Оптимизация производительности
-- [ ] Сравнительный анализ моделей
+- [Research Log Template](docs/research_log.md) - Track your experiments
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
+- [Project Summary](PROJECT_SUMMARY.md) - Complete project overview
+- [Changelog](CHANGELOG.md) - Version history
 
-### Этап 5: Документация и презентация (1 неделя)
-- [ ] Написание подробной документации
-- [ ] Создание примеров использования
-- [ ] Подготовка презентации результатов
-- [ ] Публикация отчета об исследовании
+## 🎓 Using the Project
 
-## 🎓 Чему учимся
+### For Students
 
-### Технические навыки
+1. **Explore Models**
+   ```bash
+   jupyter notebook notebooks/01_model_exploration.ipynb
+   ```
 
-1. **Работа с VLM моделями**
-   - Загрузка и конфигурация трансформеров
-   - Препроцессинг изображений
-   - Оптимизация инференса (Flash Attention, quantization)
+2. **Run Experiments**
+   - Process test documents
+   - Compare model outputs
+   - Measure performance metrics
 
-2. **Разработка ML приложений**
-   - Проектирование архитектуры
-   - Управление зависимостями
-   - Обработка ошибок и валидация
+3. **Document Results**
+   - Fill in [research_log.md](docs/research_log.md)
+   - Create comparison charts
+   - Write analysis report
 
-3. **UI/UX разработка**
-   - Создание интерактивных интерфейсов с Streamlit
-   - Современный дизайн (custom CSS)
-   - Оптимизация пользовательского опыта
+### For Developers
 
-4. **MLOps практики**
-   - Версионирование моделей
-   - Логирование и мониторинг
-   - Контейнеризация (Docker)
+1. **Extend Functionality**
+   ```python
+   # Add custom model
+   from models.base_model import BaseModel
+   
+   class MyModel(BaseModel):
+       def load_model(self):
+           # Your implementation
+           pass
+   ```
 
-### Исследовательские навыки
+2. **Run Tests**
+   ```bash
+   pytest
+   pytest --cov=models --cov=utils
+   ```
 
-1. **Анализ и сравнение моделей**
-2. **Метрики качества OCR**
-3. **Подготовка научных отчетов**
-4. **Критическое мышление**
+3. **Deploy**
+   ```bash
+   docker-compose -f docker/docker-compose.yml up
+   ```
 
-## 📊 Структура проекта
+## 🔧 Model Cache Management
+
+### Check Cache Status
+
+```bash
+python scripts/check_models.py
+```
+
+Output example:
+```
+✅ GOT-OCR 2.0: Found in cache (2.8 GB)
+⚠️  Qwen2-VL 2B: Not cached - will download on first use
+✅ Qwen2-VL 7B: Found in cache (14.2 GB)
+
+Total: 2 models, 17.0 GB
+```
+
+### Cache Location
+
+Default: `~/.cache/huggingface/hub/`
+
+Custom location:
+```bash
+export HF_HOME="/path/to/cache"
+```
+
+See [Model Cache Guide](docs/model_cache_guide.md) for details.
+
+## 📊 Model Comparison
+
+| Model | Parameters | VRAM | Speed | Best For |
+|-------|-----------|------|-------|----------|
+| GOT-OCR 2.0 | 580M | ~3GB | Fast | Complex layouts, tables, formulas |
+| Qwen2-VL 2B | 2B | ~5GB | Fast | General OCR, lightweight deployment |
+| Qwen2-VL 7B | 7B | ~14GB | Medium | Advanced analysis, reasoning |
+
+## 🛠️ Development
+
+### Project Structure
 
 ```
 chatvlmllm/
-│
-├── app.py                 # Главное Streamlit приложение
-├── requirements.txt       # Python зависимости
-├── config.yaml           # Конфигурация моделей
-│
-├── models/               # Модули моделей
-│   ├── __init__.py
-│   ├── base_model.py     # Базовый класс модели
-│   ├── got_ocr.py        # GOT-OCR интеграция
-│   ├── qwen_vl.py        # Qwen2-VL интеграция
-│   └── model_loader.py   # Загрузчик моделей
-│
-├── utils/                # Утилиты
-│   ├── __init__.py
-│   ├── image_processor.py    # Обработка изображений
-│   ├── text_extractor.py     # Извлечение текста
-│   ├── field_parser.py       # Парсинг полей документов
-│   └── markdown_renderer.py  # Рендеринг Markdown
-│
-├── ui/                   # UI компоненты
-│   ├── __init__.py
-│   ├── styles.py         # Custom CSS стили
-│   ├── ocr_page.py       # Страница OCR
-│   └── chat_page.py      # Страница чата
-│
-├── examples/             # Примеры документов
-│   ├── passports/
-│   ├── invoices/
-│   └── receipts/
-│
-├── docs/                 # Документация
-│   ├── models.md         # Описание моделей
-│   ├── architecture.md   # Архитектура проекта
-│   ├── metrics.md        # Метрики и результаты
-│   └── research_log.md   # Журнал исследования
-│
-├── tests/                # Тесты
-│   ├── test_models.py
-│   └── test_utils.py
-│
-└── docker/               # Docker конфигурация
-    ├── Dockerfile
-    └── docker-compose.yml
+├── app.py                 # Streamlit application
+├── config.yaml           # Configuration
+├── models/               # Model integrations
+│   ├── got_ocr.py       # GOT-OCR 2.0
+│   ├── qwen_vl.py       # Qwen2-VL
+│   └── model_loader.py  # Factory with cache
+├── utils/                # Utilities
+│   ├── model_cache.py   # Cache management
+│   ├── logger.py        # Logging
+│   └── validators.py    # Validation
+├── ui/                   # UI components
+├── tests/                # Test suite
+├── notebooks/            # Jupyter notebooks
+├── scripts/              # Utility scripts
+└── docs/                 # Documentation
 ```
 
-## 🛠️ Технологический стек
+### Testing
 
-- **Python 3.10+** - основной язык
-- **Streamlit 1.30+** - веб-интерфейс
-- **PyTorch 2.1+** - фреймворк ML
-- **Transformers 4.36+** - работа с моделями
-- **Pillow** - обработка изображений
-- **OpenCV** - компьютерное зрение
-- **Pandas** - обработка данных
-- **Docker** - контейнеризация
+```bash
+# Run all tests
+pytest
 
-## 📈 Метрики качества
+# With coverage
+pytest --cov=models --cov=utils --cov-report=html
 
-Для оценки качества моделей используются:
+# Specific test
+pytest tests/test_models.py::test_model_loading
+```
 
-- **Character Error Rate (CER)** - ошибка на уровне символов
-- **Word Error Rate (WER)** - ошибка на уровне слов
-- **Field Extraction Accuracy** - точность извлечения полей
-- **Processing Speed** - скорость обработки (сек/страница)
-- **Memory Usage** - использование памяти
+### Code Quality
 
-## 🤝 Вклад в проект
+```bash
+# Format code
+black .
 
-Проект открыт для улучшений! Если вы хотите внести вклад:
+# Lint
+flake8 .
 
-1. Fork репозитория
-2. Создайте ветку для вашей функции
-3. Сделайте commit изменений
-4. Push в ветку
-5. Создайте Pull Request
+# Type check
+mypy models/ utils/
+```
 
-## 📄 Лицензия
+## 🐳 Docker Deployment
 
-МIT License - см. файл [LICENSE](LICENSE)
+```bash
+# Build image
+docker build -t chatvlmllm -f docker/Dockerfile .
 
-## 📞 Контакты
+# Run with GPU
+docker-compose -f docker/docker-compose.yml up
+```
 
-Если у вас есть вопросы или предложения:
-- GitHub Issues: [создать issue](https://github.com/OlegKarenkikh/chatvlmllm/issues)
-- GitHub: [@OlegKarenkikh](https://github.com/OlegKarenkikh)
+## 📈 Benchmarking
 
-## 🙏 Благодарности
+Run benchmark tests:
 
-- [GOT-OCR Team](https://github.com/Ucas-HaoranWei/GOT-OCR2_0) за открытую модель
-- [Alibaba Cloud](https://github.com/QwenLM/Qwen2-VL) за Qwen2-VL
-- [Streamlit](https://streamlit.io) за отличный фреймворк
-- Сообщество HuggingFace за инфраструктуру
+```python
+from notebooks import run_benchmark
+
+results = run_benchmark(
+    models=['got_ocr', 'qwen_vl_2b'],
+    test_set='examples/',
+    metrics=['cer', 'wer', 'speed']
+)
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Areas for Contribution
+
+- 🐛 Bug fixes
+- ✨ New features
+- 📝 Documentation improvements
+- 🧪 Additional tests
+- 🎨 UI enhancements
+- 🌐 Translations
+
+## 📝 Citation
+
+If you use this project in your research, please cite:
+
+```bibtex
+@software{chatvlmllm2026,
+  author = {Oleg Karenkikh},
+  title = {ChatVLMLLM: Document OCR with Vision Language Models},
+  year = {2026},
+  url = {https://github.com/OlegKarenkikh/chatvlmllm}
+}
+```
+
+## 🙏 Acknowledgments
+
+### Models
+
+- **GOT-OCR 2.0**: [stepfun-ai/GOT-OCR2_0](https://huggingface.co/stepfun-ai/GOT-OCR2_0)
+- **Qwen2-VL**: [Qwen/Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
+
+### Frameworks
+
+- [Streamlit](https://streamlit.io/) - Web interface
+- [HuggingFace](https://huggingface.co/) - Model hub
+- [PyTorch](https://pytorch.org/) - ML framework
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- **Repository**: [github.com/OlegKarenkikh/chatvlmllm](https://github.com/OlegKarenkikh/chatvlmllm)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/OlegKarenkikh/chatvlmllm/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/OlegKarenkikh/chatvlmllm/discussions)
+
+## 📞 Support
+
+Need help?
+
+- 📖 Check [documentation](docs/)
+- 🐛 [Report issues](https://github.com/OlegKarenkikh/chatvlmllm/issues)
+- 💬 [Ask questions](https://github.com/OlegKarenkikh/chatvlmllm/discussions)
 
 ---
 
-⭐ Если проект был полезен, поставьте звезду!
+<p align="center">
+  Made with ❤️ for education and research<br>
+  <b>ChatVLMLLM</b> - Exploring Vision Language Models for Document OCR
+</p>
