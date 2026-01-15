@@ -1,6 +1,6 @@
-"""GOT-OCR 2.0 model implementation."""
+"""GOT-OCR 2.0 model integration."""
 
-from typing import Dict, List
+from typing import List, Dict
 from PIL import Image
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -20,46 +20,42 @@ class GOTOCRModel(BaseVLMModel):
         try:
             print(f"Loading GOT-OCR model from {self.model_id}...")
             
-            # Load tokenizer
+            # Load model with appropriate settings
+            load_kwargs = {
+                "trust_remote_code": True,
+                "low_cpu_mem_usage": True,
+            }
+            
+            if self.device == "cuda":
+                load_kwargs["device_map"] = "auto"
+                if self.precision == "fp16":
+                    load_kwargs["torch_dtype"] = torch.float16
+                elif self.precision == "int8":
+                    load_kwargs["load_in_8bit"] = True
+            
+            self.model = AutoModel.from_pretrained(
+                self.model_id,
+                **load_kwargs
+            )
+            
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_id,
                 trust_remote_code=True
             )
             
-            # Load model with appropriate precision
-            if self.precision == "fp16":
-                self.model = AutoModel.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    torch_dtype=torch.float16,
-                    device_map=self.device
-                )
-            elif self.precision == "int8":
-                self.model = AutoModel.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    load_in_8bit=True,
-                    device_map=self.device
-                )
-            else:
-                self.model = AutoModel.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    device_map=self.device
-                )
-            
-            self.model.eval()
-            print("GOT-OCR model loaded successfully!")
+            print(f"GOT-OCR model loaded successfully on {self.device}")
             
         except Exception as e:
-            raise RuntimeError(f"Failed to load GOT-OCR model: {str(e)}")
+            print(f"Error loading GOT-OCR model: {e}")
+            raise
     
     def process_image(self, image: Image.Image, prompt: str = "") -> str:
-        """Extract text from image using GOT-OCR.
+        """
+        Process image with GOT-OCR for text extraction.
         
         Args:
-            image: PIL Image object
-            prompt: Optional OCR mode ('ocr', 'format', 'table')
+            image: PIL Image to process
+            prompt: OCR mode or specific instructions
             
         Returns:
             Extracted text
@@ -68,11 +64,12 @@ class GOTOCRModel(BaseVLMModel):
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         try:
-            # Default to standard OCR if no prompt specified
+            # GOT-OCR specific processing
+            # Default to plain OCR if no prompt specified
             if not prompt:
                 prompt = "ocr"
             
-            # Process image based on mode
+            # Process with model
             with torch.no_grad():
                 result = self.model.chat(
                     self.tokenizer,
@@ -83,81 +80,38 @@ class GOTOCRModel(BaseVLMModel):
             return result
             
         except Exception as e:
-            raise RuntimeError(f"OCR processing failed: {str(e)}")
+            print(f"Error processing image: {e}")
+            return f"Error: {str(e)}"
     
-    def extract_fields(self, image: Image.Image, field_names: List[str]) -> Dict[str, str]:
-        """Extract specific fields from document.
+    def chat(self, image: Image.Image, message: str, history: List[Dict] = None) -> str:
+        """
+        GOT-OCR is primarily for OCR, but can handle basic queries.
         
         Args:
-            image: PIL Image object
-            field_names: List of field names to extract
+            image: PIL Image
+            message: User question
+            history: Not used for GOT-OCR
             
         Returns:
-            Dictionary with extracted field values
+            Response text
         """
-        if self.model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-        
-        try:
-            # First, get all text from the document
-            full_text = self.process_image(image, "ocr")
-            
-            # Create prompt for field extraction
-            fields_str = ", ".join(field_names)
-            prompt = f"Extract the following fields from the document: {fields_str}"
-            
-            # Use the model to extract structured data
-            with torch.no_grad():
-                result = self.model.chat(
-                    self.tokenizer,
-                    image,
-                    ocr_type="ocr",
-                    ocr_box="",
-                    ocr_color=""
-                )
-            
-            # Parse the result into fields
-            # This is a simplified implementation - in production, you'd use more sophisticated parsing
-            extracted_fields = {}
-            for field in field_names:
-                # Try to find the field in the text
-                field_lower = field.lower()
-                if field_lower in result.lower():
-                    # Extract value after field name (simplified)
-                    lines = result.split('\n')
-                    for line in lines:
-                        if field_lower in line.lower():
-                            parts = line.split(':', 1)
-                            if len(parts) > 1:
-                                extracted_fields[field] = parts[1].strip()
-                            break
-                
-                if field not in extracted_fields:
-                    extracted_fields[field] = ""
-            
-            return extracted_fields
-            
-        except Exception as e:
-            raise RuntimeError(f"Field extraction failed: {str(e)}")
+        # GOT-OCR is not designed for chat, so we route to OCR processing
+        return self.process_image(image, prompt="ocr")
     
-    def extract_table(self, image: Image.Image) -> str:
-        """Extract table structure from image.
+    def extract_structured_text(self, image: Image.Image, format_type: str = "markdown") -> str:
+        """
+        Extract text with structure preservation.
         
         Args:
-            image: PIL Image with table
+            image: Input image
+            format_type: Output format ('markdown', 'latex', 'plain')
             
         Returns:
-            Structured table representation
+            Formatted text
         """
-        return self.process_image(image, "table")
-    
-    def extract_formula(self, image: Image.Image) -> str:
-        """Extract mathematical formulas from image.
-        
-        Args:
-            image: PIL Image with formulas
-            
-        Returns:
-            LaTeX representation of formulas
-        """
-        return self.process_image(image, "format")
+        if format_type == "markdown":
+            return self.process_image(image, prompt="format")
+        elif format_type == "latex":
+            return self.process_image(image, prompt="ocr")
+        else:
+            return self.process_image(image, prompt="ocr")

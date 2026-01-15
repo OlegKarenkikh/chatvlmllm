@@ -1,6 +1,6 @@
-"""Qwen2-VL model implementation."""
+"""Qwen2-VL model integration."""
 
-from typing import Dict, List, Optional
+from typing import List, Dict, Optional
 from PIL import Image
 import torch
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
@@ -9,7 +9,7 @@ from .base_model import BaseVLMModel
 
 
 class Qwen2VLModel(BaseVLMModel):
-    """Qwen2-VL multimodal chat model."""
+    """Qwen2-VL multimodal model."""
     
     def __init__(self, model_id: str = "Qwen/Qwen2-VL-2B-Instruct", **kwargs):
         super().__init__(model_id, **kwargs)
@@ -26,40 +26,36 @@ class Qwen2VLModel(BaseVLMModel):
                 trust_remote_code=True
             )
             
-            # Load model with appropriate precision
-            if self.precision == "fp16":
-                self.model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    torch_dtype=torch.float16,
-                    device_map=self.device
-                )
-            elif self.precision == "int8":
-                self.model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    load_in_8bit=True,
-                    device_map=self.device
-                )
-            else:
-                self.model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    self.model_id,
-                    trust_remote_code=True,
-                    device_map=self.device
-                )
+            # Load model with appropriate settings
+            load_kwargs = {
+                "trust_remote_code": True,
+            }
             
-            self.model.eval()
-            print("Qwen2-VL model loaded successfully!")
+            if self.device == "cuda":
+                load_kwargs["device_map"] = "auto"
+                if self.precision == "fp16":
+                    load_kwargs["torch_dtype"] = torch.float16
+                elif self.precision == "int8":
+                    load_kwargs["load_in_8bit"] = True
+            
+            self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+                self.model_id,
+                **load_kwargs
+            )
+            
+            print(f"Qwen2-VL model loaded successfully on {self.device}")
             
         except Exception as e:
-            raise RuntimeError(f"Failed to load Qwen2-VL model: {str(e)}")
+            print(f"Error loading Qwen2-VL model: {e}")
+            raise
     
     def process_image(self, image: Image.Image, prompt: str = "") -> str:
-        """Process image with text prompt.
+        """
+        Process image with Qwen2-VL.
         
         Args:
-            image: PIL Image object
-            prompt: Text prompt for the model
+            image: PIL Image to process
+            prompt: Instruction for the model
             
         Returns:
             Model response
@@ -68,11 +64,11 @@ class Qwen2VLModel(BaseVLMModel):
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         try:
-            # Default prompt for OCR
+            # Default OCR prompt if none provided
             if not prompt:
-                prompt = "Extract all text from this image in the original layout."
+                prompt = "Extract all text from this image in a structured format."
             
-            # Prepare inputs
+            # Prepare input
             messages = [
                 {
                     "role": "user",
@@ -83,19 +79,22 @@ class Qwen2VLModel(BaseVLMModel):
                 }
             ]
             
-            # Apply chat template
+            # Process with model
             text = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True
             )
             
-            # Process inputs
             inputs = self.processor(
                 text=[text],
                 images=[image],
+                padding=True,
                 return_tensors="pt"
-            ).to(self.device)
+            )
+            
+            if self.device == "cuda":
+                inputs = inputs.to("cuda")
             
             # Generate response
             with torch.no_grad():
@@ -105,7 +104,7 @@ class Qwen2VLModel(BaseVLMModel):
                     do_sample=False
                 )
             
-            # Decode response
+            # Decode output
             generated_ids = [
                 output_ids[len(input_ids):]
                 for input_ids, output_ids in zip(inputs.input_ids, output_ids)
@@ -120,61 +119,17 @@ class Qwen2VLModel(BaseVLMModel):
             return response
             
         except Exception as e:
-            raise RuntimeError(f"Image processing failed: {str(e)}")
+            print(f"Error processing image: {e}")
+            return f"Error: {str(e)}"
     
-    def extract_fields(self, image: Image.Image, field_names: List[str]) -> Dict[str, str]:
-        """Extract specific fields from document.
-        
-        Args:
-            image: PIL Image object
-            field_names: List of field names to extract
-            
-        Returns:
-            Dictionary with extracted field values
+    def chat(self, image: Image.Image, message: str, history: List[Dict] = None) -> str:
         """
-        if self.model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-        
-        try:
-            # Create structured prompt for field extraction
-            fields_list = "\n".join([f"- {field}" for field in field_names])
-            prompt = f"""Extract the following information from this document and provide it in a structured format:
-
-{fields_list}
-
-For each field, provide the value or 'Not found' if not present. Format your response as:
-Field Name: Value"""
-            
-            # Get model response
-            response = self.process_image(image, prompt)
-            
-            # Parse response into fields
-            extracted_fields = {}
-            for field in field_names:
-                extracted_fields[field] = ""
-                
-                # Try to find field in response
-                for line in response.split('\n'):
-                    if field.lower() in line.lower():
-                        parts = line.split(':', 1)
-                        if len(parts) > 1:
-                            value = parts[1].strip()
-                            if value.lower() != 'not found':
-                                extracted_fields[field] = value
-                        break
-            
-            return extracted_fields
-            
-        except Exception as e:
-            raise RuntimeError(f"Field extraction failed: {str(e)}")
-    
-    def chat(self, image: Image.Image, message: str, history: Optional[List[Dict]] = None) -> str:
-        """Interactive chat about an image.
+        Interactive chat with Qwen2-VL.
         
         Args:
-            image: PIL Image object
+            image: PIL Image for context
             message: User message
-            history: Optional conversation history
+            history: Previous conversation
             
         Returns:
             Model response
@@ -184,7 +139,14 @@ Field Name: Value"""
         
         try:
             # Build conversation
-            messages = history if history else []
+            messages = []
+            
+            # Add history if provided
+            if history:
+                for h in history:
+                    messages.append(h)
+            
+            # Add current message with image
             messages.append({
                 "role": "user",
                 "content": [
@@ -193,20 +155,24 @@ Field Name: Value"""
                 ]
             })
             
-            # Apply chat template
+            # Process
             text = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True
             )
             
-            # Process and generate
             inputs = self.processor(
                 text=[text],
                 images=[image],
+                padding=True,
                 return_tensors="pt"
-            ).to(self.device)
+            )
             
+            if self.device == "cuda":
+                inputs = inputs.to("cuda")
+            
+            # Generate
             with torch.no_grad():
                 output_ids = self.model.generate(
                     **inputs,
@@ -216,6 +182,7 @@ Field Name: Value"""
                     do_sample=True
                 )
             
+            # Decode
             generated_ids = [
                 output_ids[len(input_ids):]
                 for input_ids, output_ids in zip(inputs.input_ids, output_ids)
@@ -227,14 +194,11 @@ Field Name: Value"""
                 clean_up_tokenization_spaces=False
             )[0]
             
-            # Update history
-            messages.append({"role": "assistant", "content": response})
-            self.conversation_history = messages
-            
             return response
             
         except Exception as e:
-            raise RuntimeError(f"Chat failed: {str(e)}")
+            print(f"Error in chat: {e}")
+            return f"Error: {str(e)}"
     
     def clear_history(self) -> None:
         """Clear conversation history."""

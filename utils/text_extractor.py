@@ -1,49 +1,75 @@
-"""Text extraction and processing utilities."""
+"""Text extraction and post-processing utilities."""
 
 import re
-from typing import List, Dict, Any, Optional
-from collections import Counter
+from typing import List, Dict, Optional
 
 
 class TextExtractor:
-    """Utility class for text extraction and processing."""
+    """Text extraction and cleaning utilities."""
     
     @staticmethod
     def clean_text(text: str) -> str:
-        """Clean extracted text."""
-        # Remove extra whitespace
+        """
+        Clean extracted text.
+        
+        Args:
+            text: Raw OCR text
+            
+        Returns:
+            Cleaned text
+        """
+        # Remove multiple spaces
         text = re.sub(r'\s+', ' ', text)
         
-        # Remove leading/trailing whitespace
-        text = text.strip()
+        # Remove multiple newlines
+        text = re.sub(r'\n+', '\n', text)
         
-        # Fix common OCR errors
-        text = TextExtractor.fix_common_errors(text)
+        # Trim whitespace
+        text = text.strip()
         
         return text
     
     @staticmethod
-    def fix_common_errors(text: str) -> str:
-        """Fix common OCR errors."""
-        # Common character substitutions
-        replacements = {
-            '0': 'O',  # Zero to O in text context
-            'l': 'I',  # lowercase L to I in certain contexts
-        }
+    def extract_lines(text: str) -> List[str]:
+        """
+        Split text into lines.
         
-        # Apply context-aware fixes
-        # This is a simplified version - can be expanded
+        Args:
+            text: Input text
+            
+        Returns:
+            List of lines
+        """
+        return [line.strip() for line in text.split('\n') if line.strip()]
+    
+    @staticmethod
+    def extract_numbers(text: str) -> List[str]:
+        """
+        Extract all numbers from text.
         
-        return text
+        Args:
+            text: Input text
+            
+        Returns:
+            List of numbers
+        """
+        return re.findall(r'\d+(?:\.\d+)?', text)
     
     @staticmethod
     def extract_dates(text: str) -> List[str]:
-        """Extract dates from text."""
-        # Various date patterns
+        """
+        Extract dates from text.
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            List of dates
+        """
+        # Common date patterns
         patterns = [
-            r'\d{2}/\d{2}/\d{4}',  # DD/MM/YYYY
-            r'\d{4}-\d{2}-\d{2}',  # YYYY-MM-DD
-            r'\d{2}\.\d{2}\.\d{4}',  # DD.MM.YYYY
+            r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}',  # DD/MM/YYYY or MM/DD/YYYY
+            r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',  # YYYY-MM-DD
             r'\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}',
         ]
         
@@ -54,23 +80,34 @@ class TextExtractor:
         return dates
     
     @staticmethod
-    def extract_numbers(text: str) -> List[str]:
-        """Extract numbers from text."""
-        return re.findall(r'\b\d+(?:\.\d+)?\b', text)
-    
-    @staticmethod
     def extract_emails(text: str) -> List[str]:
-        """Extract email addresses from text."""
+        """
+        Extract email addresses from text.
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            List of emails
+        """
         pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         return re.findall(pattern, text)
     
     @staticmethod
-    def extract_phones(text: str) -> List[str]:
-        """Extract phone numbers from text."""
+    def extract_phone_numbers(text: str) -> List[str]:
+        """
+        Extract phone numbers from text.
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            List of phone numbers
+        """
         patterns = [
-            r'\+?\d{1,3}[-\s]?\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4}',
-            r'\d{3}-\d{3}-\d{4}',
-            r'\(\d{3}\)\s*\d{3}-\d{4}',
+            r'\+?\d[\d\s\-\(\)]{7,}\d',  # International format
+            r'\(\d{3}\)\s*\d{3}[\-\s]?\d{4}',  # (123) 456-7890
+            r'\d{3}[\-\s]?\d{3}[\-\s]?\d{4}',  # 123-456-7890
         ]
         
         phones = []
@@ -80,23 +117,62 @@ class TextExtractor:
         return phones
     
     @staticmethod
-    def split_into_lines(text: str) -> List[str]:
-        """Split text into lines."""
-        return [line.strip() for line in text.split('\n') if line.strip()]
+    def extract_amounts(text: str, currency: Optional[str] = None) -> List[str]:
+        """
+        Extract monetary amounts from text.
+        
+        Args:
+            text: Input text
+            currency: Optional currency symbol
+            
+        Returns:
+            List of amounts
+        """
+        if currency:
+            pattern = rf'{re.escape(currency)}\s*\d+(?:[.,]\d{{2}})?'
+        else:
+            # Generic currency patterns
+            pattern = r'[$£€¥]\s*\d+(?:[.,]\d{2})?'
+        
+        return re.findall(pattern, text)
     
     @staticmethod
-    def get_text_stats(text: str) -> Dict[str, Any]:
-        """Get statistics about extracted text."""
-        lines = TextExtractor.split_into_lines(text)
-        words = text.split()
+    def split_into_paragraphs(text: str) -> List[str]:
+        """
+        Split text into paragraphs.
         
-        return {
-            'total_characters': len(text),
-            'total_lines': len(lines),
-            'total_words': len(words),
-            'avg_word_length': sum(len(word) for word in words) / len(words) if words else 0,
-            'avg_line_length': sum(len(line) for line in lines) / len(lines) if lines else 0,
-            'has_dates': len(TextExtractor.extract_dates(text)) > 0,
-            'has_emails': len(TextExtractor.extract_emails(text)) > 0,
-            'has_phones': len(TextExtractor.extract_phones(text)) > 0,
-        }
+        Args:
+            text: Input text
+            
+        Returns:
+            List of paragraphs
+        """
+        # Split on double newlines
+        paragraphs = re.split(r'\n\s*\n', text)
+        return [p.strip() for p in paragraphs if p.strip()]
+    
+    @staticmethod
+    def extract_key_value_pairs(text: str) -> Dict[str, str]:
+        """
+        Extract key-value pairs from text (e.g., "Name: John").
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            Dictionary of key-value pairs
+        """
+        pairs = {}
+        lines = TextExtractor.extract_lines(text)
+        
+        for line in lines:
+            # Look for colon-separated pairs
+            if ':' in line:
+                parts = line.split(':', 1)
+                if len(parts) == 2:
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+                    if key and value:
+                        pairs[key] = value
+        
+        return pairs
