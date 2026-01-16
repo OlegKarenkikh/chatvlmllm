@@ -1,51 +1,51 @@
-# ChatVLMLLM - Document OCR & Vision-Language Models
+# ChatVLMLLM - OCR документов и Vision-Language модели
 
-A comprehensive toolkit for document OCR, visual understanding, and multimodal AI applications using state-of-the-art vision-language models.
+Комплексный инструментарий для OCR документов, визуального понимания и мультимодальных AI-приложений с использованием современных vision-language моделей.
 
-## ✨ Features
+## Возможности
 
-### Supported Models
+### Поддерживаемые модели
 
-- 🔍 **GOT-OCR 2.0** - Specialized OCR for complex layouts
-- 🤖 **Qwen2-VL** (2B, 7B) - Advanced vision-language understanding
-- ⭐ **Qwen3-VL** (2B, 4B, 8B) - Latest VLM with 32 languages OCR, visual agent, 256K context
-- 📚 **dots.ocr** - SOTA multilingual document parser (100+ languages)
+- **GOT-OCR 2.0** - Специализированный OCR для сложных макетов
+- **Qwen2-VL** (2B, 7B) - Продвинутое vision-language понимание
+- **Qwen3-VL** (2B, 4B, 8B) - Новейшая VLM с OCR на 32 языках, визуальным агентом, контекстом 256K
+- **dots.ocr** - SOTA мультиязычный парсер документов (100+ языков)
 
-### Key Capabilities
+### Ключевые возможности
 
-- 🌐 **Multilingual OCR** - 32+ languages with high accuracy
-- 🤖 **Visual Agent** - GUI interaction and automation (Qwen3-VL)
-- 📊 **Document Analysis** - Layout detection, table extraction, structure parsing
-- 🧠 **Visual Reasoning** - Complex reasoning about images and diagrams
-- 🎥 **Video Understanding** - 256K context for long videos (Qwen3-VL)
-- 📦 **Flexible Quantization** - FP16, INT8, INT4 support
-- ⚡ **Flash Attention 2** - Faster inference with lower memory
-- 🚀 **REST API** - Production-ready FastAPI endpoints
-- 🐳 **Docker Support** - GPU-enabled containerization
+- **Мультиязычный OCR** - 32+ языка с высокой точностью
+- **Визуальный агент** - Взаимодействие с GUI и автоматизация (Qwen3-VL)
+- **Анализ документов** - Определение макета, извлечение таблиц, парсинг структуры
+- **Визуальное рассуждение** - Сложные рассуждения об изображениях и диаграммах
+- **Понимание видео** - Контекст 256K для длинных видео (Qwen3-VL)
+- **Гибкая квантизация** - Поддержка FP16, INT8, INT4
+- **Flash Attention 2** - Быстрый инференс с меньшим потреблением памяти
+- **REST API** - Production-ready FastAPI эндпоинты
+- **Docker** - Контейнеризация с поддержкой GPU
 
-## 🚀 Quick Start
+## Быстрый старт
 
-### Installation
+### Установка
 
 ```bash
-# Clone repository
+# Клонирование репозитория
 git clone https://github.com/OlegKarenkikh/chatvlmllm.git
 cd chatvlmllm
 
-# Install dependencies
+# Установка зависимостей
 pip install -r requirements.txt
 
-# Install latest transformers for Qwen3-VL
+# Установка последней версии transformers для Qwen3-VL
 pip install git+https://github.com/huggingface/transformers
 ```
 
-### Check GPU Compatibility
+### Проверка совместимости GPU
 
 ```bash
 python scripts/check_gpu.py
 ```
 
-### Basic Usage
+### Базовое использование
 
 #### Python API
 
@@ -53,70 +53,70 @@ python scripts/check_gpu.py
 from models import ModelLoader
 from PIL import Image
 
-# Load Qwen3-VL 2B
+# Загрузка Qwen3-VL 2B
 model = ModelLoader.load_model('qwen3_vl_2b')
 
-# Process image
+# Обработка изображения
 image = Image.open('document.jpg')
 result = model.extract_text(image)
 
 print(result)
 ```
 
-#### Streamlit App
+#### Streamlit приложение
 
 ```bash
 streamlit run app.py
 ```
 
-Access: http://localhost:8501
+Доступ: http://localhost:8501
 
 #### REST API
 
 ```bash
-# Start API server
+# Запуск API сервера
 uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 
-# Use API
+# Использование API
 curl -X POST "http://localhost:8000/ocr?model=qwen3_vl_2b" \
   -F "file=@document.jpg"
 ```
 
-API Docs: http://localhost:8000/docs
+Документация API: http://localhost:8000/docs
 
 #### Docker
 
 ```bash
-# Build and run
+# Сборка и запуск
 docker-compose up -d
 
-# Access services
+# Доступ к сервисам
 # Streamlit: http://localhost:8501
 # API: http://localhost:8000/docs
 ```
 
-## 📊 GPU Requirements
+## Требования к GPU
 
-| GPU | VRAM | Best Model | Status |
-|-----|------|-----------|--------|
-| RTX 5090 | 32GB | Qwen3-VL 8B@FP16 | ✅ Perfect |
-| RTX 5080 | 16GB | Qwen3-VL 8B@INT8 | ✅ Excellent |
-| RTX 5070 | 12GB | Qwen3-VL 4B@FP16 | ✅ Good |
-| RTX 5060 Ti | 16GB | Qwen3-VL 8B@INT8 | ✅ Best Value |
-| RTX 5060 Ti | 8GB | Qwen3-VL 4B@INT4 | ⚠️ Limited |
+| GPU | VRAM | Лучшая модель | Статус |
+|-----|------|---------------|--------|
+| RTX 5090 | 32GB | Qwen3-VL 8B@FP16 | Идеально |
+| RTX 5080 | 16GB | Qwen3-VL 8B@INT8 | Отлично |
+| RTX 5070 | 12GB | Qwen3-VL 4B@FP16 | Хорошо |
+| RTX 5060 Ti | 16GB | Qwen3-VL 8B@INT8 | Лучшее соотношение |
+| RTX 5060 Ti | 8GB | Qwen3-VL 4B@INT4 | Ограниченно |
 
-See [GPU Requirements Guide](docs/gpu_requirements.md) for detailed compatibility.
+Подробнее см. [Руководство по требованиям GPU](docs/gpu_requirements.md)
 
-## 📖 Documentation
+## Документация
 
-- [GPU Requirements](docs/gpu_requirements.md) - Comprehensive GPU compatibility guide
-- [Qwen3-VL Guide](docs/qwen3_vl_guide.md) - Qwen3-VL usage and optimization
-- [API Guide](docs/api_guide.md) - REST API documentation
-- [Model Cache Guide](docs/model_cache_guide.md) - Managing model downloads
+- [Требования к GPU](docs/gpu_requirements.md) - Полное руководство по совместимости
+- [Руководство по Qwen3-VL](docs/qwen3_vl_guide.md) - Использование и оптимизация
+- [Руководство по API](docs/api_guide.md) - Документация REST API
+- [Руководство по кешу моделей](docs/model_cache_guide.md) - Управление загрузками моделей
 
-## 🔧 API Usage
+## Использование API
 
-### Python Client
+### Python клиент
 
 ```python
 import requests
@@ -130,22 +130,22 @@ with open('document.jpg', 'rb') as f:
     )
     print(response.json()['text'])
 
-# Chat
+# Чат
 with open('image.jpg', 'rb') as f:
     response = requests.post(
         'http://localhost:8000/chat',
         files={'file': f},
-        data={'prompt': 'What\'s in this image?'}
+        data={'prompt': 'Что на этом изображении?'}
     )
     print(response.json()['response'])
 ```
 
-See [examples/api_usage.py](examples/api_usage.py) for more examples.
+Больше примеров см. [examples/api_usage.py](examples/api_usage.py).
 
 ### cURL
 
 ```bash
-# Health check
+# Проверка здоровья
 curl http://localhost:8000/health
 
 # OCR
@@ -153,43 +153,43 @@ curl -X POST "http://localhost:8000/ocr" \
   -F "file=@document.jpg" \
   -F "model=qwen3_vl_2b"
 
-# Chat
+# Чат
 curl -X POST "http://localhost:8000/chat" \
   -F "file=@image.jpg" \
-  -F "prompt=Describe this image"
+  -F "prompt=Опишите это изображение"
 ```
 
-See [examples/api_curl.sh](examples/api_curl.sh) for more examples.
+Больше примеров см. [examples/api_curl.sh](examples/api_curl.sh).
 
-## 🐳 Docker Deployment
+## Docker развёртывание
 
-### Using docker-compose
+### Использование docker-compose
 
 ```bash
-# Start all services
+# Запуск всех сервисов
 docker-compose up -d
 
-# Check logs
+# Просмотр логов
 docker-compose logs -f
 
-# Stop services
+# Остановка сервисов
 docker-compose down
 ```
 
-### Services
+### Сервисы
 
 - **API**: http://localhost:8000
   - Swagger UI: http://localhost:8000/docs
   - ReDoc: http://localhost:8000/redoc
 - **Streamlit**: http://localhost:8501
 
-### Requirements
+### Требования
 
 - Docker 20.10+
 - NVIDIA Docker runtime
-- 16GB+ VRAM recommended
+- Рекомендуется 16GB+ VRAM
 
-## 🛠️ Configuration
+## Конфигурация
 
 ### config.yaml
 
@@ -202,7 +202,7 @@ models:
     device_map: "auto"
 ```
 
-### INT4 Quantization (66% VRAM Reduction)
+### INT4 квантизация (снижение VRAM на 66%)
 
 ```yaml
 models:
@@ -210,88 +210,88 @@ models:
     precision: "int4"  # 17.6GB -> 6GB
 ```
 
-## ✨ What's New
+## Что нового
 
 ### v1.0.0 (2026-01-15)
 
-#### 🎉 Major Features
+#### Основные возможности
 
-- ✅ **Qwen3-VL Support** - All three models (2B, 4B, 8B)
-- ✅ **REST API** - Production-ready FastAPI
-- ✅ **Docker** - Full containerization with GPU support
-- ✅ **Streamlit App** - Updated with all models
-- ✅ **Documentation** - Complete API and usage guides
+- **Поддержка Qwen3-VL** - Все три модели (2B, 4B, 8B)
+- **REST API** - Production-ready FastAPI
+- **Docker** - Полная контейнеризация с поддержкой GPU
+- **Streamlit приложение** - Обновлено со всеми моделями
+- **Документация** - Полные руководства по API и использованию
 
-#### 🔥 Qwen3-VL Highlights
+#### Особенности Qwen3-VL
 
-- 🌐 **32 languages OCR** (vs 19 in Qwen2-VL)
-- 🤖 **Visual agent** capabilities
-- 📚 **256K context** (expandable to 1M)
-- 🎯 **3D grounding** for spatial reasoning
-- 🧠 **Thinking mode** for complex tasks
-- 📦 **INT4 support** - 66% less VRAM
+- **OCR на 32 языках** (vs 19 в Qwen2-VL)
+- **Визуальный агент**
+- **Контекст 256K** (расширяемый до 1M)
+- **3D grounding** для пространственных рассуждений
+- **Режим размышления** для сложных задач
+- **Поддержка INT4** - на 66% меньше VRAM
 
-## 💻 Usage Examples
+## Примеры использования
 
-### Document OCR
+### OCR документов
 
 ```python
-# Extract text from document
+# Извлечение текста из документа
 text = model.extract_text(image, language="Russian")
 ```
 
-### Document Analysis
+### Анализ документов
 
 ```python
-# Analyze document structure
+# Анализ структуры документа
 analysis = model.analyze_document(image, focus="layout")
 ```
 
-### Visual Reasoning
+### Визуальное рассуждение
 
 ```python
-# Complex reasoning
+# Сложные рассуждения
 reasoning = model.visual_reasoning(
     image, 
-    question="Explain the workflow in this diagram"
+    question="Объясните рабочий процесс на этой диаграмме"
 )
 ```
 
-### Visual Agent (Qwen3-VL)
+### Визуальный агент (Qwen3-VL)
 
 ```python
-# GUI interaction
+# Взаимодействие с GUI
 actions = model.chat(
     image=screenshot,
-    prompt="Find and click the Submit button"
+    prompt="Найдите и нажмите кнопку Отправить"
 )
 ```
 
-## 💡 Tips & Best Practices
+## Советы и лучшие практики
 
-### For 8GB VRAM
+### Для 8GB VRAM
 
 ```python
-# Use INT4 quantization
+# Используйте INT4 квантизацию
 model = ModelLoader.load_model(
     'qwen3_vl_8b',
-    precision='int4'  # 6GB instead of 17.6GB
+    precision='int4'  # 6GB вместо 17.6GB
 )
 ```
 
-### For 12GB VRAM
+### Для 12GB VRAM
 
 ```python
-# Run multiple models
+# Запуск нескольких моделей
 qwen4b = ModelLoader.load_model('qwen3_vl_4b')  # 8.9GB
 qwen2b = ModelLoader.load_model('qwen3_vl_2b')  # 4.4GB
-# Total: ~11GB with INT8
+# Итого: ~11GB с INT8
 ```
 
-### For 16GB+ VRAM
+### Для 16GB+ VRAM
 
 ```python
-# Optimal quality
+# Оптимальное качество
 model = ModelLoader.load_model(
     'qwen3_vl_8b',
     precision='int8',  # 10GB
@@ -299,26 +299,26 @@ model = ModelLoader.load_model(
 )
 ```
 
-## 🔧 Development
+## Разработка
 
-### Project Structure
+### Структура проекта
 
 ```
 chatvlmllm/
 ├── api.py                  # FastAPI REST API
-├── app.py                  # Streamlit application
+├── app.py                  # Streamlit приложение
 ├── models/
-│   ├── got_ocr.py          # GOT-OCR integration
-│   ├── qwen_vl.py          # Qwen2-VL integration
-│   ├── qwen3_vl.py         # Qwen3-VL integration
-│   ├── dots_ocr.py         # dots.ocr integration
-│   └── model_loader.py     # Model factory
+│   ├── got_ocr.py          # Интеграция GOT-OCR
+│   ├── qwen_vl.py          # Интеграция Qwen2-VL
+│   ├── qwen3_vl.py         # Интеграция Qwen3-VL
+│   ├── dots_ocr.py         # Интеграция dots.ocr
+│   └── model_loader.py     # Фабрика моделей
 ├── utils/
 │   ├── logger.py
 │   └── model_cache.py
 ├── scripts/
-│   ├── check_gpu.py        # GPU compatibility checker
-│   └── check_models.py     # Model cache checker
+│   ├── check_gpu.py        # Проверка совместимости GPU
+│   └── check_models.py     # Проверка кеша моделей
 ├── docs/
 │   ├── gpu_requirements.md
 │   ├── qwen3_vl_guide.md
@@ -326,48 +326,48 @@ chatvlmllm/
 ├── examples/
 │   ├── api_usage.py
 │   └── api_curl.sh
-├── Dockerfile              # Docker image
-├── docker-compose.yml      # Docker services
-└── config.yaml             # Configuration
+├── Dockerfile              # Docker образ
+├── docker-compose.yml      # Docker сервисы
+└── config.yaml             # Конфигурация
 ```
 
-### Testing
+### Тестирование
 
 ```bash
 pytest tests/
 ```
 
-## 🤝 Contributing
+## Участие в разработке
 
-Contributions welcome! Please open an issue or PR.
+Приветствуем вклад в проект! Пожалуйста, откройте issue или PR.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+См. [CONTRIBUTING.md](CONTRIBUTING.md) для руководства.
 
-## 📝 License
+## Лицензия
 
 MIT License
 
-## 🔗 Links
+## Ссылки
 
 - **GitHub**: https://github.com/OlegKarenkikh/chatvlmllm
 - **Qwen3-VL**: https://github.com/QwenLM/Qwen3-VL
 - **GOT-OCR**: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
 - **dots.ocr**: https://github.com/rednote-hilab/dots.ocr
 
-## ⭐ Acknowledgments
+## Благодарности
 
-- Qwen Team for Qwen3-VL
-- Stepfun AI for GOT-OCR 2.0
-- RedNote for dots.ocr
+- Команда Qwen за Qwen3-VL
+- Stepfun AI за GOT-OCR 2.0
+- RedNote за dots.ocr
 
 ---
 
-**Star ⭐ this repo if you find it useful!**
+**Поставьте звезду репозиторию, если он вам полезен!**
 
-## 📊 Status
+## Статус
 
 ![GitHub stars](https://img.shields.io/github/stars/OlegKarenkikh/chatvlmllm?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/OlegKarenkikh/chatvlmllm?style=social)
 ![License](https://img.shields.io/github/license/OlegKarenkikh/chatvlmllm)
 
-**Production Ready** | **7 Models** | **REST API** | **Docker Support**
+**Production Ready** | **7 моделей** | **REST API** | **Docker**
