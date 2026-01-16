@@ -6,19 +6,21 @@ from PIL import Image
 import torch
 
 
-class BaseVLMModel(ABC):
+class BaseModel(ABC):
     """Abstract base class for Vision Language Models."""
     
-    def __init__(self, model_id: str, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]):
         """
         Initialize base VLM model.
         
         Args:
-            model_id: HuggingFace model identifier
             config: Model configuration dictionary
         """
-        self.model_id = model_id
         self.config = config
+        self.model_path = config.get("model_path") or config.get("model_id")
+        self.model_id = self.model_path
+        self.device_map = config.get("device_map", "auto")
+        self.precision = config.get("precision", "fp16")
         self.model = None
         self.processor = None
         self.device = self._get_device()
@@ -118,6 +120,7 @@ class BaseVLMModel(ABC):
         """Get model information and statistics."""
         return {
             "model_id": self.model_id,
+            "model_path": self.model_path,
             "device": self.device,
             "config": self.config,
             "loaded": self.model is not None
@@ -133,3 +136,7 @@ class BaseVLMModel(ABC):
             
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+
+class BaseVLMModel(BaseModel):
+    """Backward-compatible alias for BaseModel."""

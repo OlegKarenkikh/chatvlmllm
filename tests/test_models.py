@@ -45,7 +45,7 @@ class TestModelLoader:
         config = ModelLoader.load_config(config_path)
         for model_key, model_config in config["models"].items():
             assert "name" in model_config
-            assert "model_id" in model_config
+            assert "model_path" in model_config
             assert "precision" in model_config
     
     @pytest.mark.skip(reason="Requires model download and GPU")
@@ -78,8 +78,8 @@ class TestBaseVLMModel:
             
             def process_image(self, image, prompt=None):
                 return "test"
-        
-        model = MockModel("test", {})
+
+        model = MockModel({"model_path": "test"})
         assert model.device in ["cuda", "mps", "cpu"]
     
     def test_extract_fields_basic(self):
@@ -92,8 +92,8 @@ class TestBaseVLMModel:
             
             def process_image(self, image, prompt=None):
                 return "test"
-        
-        model = MockModel("test", {})
+
+        model = MockModel({"model_path": "test"})
         text = "Name: John Doe\nAge: 30"
         fields = model.extract_fields(text, ["Name", "Age"])
         

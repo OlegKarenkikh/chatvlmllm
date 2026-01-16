@@ -164,3 +164,20 @@ class ImageProcessor:
             "height": image.height,
             "megapixels": round((image.width * image.height) / 1_000_000, 2)
         }
+
+
+def preprocess_image(
+    image: Image.Image,
+    resize: bool = True,
+    max_dimension: int = 2048,
+    enhance: bool = True,
+    denoise: bool = False
+) -> Image.Image:
+    """Convenience wrapper for ImageProcessor.preprocess."""
+    return ImageProcessor.preprocess(
+        image=image,
+        resize=resize,
+        max_dimension=max_dimension,
+        enhance=enhance,
+        denoise=denoise
+    )

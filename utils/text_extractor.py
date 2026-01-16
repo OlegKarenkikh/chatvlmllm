@@ -106,7 +106,7 @@ class TextExtractor:
         """Split text into lines, removing empty lines."""
         lines = text.split('\n')
         return [line.strip() for line in lines if line.strip()]
-    
+
     @staticmethod
     def extract_key_value_pairs(text: str) -> Dict[str, str]:
         """
@@ -130,7 +130,7 @@ class TextExtractor:
                 pairs[key] = value
         
         return pairs
-    
+
     @staticmethod
     def calculate_confidence_score(text: str) -> float:
         """
@@ -162,3 +162,13 @@ class TextExtractor:
             score -= 0.1
         
         return max(0.0, min(1.0, score))
+
+
+def extract_lines(text: str) -> List[str]:
+    """Convenience wrapper for TextExtractor.split_into_lines."""
+    return TextExtractor.split_into_lines(text)
+
+
+def clean_text(text: str) -> str:
+    """Convenience wrapper for TextExtractor.clean_text."""
+    return TextExtractor.clean_text(text)

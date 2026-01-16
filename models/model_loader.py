@@ -34,11 +34,25 @@ class ModelLoader:
     _cache_manager = ModelCacheManager()
     
     @classmethod
-    def load_config(cls) -> dict:
+    def load_config(cls, config_path: Optional[str] = None) -> dict:
         """Load configuration from YAML file."""
-        config_path = Path("config.yaml")
-        with open(config_path, 'r', encoding='utf-8') as f:
+        resolved_path = Path(config_path) if config_path else Path("config.yaml")
+        with open(resolved_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
+
+    @classmethod
+    def get_available_models(cls, config_path: Optional[str] = None) -> Dict[str, dict]:
+        """
+        Return available models from configuration.
+        
+        Args:
+            config_path: Optional path to config.yaml
+        
+        Returns:
+            Mapping of model keys to configuration
+        """
+        config = cls.load_config(config_path)
+        return config.get("models", {})
     
     @classmethod
     def check_model_cache(cls, model_key: str) -> tuple[bool, Optional[str]]:

@@ -2,7 +2,7 @@
 torch>=2.0.0
 torchvision>=0.15.0
 transformers>=4.36.0
-accele rate>=0.25.0
+accelerate>=0.25.0
 
 # VLM specific
 qwen-vl-utils
