@@ -9,16 +9,21 @@ import torch
 class BaseModel(ABC):
     """Abstract base class for Vision Language Models."""
     
-    def __init__(self, model_id: str, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]):
         """
         Initialize base VLM model.
         
         Args:
-            model_id: HuggingFace model identifier
-            config: Model configuration dictionary
+            config: Model configuration dictionary containing:
+                - model_path: HuggingFace model identifier
+                - precision: Model precision (fp16, bf16, int8, int4)
+                - device_map: Device mapping strategy
         """
-        self.model_id = model_id
         self.config = config
+        self.model_path = config.get('model_path', '')
+        self.model_id = self.model_path  # Alias for compatibility
+        self.precision = config.get('precision', 'fp16')
+        self.device_map = config.get('device_map', 'auto')
         self.model = None
         self.processor = None
         self.device = self._get_device()

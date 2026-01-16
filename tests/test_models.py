@@ -79,7 +79,7 @@ class TestBaseModel:
             def process_image(self, image, prompt=None):
                 return "test"
         
-        model = MockModel("test", {})
+        model = MockModel({"model_path": "test", "precision": "fp16"})
         assert model.device in ["cuda", "mps", "cpu"]
     
     def test_extract_fields_basic(self):
@@ -93,7 +93,7 @@ class TestBaseModel:
             def process_image(self, image, prompt=None):
                 return "test"
         
-        model = MockModel("test", {})
+        model = MockModel({"model_path": "test", "precision": "fp16"})
         text = "Name: John Doe\nAge: 30"
         fields = model.extract_fields(text, ["Name", "Age"])
         

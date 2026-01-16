@@ -23,12 +23,9 @@ from .model_cache import (
 __all__ = [
     # Image processing
     'ImageProcessor',
-    'preprocess_image',
     
     # Text extraction
     'TextExtractor',
-    'clean_text',
-    'extract_lines',
     
     # Field parsing
     'FieldParser',
