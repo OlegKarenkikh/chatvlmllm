@@ -1,34 +1,39 @@
-# ChatVLMLLM API Guide
+# Руководство по REST API
 
-Complete REST API documentation for ChatVLMLLM.
+## Обзор
 
-## Quick Start
+ChatVLMLLM предоставляет REST API на базе FastAPI для программного доступа к функциям OCR и визуального понимания.
 
-### Start API Server
+## Запуск сервера
 
 ```bash
-# Development
-uvicorn api:app --reload --host 0.0.0.0 --port 8000
+# Режим разработки с автоперезагрузкой
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 
-# Production
+# Продакшен режим
 uvicorn api:app --host 0.0.0.0 --port 8000 --workers 4
-
-# Docker
-docker-compose up -d api
 ```
 
-### Access Documentation
+## Документация API
+
+После запуска сервера доступна интерактивная документация:
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
 
-## Endpoints
+## Эндпоинты
 
-### GET `/`
+### Системные
 
-API information.
+#### GET /
+Корневой эндпоинт с информацией об API.
 
-**Response:**
+```bash
+curl http://localhost:8000/
+```
+
+Ответ:
 ```json
 {
   "message": "ChatVLMLLM API",
@@ -38,120 +43,203 @@ API information.
 }
 ```
 
-### GET `/health`
+#### GET /health
+Проверка здоровья сервиса и статуса GPU.
 
-Health check with GPU status.
+```bash
+curl http://localhost:8000/health
+```
 
-**Response:**
+Ответ:
 ```json
 {
   "status": "healthy",
   "gpu_available": true,
-  "gpu_name": "NVIDIA GeForce RTX 5070",
-  "models_loaded": 2,
-  "loaded_models": ["qwen3_vl_2b", "got_ocr"]
+  "gpu_name": "NVIDIA GeForce RTX 4090",
+  "models_loaded": 1,
+  "loaded_models": ["qwen3_vl_2b"]
 }
 ```
 
-### GET `/models`
+#### GET /models
+Список доступных моделей.
 
-List available models.
+```bash
+curl http://localhost:8000/models
+```
 
-**Response:**
+Ответ:
 ```json
 {
   "available": [
     {"id": "got_ocr", "name": "GOT-OCR 2.0", "params": "580M"},
+    {"id": "qwen_vl_2b", "name": "Qwen2-VL 2B", "params": "2B"},
+    {"id": "qwen_vl_7b", "name": "Qwen2-VL 7B", "params": "7B"},
     {"id": "qwen3_vl_2b", "name": "Qwen3-VL 2B", "params": "2B"},
-    ...
+    {"id": "qwen3_vl_4b", "name": "Qwen3-VL 4B", "params": "4B"},
+    {"id": "qwen3_vl_8b", "name": "Qwen3-VL 8B", "params": "8B"},
+    {"id": "dots_ocr", "name": "dots.ocr", "params": "1.7B"}
   ],
   "loaded": ["qwen3_vl_2b"]
 }
 ```
 
-### POST `/ocr`
+### OCR
 
-Extract text from image.
+#### POST /ocr
+Извлечение текста из изображения.
 
-**Parameters:**
-- `file` (required): Image file
-- `model` (optional): Model name (default: `qwen3_vl_2b`)
-- `language` (optional): Language hint
+**Параметры:**
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|--------------|----------|
+| file | File | Да | Изображение (JPG, PNG) |
+| model | string | Нет | Модель (по умолчанию: qwen3_vl_2b) |
+| language | string | Нет | Подсказка языка |
 
-**Example:**
+**Пример с cURL:**
 ```bash
-curl -X POST "http://localhost:8000/ocr?model=qwen3_vl_2b" \
-  -F "file=@document.jpg"
+curl -X POST "http://localhost:8000/ocr" \
+  -F "file=@document.jpg" \
+  -F "model=qwen3_vl_2b"
 ```
 
-**Response:**
+**Пример с Python:**
+```python
+import requests
+
+with open('document.jpg', 'rb') as f:
+    response = requests.post(
+        'http://localhost:8000/ocr',
+        files={'file': f},
+        params={'model': 'qwen3_vl_2b', 'language': 'Russian'}
+    )
+
+result = response.json()
+print(result['text'])
+```
+
+**Ответ:**
 ```json
 {
-  "text": "Extracted text content...",
+  "text": "Извлечённый текст из документа...",
   "model": "qwen3_vl_2b",
-  "processing_time": 1.23,
+  "processing_time": 1.234,
   "image_size": [1920, 1080],
-  "language": null
+  "language": "Russian"
 }
 ```
 
-### POST `/chat`
+### Чат
 
-Chat with VLM about an image.
+#### POST /chat
+Чат с моделью об изображении.
 
-**Parameters:**
-- `file` (required): Image file
-- `prompt` (required): User prompt
-- `model` (optional): Model name (default: `qwen3_vl_2b`)
-- `temperature` (optional): 0.0-1.0 (default: 0.7)
-- `max_tokens` (optional): Max tokens (default: 512)
+**Параметры:**
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|--------------|----------|
+| file | File | Да | Изображение |
+| prompt | string | Нет | Вопрос (по умолчанию: "Describe this image") |
+| model | string | Нет | Модель (по умолчанию: qwen3_vl_2b) |
+| temperature | float | Нет | Температура сэмплирования (0.0-1.0) |
+| max_tokens | int | Нет | Максимум токенов для генерации |
 
-**Example:**
+**Пример с cURL:**
 ```bash
 curl -X POST "http://localhost:8000/chat" \
   -F "file=@image.jpg" \
-  -F "prompt=What's in this image?" \
-  -F "model=qwen3_vl_4b" \
-  -F "temperature=0.7"
+  -F "prompt=Что изображено на картинке?" \
+  -F "model=qwen3_vl_2b"
 ```
 
-**Response:**
+**Пример с Python:**
+```python
+import requests
+
+with open('image.jpg', 'rb') as f:
+    response = requests.post(
+        'http://localhost:8000/chat',
+        files={'file': f},
+        data={
+            'prompt': 'Опишите содержимое этого документа',
+            'model': 'qwen3_vl_2b',
+            'temperature': 0.7,
+            'max_tokens': 512
+        }
+    )
+
+result = response.json()
+print(result['response'])
+```
+
+**Ответ:**
 ```json
 {
-  "response": "This image shows...",
-  "model": "qwen3_vl_4b",
-  "processing_time": 2.45,
-  "prompt": "What's in this image?"
+  "response": "На изображении представлен...",
+  "model": "qwen3_vl_2b",
+  "processing_time": 2.567,
+  "prompt": "Что изображено на картинке?"
 }
 ```
 
-### POST `/batch/ocr`
+### Пакетная обработка
 
-Batch OCR processing.
+#### POST /batch/ocr
+Пакетная обработка нескольких изображений.
 
-**Parameters:**
-- `files` (required): List of image files
-- `model` (optional): Model name
+**Параметры:**
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|--------------|----------|
+| files | File[] | Да | Список изображений |
+| model | string | Нет | Модель |
 
-**Example:**
+**Пример с cURL:**
 ```bash
-curl -X POST "http://localhost:8000/batch/ocr?model=qwen3_vl_2b" \
+curl -X POST "http://localhost:8000/batch/ocr" \
   -F "files=@doc1.jpg" \
   -F "files=@doc2.jpg" \
-  -F "files=@doc3.jpg"
+  -F "files=@doc3.jpg" \
+  -F "model=qwen3_vl_2b"
 ```
 
-**Response:**
+**Пример с Python:**
+```python
+import requests
+
+files = [
+    ('files', open('doc1.jpg', 'rb')),
+    ('files', open('doc2.jpg', 'rb')),
+    ('files', open('doc3.jpg', 'rb'))
+]
+
+response = requests.post(
+    'http://localhost:8000/batch/ocr',
+    files=files,
+    params={'model': 'qwen3_vl_2b'}
+)
+
+result = response.json()
+print(f"Обработано: {result['successful']}/{result['total']}")
+
+for item in result['results']:
+    print(f"{item['filename']}: {item['text'][:100]}...")
+```
+
+**Ответ:**
 ```json
 {
   "results": [
     {
       "filename": "doc1.jpg",
-      "text": "...",
+      "text": "Текст из первого документа...",
       "processing_time": 1.2,
       "status": "success"
     },
-    ...
+    {
+      "filename": "doc2.jpg",
+      "text": "Текст из второго документа...",
+      "processing_time": 1.1,
+      "status": "success"
+    }
   ],
   "total": 3,
   "successful": 3,
@@ -159,252 +247,129 @@ curl -X POST "http://localhost:8000/batch/ocr?model=qwen3_vl_2b" \
 }
 ```
 
-### DELETE `/models/{model_name}`
+### Управление моделями
 
-Unload model from memory.
+#### DELETE /models/{model_name}
+Выгрузка модели из памяти.
 
-**Example:**
 ```bash
-curl -X DELETE "http://localhost:8000/models/qwen3_vl_8b"
+curl -X DELETE "http://localhost:8000/models/qwen3_vl_2b"
 ```
 
-**Response:**
+**Ответ:**
 ```json
 {
   "status": "success",
-  "message": "Model qwen3_vl_8b unloaded"
+  "message": "Model qwen3_vl_2b unloaded"
 }
 ```
 
-## Python Client
+## Обработка ошибок
 
-### Installation
+API возвращает стандартные HTTP коды ошибок:
 
-```bash
-pip install requests
-```
+| Код | Описание |
+|-----|----------|
+| 200 | Успешный запрос |
+| 400 | Неверный запрос |
+| 404 | Ресурс не найден |
+| 500 | Внутренняя ошибка сервера |
 
-### Basic Usage
-
-```python
-import requests
-
-# OCR
-with open('document.jpg', 'rb') as f:
-    response = requests.post(
-        'http://localhost:8000/ocr',
-        files={'file': f},
-        params={'model': 'qwen3_vl_2b'}
-    )
-    print(response.json()['text'])
-
-# Chat
-with open('image.jpg', 'rb') as f:
-    response = requests.post(
-        'http://localhost:8000/chat',
-        files={'file': f},
-        data={
-            'prompt': 'Describe this image',
-            'model': 'qwen3_vl_4b',
-            'temperature': 0.7
-        }
-    )
-    print(response.json()['response'])
-
-# Batch
-files = [
-    ('files', open('doc1.jpg', 'rb')),
-    ('files', open('doc2.jpg', 'rb'))
-]
-response = requests.post(
-    'http://localhost:8000/batch/ocr',
-    files=files,
-    params={'model': 'qwen3_vl_2b'}
-)
-print(f"Processed {response.json()['successful']} files")
-```
-
-## Error Handling
-
-### Error Response Format
-
+Пример ошибки:
 ```json
 {
-  "detail": "Error message"
+  "detail": "Failed to load model: Model 'invalid_model' not found"
 }
 ```
 
-### Status Codes
+## Рекомендации по использованию
 
-- `200`: Success
-- `400`: Bad request
-- `404`: Not found
-- `500`: Server error
+### Выбор модели
 
-### Example Error Handling
+| Задача | Рекомендуемая модель |
+|--------|---------------------|
+| Быстрый OCR | qwen3_vl_2b |
+| Качественный OCR | qwen3_vl_8b |
+| Сложные макеты | got_ocr |
+| Много языков | dots_ocr |
+| Анализ документов | qwen3_vl_4b |
+
+### Оптимизация производительности
+
+1. **Предзагрузка моделей**: Первый запрос загружает модель, последующие быстрее
+2. **Пакетная обработка**: Используйте `/batch/ocr` для нескольких файлов
+3. **Размер изображений**: Оптимальный размер 1024-2048px по большей стороне
+4. **Кеширование**: Модели кешируются между запросами
+
+### Ограничения
+
+- Максимальный размер файла: 10MB
+- Поддерживаемые форматы: JPG, PNG, BMP, TIFF
+- Таймаут запроса: 30 секунд
+- Максимум файлов в пакете: 10
+
+## Примеры интеграции
+
+### Асинхронный клиент (aiohttp)
 
 ```python
-try:
-    response = requests.post('http://localhost:8000/ocr', ...)
-    response.raise_for_status()
-    result = response.json()
-except requests.exceptions.HTTPError as e:
-    print(f"HTTP Error: {e}")
-    print(f"Detail: {e.response.json()['detail']}")
-except Exception as e:
-    print(f"Error: {e}")
+import aiohttp
+import asyncio
+
+async def ocr_async(image_path: str) -> str:
+    async with aiohttp.ClientSession() as session:
+        with open(image_path, 'rb') as f:
+            data = aiohttp.FormData()
+            data.add_field('file', f, filename='image.jpg')
+            
+            async with session.post(
+                'http://localhost:8000/ocr',
+                data=data,
+                params={'model': 'qwen3_vl_2b'}
+            ) as response:
+                result = await response.json()
+                return result['text']
+
+# Использование
+text = asyncio.run(ocr_async('document.jpg'))
 ```
 
-## Performance Tips
-
-### Model Selection
-
-| VRAM | Recommended Model | Speed | Quality |
-|------|------------------|-------|----------|
-| 8 GB | qwen3_vl_2b | Fast | Good |
-| 12 GB | qwen3_vl_4b | Medium | Better |
-| 16 GB+ | qwen3_vl_8b | Slower | Best |
-
-### Batch Processing
+### Класс-обёртка
 
 ```python
-# Process multiple files efficiently
-import glob
-from pathlib import Path
-
-files = []
-for path in glob.glob('documents/*.jpg'):
-    files.append(('files', open(path, 'rb')))
-
-response = requests.post(
-    'http://localhost:8000/batch/ocr',
-    files=files
-)
-
-for result in response.json()['results']:
-    if result['status'] == 'success':
-        print(f"{result['filename']}: {result['text'][:100]}...")
-```
-
-### Concurrent Requests
-
-```python
-import concurrent.futures
 import requests
+from typing import Optional, List, Dict
 
-def process_image(image_path):
-    with open(image_path, 'rb') as f:
-        response = requests.post(
-            'http://localhost:8000/ocr',
-            files={'file': f}
-        )
+class ChatVLMClient:
+    def __init__(self, base_url: str = "http://localhost:8000"):
+        self.base_url = base_url
+    
+    def health(self) -> Dict:
+        response = requests.get(f"{self.base_url}/health")
         return response.json()
+    
+    def ocr(self, image_path: str, model: str = "qwen3_vl_2b", 
+            language: Optional[str] = None) -> str:
+        with open(image_path, 'rb') as f:
+            response = requests.post(
+                f"{self.base_url}/ocr",
+                files={'file': f},
+                params={'model': model, 'language': language}
+            )
+        return response.json()['text']
+    
+    def chat(self, image_path: str, prompt: str, 
+             model: str = "qwen3_vl_2b") -> str:
+        with open(image_path, 'rb') as f:
+            response = requests.post(
+                f"{self.base_url}/chat",
+                files={'file': f},
+                data={'prompt': prompt, 'model': model}
+            )
+        return response.json()['response']
 
-image_paths = ['img1.jpg', 'img2.jpg', 'img3.jpg']
-
-with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-    results = list(executor.map(process_image, image_paths))
+# Использование
+client = ChatVLMClient()
+text = client.ocr('document.jpg', language='Russian')
+answer = client.chat('diagram.png', 'Объясните эту диаграмму')
 ```
-
-## Docker Deployment
-
-### docker-compose.yml
-
-```yaml
-version: '3.8'
-services:
-  api:
-    build: .
-    command: uvicorn api:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-```
-
-### Start Services
-
-```bash
-# Build and start
-docker-compose up -d
-
-# Check logs
-docker-compose logs -f api
-
-# Stop
-docker-compose down
-```
-
-## Security
-
-### Future Features
-
-- API key authentication
-- Rate limiting
-- Request validation
-- HTTPS support
-
-### Current Setup
-
-⚠️ **Warning**: Current API has no authentication. Use behind firewall or add nginx proxy with auth.
-
-## Monitoring
-
-### Health Check
-
-```bash
-# Simple check
-curl http://localhost:8000/health
-
-# Monitor GPU
-watch -n 1 'curl -s http://localhost:8000/health | jq'
-```
-
-### Logging
-
-```python
-# Enable debug logging
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-## Troubleshooting
-
-### Out of Memory
-
-```bash
-# Use smaller model
-curl -X DELETE http://localhost:8000/models/qwen3_vl_8b
-
-# Load smaller model
-curl -X POST http://localhost:8000/ocr?model=qwen3_vl_2b -F "file=@test.jpg"
-```
-
-### Slow Response
-
-- Use smaller model
-- Enable Flash Attention in config.yaml
-- Use INT8/INT4 quantization
-- Check GPU utilization: `nvidia-smi`
-
-### Model Not Found
-
-```bash
-# Check available models
-curl http://localhost:8000/models
-
-# Download model first
-python -c "from models import ModelLoader; ModelLoader.load_model('qwen3_vl_2b')"
-```
-
-## Resources
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Swagger UI](http://localhost:8000/docs)
-- [GPU Requirements](gpu_requirements.md)
-- [Qwen3-VL Guide](qwen3_vl_guide.md)

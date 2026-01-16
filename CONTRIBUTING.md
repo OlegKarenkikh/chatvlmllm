@@ -1,239 +1,211 @@
-# Contributing to ChatVLMLLM
+# Руководство по участию в проекте
 
-Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
+Спасибо за интерес к участию в проекте ChatVLMLLM!
 
-## Code of Conduct
+## Способы участия
 
-Be respectful, constructive, and collaborative. We welcome contributions from everyone.
+### Сообщения об ошибках
 
-## How to Contribute
+1. Проверьте, не создан ли уже [issue](https://github.com/OlegKarenkikh/chatvlmllm/issues)
+2. Создайте новый issue с подробным описанием:
+   - Версия Python и ОС
+   - GPU и версия драйверов
+   - Шаги для воспроизведения
+   - Ожидаемое и фактическое поведение
+   - Логи ошибок
 
-### Reporting Bugs
+### Предложения улучшений
 
-1. Check if the bug has already been reported in [Issues](https://github.com/OlegKarenkikh/chatvlmllm/issues)
-2. If not, create a new issue with:
-   - Clear title and description
-   - Steps to reproduce
-   - Expected vs actual behavior
-   - Environment details (OS, Python version, GPU)
-   - Error messages or logs
-
-### Suggesting Enhancements
-
-1. Open an issue with the `enhancement` label
-2. Describe the feature and its benefits
-3. Provide examples or mockups if applicable
-4. Discuss implementation approach
+1. Создайте issue с тегом `enhancement`
+2. Опишите:
+   - Проблему, которую решает улучшение
+   - Предлагаемое решение
+   - Альтернативы, которые рассматривали
 
 ### Pull Requests
 
-1. Fork the repository
-2. Create a new branch: `git checkout -b feature/your-feature-name`
-3. Make your changes
-4. Write or update tests
-5. Update documentation
-6. Commit with clear messages: `git commit -m "Add feature: description"`
-7. Push to your fork: `git push origin feature/your-feature-name`
-8. Open a Pull Request
+1. Форкните репозиторий
+2. Создайте ветку для вашей функции:
+   ```bash
+   git checkout -b feature/my-feature
+   ```
+3. Внесите изменения
+4. Запустите тесты:
+   ```bash
+   pytest tests/
+   ```
+5. Закоммитьте с понятным сообщением:
+   ```bash
+   git commit -m "Добавлена новая функция X"
+   ```
+6. Отправьте изменения:
+   ```bash
+   git push origin feature/my-feature
+   ```
+7. Создайте Pull Request
 
-## Development Setup
+## Стандарты кода
 
-### Prerequisites
+### Стиль кода
 
-- Python 3.10+
-- Git
-- CUDA-capable GPU (recommended)
+- Следуйте PEP 8
+- Используйте type hints
+- Документируйте функции с docstrings
+- Максимальная длина строки: 100 символов
 
-### Installation
-
-```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/chatvlmllm.git
-cd chatvlmllm
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install development dependencies
-pip install pytest pytest-cov black flake8 mypy
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=models --cov=utils
-
-# Run specific test file
-pytest tests/test_models.py
-```
-
-### Code Style
-
-We follow PEP 8 with some modifications:
-
-```bash
-# Format code
-black .
-
-# Check style
-flake8 .
-
-# Type checking
-mypy models/ utils/
-```
-
-## Project Structure
-
-```
-chatvlmllm/
-├── app.py              # Main Streamlit application
-├── config.yaml         # Configuration
-├── models/             # Model integration
-│   ├── base_model.py
-│   ├── got_ocr.py
-│   ├── qwen_vl.py
-│   └── model_loader.py
-├── utils/              # Utilities
-│   ├── image_processor.py
-│   ├── text_extractor.py
-│   ├── field_parser.py
-│   └── markdown_renderer.py
-├── ui/                 # UI components
-├── tests/              # Test suite
-└── docs/               # Documentation
-```
-
-## Coding Guidelines
-
-### Python Style
-
-- Use type hints for function parameters and returns
-- Write docstrings for all public functions/classes
-- Keep functions focused and small (< 50 lines ideally)
-- Use meaningful variable names
-- Comment complex logic
-
-### Example
+### Пример оформления
 
 ```python
-def process_image(
+def process_document(
     image: Image.Image,
-    model_key: str,
-    config: Dict[str, Any]
-) -> str:
+    model_name: str = "qwen3_vl_2b",
+    language: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    Process image through specified model.
+    Обработка документа с извлечением текста.
     
     Args:
-        image: Input PIL Image
-        model_key: Model identifier
-        config: Model configuration
+        image: PIL изображение документа
+        model_name: Имя модели для использования
+        language: Язык документа (опционально)
         
     Returns:
-        Extracted text or model response
+        Словарь с извлечённым текстом и метаданными
         
     Raises:
-        ValueError: If model_key is invalid
-        RuntimeError: If inference fails
+        ValueError: Если модель не найдена
+        RuntimeError: Если произошла ошибка обработки
     """
-    # Implementation
+    # Реализация
     pass
 ```
 
-### Testing Guidelines
+### Форматирование
 
-- Write tests for new features
-- Maintain test coverage above 80%
-- Use fixtures for common test data
-- Mock external dependencies (API calls, model loading)
-- Test edge cases and error handling
+```bash
+# Установка инструментов
+pip install black flake8 isort
 
-### Documentation
+# Форматирование кода
+black .
+isort .
 
-- Update README.md for user-facing changes
-- Update docs/ for architectural changes
-- Add docstrings to new functions/classes
-- Include usage examples
-- Document breaking changes
-
-## Areas for Contribution
-
-### High Priority
-
-- 🐛 Bug fixes
-- ✅ Test coverage improvement
-- 📝 Documentation enhancement
-- 🎨 UI/UX improvements
-
-### Feature Ideas
-
-- 🔧 Additional model integrations
-- 📊 Enhanced metrics and analytics
-- 🌐 Multilingual support improvements
-- ⚡ Performance optimizations
-- 🔌 API development
-- 📱 Mobile-friendly UI
-
-### Research Contributions
-
-- 📈 Benchmark results on new datasets
-- 🔬 Comparative analysis
-- 📄 Research documentation
-- 🎓 Tutorial creation
-
-## Commit Message Format
-
-Use conventional commits:
-
-```
-type(scope): subject
-
-body (optional)
-
-footer (optional)
+# Проверка линтером
+flake8 .
 ```
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation
-- `style`: Formatting
-- `refactor`: Code restructuring
-- `test`: Tests
-- `chore`: Maintenance
+## Тестирование
 
-**Examples:**
-```
-feat(models): add DeepSeek-VL integration
+### Запуск тестов
 
-fix(utils): resolve image preprocessing bug
+```bash
+# Все тесты
+pytest tests/
 
-docs(readme): update installation instructions
+# С покрытием
+pytest tests/ --cov=. --cov-report=html
+
+# Конкретный файл
+pytest tests/test_models.py -v
 ```
 
-## Review Process
+### Написание тестов
 
-1. **Automated Checks**: CI/CD runs tests and linting
-2. **Code Review**: Maintainer reviews code quality
-3. **Testing**: Manual testing if needed
-4. **Merge**: Approved PRs are merged
+```python
+import pytest
+from PIL import Image
+import numpy as np
 
-## Questions?
+@pytest.fixture
+def sample_image():
+    """Создание тестового изображения."""
+    img_array = np.ones((100, 200, 3), dtype=np.uint8) * 255
+    return Image.fromarray(img_array)
 
-- Open an issue for questions
-- Check existing documentation
-- Reach out to maintainers
+def test_model_loading():
+    """Тест загрузки модели."""
+    from models import ModelLoader
+    
+    config = ModelLoader.load_config()
+    assert "models" in config
+    assert "qwen3_vl_2b" in config["models"]
 
-## License
+def test_image_preprocessing(sample_image):
+    """Тест предобработки изображения."""
+    from utils.image_processor import ImageProcessor
+    
+    processed = ImageProcessor.preprocess(sample_image)
+    assert processed.mode == 'RGB'
+```
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+## Структура проекта
 
-Thank you for contributing! 🎉
+```
+chatvlmllm/
+├── api.py              # REST API
+├── app.py              # Streamlit приложение
+├── config.yaml         # Конфигурация
+├── models/             # Интеграция моделей
+│   ├── __init__.py
+│   ├── base_model.py   # Базовый класс
+│   ├── got_ocr.py      # GOT-OCR
+│   ├── qwen_vl.py      # Qwen2-VL
+│   ├── qwen3_vl.py     # Qwen3-VL
+│   ├── dots_ocr.py     # dots.ocr
+│   └── model_loader.py # Загрузчик моделей
+├── utils/              # Утилиты
+│   ├── __init__.py
+│   ├── image_processor.py
+│   ├── text_extractor.py
+│   ├── field_parser.py
+│   └── ...
+├── tests/              # Тесты
+│   ├── __init__.py
+│   ├── test_models.py
+│   └── test_utils.py
+├── docs/               # Документация
+└── examples/           # Примеры использования
+```
+
+## Области для вклада
+
+### Приоритетные
+
+- Новые интеграции моделей
+- Улучшение точности OCR
+- Оптимизация производительности
+- Документация на русском языке
+
+### Желательные
+
+- Новые типы документов для парсинга
+- Интеграционные тесты
+- CI/CD настройка
+- Примеры использования
+
+### Идеи
+
+- Поддержка PDF
+- Пакетная обработка
+- Fine-tuning на своих данных
+- Веб-интерфейс для аннотации
+
+## Процесс ревью
+
+1. Автоматическая проверка тестов
+2. Ревью кода мейнтейнером
+3. Обсуждение и доработки при необходимости
+4. Мерж после одобрения
+
+## Лицензия
+
+Участвуя в проекте, вы соглашаетесь с тем, что ваш код будет распространяться под лицензией MIT.
+
+## Контакты
+
+- GitHub Issues: https://github.com/OlegKarenkikh/chatvlmllm/issues
+- Email: через GitHub профиль
+
+## Благодарности
+
+Спасибо всем участникам проекта!

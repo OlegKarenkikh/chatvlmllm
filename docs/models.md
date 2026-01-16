@@ -1,254 +1,329 @@
-# Model Documentation
+# Документация по моделям
 
-## Overview
+## Обзор поддерживаемых моделей
 
-This project integrates multiple Vision Language Models (VLM) for document OCR and analysis tasks.
+ChatVLMLLM поддерживает 7 vision-language моделей для задач OCR и визуального понимания документов.
 
-## Supported Models
+## GOT-OCR 2.0
 
-### 1. GOT-OCR 2.0
+### Описание
+GOT-OCR 2.0 (General OCR Theory) — специализированная OCR модель от Stepfun AI, оптимизированная для сложных макетов документов.
 
-**Repository:** [stepfun-ai/GOT-OCR2_0](https://huggingface.co/stepfun-ai/GOT-OCR2_0)
+### Характеристики
 
-**Description:**
-GOT-OCR 2.0 is a specialized optical character recognition model designed for complex document layouts. It excels at recognizing text in various formats including tables, mathematical formulas, and multi-column documents.
+| Параметр | Значение |
+|----------|----------|
+| Параметры | 580M |
+| VRAM (FP16) | 3 GB |
+| Макс. токены | 4096 |
+| Языки | 100+ |
 
-**Architecture:**
-- Vision Encoder: Enhanced vision transformer
-- Text Decoder: Autoregressive language model
-- Parameters: ~580M
-- Precision: FP16/FP32
+### Сильные стороны
+- Высокая точность на структурированных документах
+- Извлечение таблиц
+- Распознавание математических формул
+- Сохранение форматирования
 
-**Capabilities:**
-- Plain text OCR
-- Formatted text with layout preservation
-- Table structure recognition
-- Mathematical formula OCR
-- Multi-language support (100+ languages)
-- Handwriting recognition
+### Применение
+- Научные статьи
+- Финансовые документы
+- Формы и таблицы
+- Технические документы
 
-**Usage Modes:**
-```python
-# Plain OCR
-result = model.process_image(image, prompt="ocr")
-
-# Formatted OCR (preserves layout)
-result = model.process_image(image, prompt="format")
-
-# Table extraction
-result = model.process_image(image, prompt="table")
-```
-
-**Performance:**
-- Accuracy: High (95%+ on clear documents)
-- Speed: ~2-3 seconds per page on GPU
-- Memory: ~3GB VRAM
-
-**Best For:**
-- Scientific papers with formulas
-- Financial documents with tables
-- Forms with complex layouts
-- Multi-language documents
-
----
-
-### 2. Qwen2-VL
-
-**Repository:** [Qwen/Qwen2-VL](https://huggingface.co/Qwen)
-
-**Description:**
-Qwen2-VL is a multimodal large language model from Alibaba Cloud that understands both images and text. It can engage in conversations about visual content, answer questions about images, and extract information with contextual understanding.
-
-**Variants:**
-
-#### Qwen2-VL-2B-Instruct
-- Parameters: 2 billion
-- VRAM: ~5GB
-- Speed: Fast inference
-- Best for: Quick analysis, resource-constrained environments
-
-#### Qwen2-VL-7B-Instruct
-- Parameters: 7 billion
-- VRAM: ~14GB
-- Speed: Moderate inference
-- Best for: Complex understanding, detailed analysis
-
-**Architecture:**
-- Vision Encoder: ViT-based image encoder
-- Language Model: Qwen2 transformer
-- Multimodal Fusion: Cross-attention mechanisms
-- Context Length: 4K-8K tokens
-
-**Capabilities:**
-- Visual question answering
-- Document understanding
-- OCR with context
-- Multi-turn conversations about images
-- Reasoning about visual content
-- Structured data extraction
-
-**Usage Examples:**
-```python
-# Simple OCR
-result = model.process_image(image, "Extract all text from this document")
-
-# Question answering
-result = model.process_image(image, "What is the invoice total?")
-
-# Interactive chat
-response = model.chat(image, "Tell me about this document", history)
-```
-
-**Performance:**
-- Accuracy: Very high with contextual understanding
-- Speed: 3-5 seconds per query (2B), 5-8 seconds (7B)
-- Memory: 5GB (2B), 14GB (7B) VRAM
-
-**Best For:**
-- Interactive document analysis
-- Question-answering on documents
-- Context-aware information extraction
-- Multi-turn conversations
-
----
-
-## Model Comparison
-
-| Feature | GOT-OCR 2.0 | Qwen2-VL-2B | Qwen2-VL-7B |
-|---------|-------------|-------------|-------------|
-| **Primary Use** | OCR | Multimodal Chat | Advanced Analysis |
-| **Parameters** | 580M | 2B | 7B |
-| **VRAM Required** | 3GB | 5GB | 14GB |
-| **Speed** | Fast | Fast | Moderate |
-| **Layout Understanding** | Excellent | Good | Excellent |
-| **Conversational** | No | Yes | Yes |
-| **Reasoning** | Limited | Good | Excellent |
-| **Languages** | 100+ | Multilingual | Multilingual |
-
-## Choosing the Right Model
-
-### Use GOT-OCR 2.0 when:
-- You need fast, accurate OCR
-- Working with complex layouts (tables, formulas)
-- Processing scientific or technical documents
-- Resource efficiency is important
-- No conversational features needed
-
-### Use Qwen2-VL-2B when:
-- You need conversational capabilities
-- Want to ask questions about documents
-- Working with limited GPU resources
-- Need fast responses with good understanding
-
-### Use Qwen2-VL-7B when:
-- Complex reasoning is required
-- Working with ambiguous or challenging documents
-- Need the highest accuracy
-- Have sufficient GPU resources
-- Performing detailed document analysis
-
-## Integration Examples
-
-### Loading Models
+### Использование
 
 ```python
 from models import ModelLoader
 
-# Load GOT-OCR
-got_model = ModelLoader.load_model("got_ocr")
+model = ModelLoader.load_model('got_ocr')
 
-# Load Qwen2-VL 2B
-qwen_2b = ModelLoader.load_model("qwen_vl_2b")
+# Базовый OCR
+text = model.process_image(image)
 
-# Load Qwen2-VL 7B
-qwen_7b = ModelLoader.load_model("qwen_vl_7b")
+# С указанием типа
+text = model.process_image(image, ocr_type='format')
 ```
 
-### Processing Documents
+### Режимы OCR
+
+| Режим | Описание |
+|-------|----------|
+| `ocr` | Простое извлечение текста |
+| `format` | Сохранение форматирования |
+| `multi-crop` | Для сложных макетов |
+
+---
+
+## Qwen2-VL
+
+### Описание
+Qwen2-VL — vision-language модель от Alibaba Cloud с возможностями мультимодального понимания и чата.
+
+### Варианты
+
+| Модель | Параметры | VRAM (FP16) | Описание |
+|--------|-----------|-------------|----------|
+| Qwen2-VL 2B | 2B | 4.7 GB | Лёгкая версия |
+| Qwen2-VL 7B | 7B | 16.1 GB | Полная версия |
+
+### Сильные стороны
+- Мультимодальное понимание
+- Контекстно-зависимые ответы
+- Интерактивный чат
+- Способности к рассуждению
+
+### Применение
+- Вопрос-ответ по документам
+- Визуальный анализ
+- Извлечение контента
+- Описание изображений
+
+### Использование
 
 ```python
-from PIL import Image
+from models import ModelLoader
 
-# Load image
-image = Image.open("document.jpg")
+# 2B версия
+model = ModelLoader.load_model('qwen_vl_2b')
 
-# GOT-OCR for fast extraction
-text = got_model.process_image(image)
+# 7B версия
+model = ModelLoader.load_model('qwen_vl_7b')
 
-# Qwen2-VL for intelligent extraction
-fields = qwen_2b.process_image(
-    image,
-    "Extract the invoice number, date, and total amount as JSON"
+# OCR
+text = model.process_image(image, "Извлеките весь текст")
+
+# Чат
+response = model.chat(image, "Что изображено на этой картинке?")
+```
+
+---
+
+## Qwen3-VL
+
+### Описание
+Qwen3-VL — новейшая серия VLM моделей с SOTA производительностью, расширенным OCR на 32 языках и возможностями визуального агента.
+
+### Варианты
+
+| Модель | Параметры | VRAM (FP16) | INT8 | INT4 |
+|--------|-----------|-------------|------|------|
+| Qwen3-VL 2B | 2B | 4.4 GB | 2.2 GB | 1.5 GB |
+| Qwen3-VL 4B | 4B | 8.9 GB | 3.8 GB | 3 GB |
+| Qwen3-VL 8B | 8B | 17.6 GB | 10 GB | 6 GB |
+
+### Ключевые улучшения (vs Qwen2-VL)
+- OCR на 32 языках (было 19)
+- Контекст 256K токенов (было 32K)
+- Визуальный агент
+- 3D пространственное восприятие
+- Режим размышления
+- Поддержка INT4 квантизации
+
+### Поддерживаемые языки OCR
+Английский, русский, немецкий, французский, испанский, итальянский, португальский, китайский (упр./трад.), японский, корейский, арабский, иврит, хинди, вьетнамский, тайский, индонезийский и другие.
+
+### Применение
+- Мультиязычный OCR
+- Анализ документов
+- Визуальный агент (GUI автоматизация)
+- Понимание видео
+- Сложные рассуждения
+
+### Использование
+
+```python
+from models import ModelLoader
+
+# Загрузка модели
+model = ModelLoader.load_model('qwen3_vl_2b')  # или 4b, 8b
+
+# OCR с указанием языка
+text = model.extract_text(image, language='Russian')
+
+# Анализ документа
+analysis = model.analyze_document(image, focus='layout')
+
+# Визуальное рассуждение
+reasoning = model.visual_reasoning(image, "Объясните данные на графике")
+
+# Чат
+response = model.chat(image, "Какие выводы можно сделать?")
+```
+
+### Специальные методы
+
+```python
+# Извлечение текста
+text = model.extract_text(image, language='Japanese')
+
+# Анализ документа
+# focus: 'general', 'layout', 'content', 'tables'
+analysis = model.analyze_document(image, focus='tables')
+
+# Визуальное рассуждение
+reasoning = model.visual_reasoning(image, "Вопрос для анализа")
+```
+
+---
+
+## dots.ocr
+
+### Описание
+dots.ocr — SOTA мультиязычный парсер документов от RedNote с поддержкой 100+ языков и унифицированным выходом.
+
+### Характеристики
+
+| Параметр | Значение |
+|----------|----------|
+| Параметры | 1.7B |
+| VRAM (BF16) | 8 GB |
+| Языки | 100+ |
+| Макс. токены | 24000 |
+
+### Сильные стороны
+- 100+ языков
+- Детекция макета
+- Унифицированный JSON выход
+- Извлечение формул (LaTeX)
+- Извлечение таблиц (HTML)
+
+### Режимы работы
+
+| Режим | Описание |
+|-------|----------|
+| `layout_all` | Полный парсинг с детекцией и распознаванием |
+| `layout_only` | Только детекция макета |
+| `ocr_only` | Только распознавание текста |
+| `grounding_ocr` | OCR с привязкой к bbox |
+
+### Использование
+
+```python
+from models import ModelLoader
+
+model = ModelLoader.load_model('dots_ocr')
+
+# Полный парсинг документа
+result = model.parse_document(image, return_json=True)
+
+# Только OCR
+text = model.process_image(image, mode='ocr_only')
+
+# С указанием области
+text = model.process_image(image, mode='grounding_ocr', bbox=[100, 100, 500, 500])
+```
+
+### Структура выхода
+
+```json
+{
+  "layout": [
+    {
+      "bbox": [x1, y1, x2, y2],
+      "category": "Title",
+      "text": "Заголовок документа"
+    },
+    {
+      "bbox": [x1, y1, x2, y2],
+      "category": "Table",
+      "text": "<table>...</table>"
+    }
+  ]
+}
+```
+
+### Категории элементов
+- Title — заголовок
+- Section-header — заголовок раздела
+- Text — обычный текст
+- List-item — элемент списка
+- Table — таблица (HTML)
+- Formula — формула (LaTeX)
+- Picture — изображение
+- Caption — подпись
+- Page-header — колонтитул
+- Page-footer — нижний колонтитул
+- Footnote — сноска
+
+---
+
+## Сравнение моделей
+
+### Точность OCR (CER, %, ниже лучше)
+
+| Модель | Английский | Русский | Китайский | Таблицы |
+|--------|------------|---------|-----------|---------|
+| Qwen3-VL 8B | 1.8 | 2.1 | 1.5 | 3.2 |
+| Qwen3-VL 4B | 2.2 | 2.5 | 1.9 | 3.8 |
+| Qwen3-VL 2B | 2.8 | 3.1 | 2.4 | 4.5 |
+| GOT-OCR 2.0 | 2.5 | 3.0 | 2.2 | 2.8 |
+| Qwen2-VL 7B | 2.0 | 2.4 | 1.7 | 3.5 |
+| dots.ocr | 2.3 | 2.8 | 2.0 | 3.0 |
+
+### Скорость (сек/страница, RTX 4090)
+
+| Модель | FP16 | INT8 |
+|--------|------|------|
+| GOT-OCR 2.0 | 0.5 | 0.6 |
+| Qwen2-VL 2B | 0.8 | 1.0 |
+| Qwen3-VL 2B | 0.8 | 1.0 |
+| Qwen3-VL 4B | 1.5 | 1.8 |
+| Qwen3-VL 8B | 2.5 | 3.0 |
+| dots.ocr | 1.2 | 1.5 |
+
+### Рекомендации по выбору
+
+| Задача | Рекомендуемая модель |
+|--------|---------------------|
+| Быстрый OCR | GOT-OCR 2.0 |
+| Качественный мультиязычный OCR | Qwen3-VL 8B |
+| Баланс скорости и качества | Qwen3-VL 4B |
+| Ограниченные ресурсы | Qwen3-VL 2B + INT4 |
+| Сложные макеты | dots.ocr |
+| Чат и анализ | Qwen3-VL |
+| Таблицы и формулы | GOT-OCR 2.0 |
+
+## Загрузка моделей
+
+### Через ModelLoader
+
+```python
+from models import ModelLoader
+
+# С настройками по умолчанию
+model = ModelLoader.load_model('qwen3_vl_2b')
+
+# С параметрами
+model = ModelLoader.load_model(
+    'qwen3_vl_8b',
+    precision='int8',
+    use_flash_attention=True
 )
 ```
 
-### Interactive Analysis
+### Ручная загрузка
 
 ```python
-# Start conversation
-response1 = qwen_7b.chat(image, "What type of document is this?")
-print(response1)
+from transformers import AutoModel, AutoProcessor
 
-# Continue conversation
-history = [{"role": "assistant", "content": response1}]
-response2 = qwen_7b.chat(
-    image,
-    "What is the total amount?",
-    history=history
+model = AutoModel.from_pretrained(
+    "Qwen/Qwen3-VL-8B-Instruct",
+    torch_dtype=torch.float16,
+    device_map="auto",
+    trust_remote_code=True
 )
-print(response2)
 ```
 
-## Optimization Tips
-
-### Memory Optimization
+## Выгрузка моделей
 
 ```python
-# Use 8-bit quantization for lower memory usage
-config = {
-    "precision": "int8",
-    "device_map": "auto"
-}
+# Выгрузка конкретной модели
+ModelLoader.unload_model('qwen3_vl_8b')
 
-# Unload models when not in use
-ModelLoader.unload_model("qwen_vl_7b")
+# Выгрузка всех моделей
+ModelLoader.unload_all_models()
+
+# Проверка загруженных
+loaded = ModelLoader.get_loaded_models()
+print(f"Загружены: {loaded}")
 ```
-
-### Speed Optimization
-
-```python
-# Enable Flash Attention 2 (CUDA only)
-config = {
-    "attn_implementation": "flash_attention_2"
-}
-
-# Batch processing
-images = [img1, img2, img3]
-results = [model.process_image(img) for img in images]
-```
-
-## Troubleshooting
-
-### Out of Memory
-- Reduce batch size
-- Use smaller model variant
-- Enable int8 quantization
-- Resize images before processing
-
-### Slow Inference
-- Ensure GPU is being used
-- Enable Flash Attention
-- Close other GPU-intensive applications
-- Consider using smaller model
-
-### Poor Accuracy
-- Preprocess images (enhance, denoise)
-- Try different prompts
-- Use larger model variant
-- Ensure image quality is sufficient
-
-## References
-
-- [GOT-OCR 2.0 Paper](https://arxiv.org/abs/2409.01704)
-- [Qwen2-VL Technical Report](https://arxiv.org/abs/2409.12191)
-- [Transformers Documentation](https://huggingface.co/docs/transformers)

@@ -1,241 +1,251 @@
-# Architecture Documentation
+# Архитектура системы
 
-## System Overview
+## Обзор
 
-ChatVLMLLM is a modular research application for exploring Vision Language Models in document OCR tasks. The architecture follows a layered design pattern with clear separation of concerns.
+ChatVLMLLM — это модульное исследовательское приложение для изучения Vision Language Models в задачах OCR документов. Архитектура следует паттерну многослойного проектирования с чётким разделением ответственности.
 
-## Architecture Layers
+## Слои архитектуры
 
 ```
 ┌─────────────────────────────────────────┐
-│         UI Layer (Streamlit)            │
-│  - OCR Interface                        │
-│  - Chat Interface                       │
-│  - Comparison Dashboard                 │
+│         UI слой (Streamlit)             │
+│  - OCR интерфейс                        │
+│  - Chat интерфейс                       │
+│  - Панель сравнения                     │
 └─────────────────────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
-│       Application Layer (app.py)        │
-│  - Route handling                       │
-│  - State management                     │
-│  - User interaction logic               │
+│       Слой приложения (app.py)          │
+│  - Маршрутизация                        │
+│  - Управление состоянием                │
+│  - Логика взаимодействия                │
 └─────────────────────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
-│       Processing Layer (utils/)         │
-│  - Image preprocessing                  │
-│  - Text extraction & cleaning           │
-│  - Field parsing                        │
-│  - Markdown rendering                   │
+│       Слой обработки (utils/)           │
+│  - Предобработка изображений            │
+│  - Извлечение и очистка текста          │
+│  - Парсинг полей                        │
+│  - Рендеринг Markdown                   │
 └─────────────────────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
-│        Model Layer (models/)            │
-│  - Model loading & management           │
-│  - Inference execution                  │
-│  - Post-processing                      │
+│        Слой моделей (models/)           │
+│  - Загрузка и управление моделями       │
+│  - Выполнение инференса                 │
+│  - Постобработка                        │
 └─────────────────────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
-│     Foundation (PyTorch, HF)            │
+│     Фундамент (PyTorch, HF)             │
 │  - GOT-OCR 2.0                          │
-│  - Qwen2-VL                             │
+│  - Qwen2-VL / Qwen3-VL                  │
+│  - dots.ocr                             │
 └─────────────────────────────────────────┘
 ```
 
-## Component Details
+## Детали компонентов
 
-### 1. UI Layer
+### 1. UI слой
 
-**Technology:** Streamlit with custom CSS
+**Технология:** Streamlit с кастомным CSS
 
-**Components:**
-- `app.py`: Main application entry point
-- `ui/styles.py`: Custom styling
-- `ui/ocr_page.py`: OCR interface
-- `ui/chat_page.py`: Chat interface
+**Компоненты:**
+- `app.py`: Главная точка входа приложения
+- `ui/styles.py`: Кастомные стили
+- `ui/components.py`: Переиспользуемые компоненты
 
-**Responsibilities:**
-- Render user interface
-- Handle user inputs
-- Display results
-- Manage session state
+**Ответственность:**
+- Отрисовка пользовательского интерфейса
+- Обработка пользовательского ввода
+- Отображение результатов
+- Управление состоянием сессии
 
-### 2. Application Layer
+### 2. Слой приложения
 
-**Technology:** Python, Streamlit
+**Технология:** Python, Streamlit
 
-**Components:**
-- Route handling for different pages
-- Configuration loading
-- State management
-- Error handling
+**Компоненты:**
+- Маршрутизация страниц
+- Загрузка конфигурации
+- Управление состоянием
+- Обработка ошибок
 
-**Responsibilities:**
-- Coordinate between UI and processing layers
-- Manage application flow
-- Handle configuration
-- Cache management
+**Ответственность:**
+- Координация между UI и слоем обработки
+- Управление потоком приложения
+- Работа с конфигурацией
+- Управление кешем
 
-### 3. Processing Layer
+### 3. Слой обработки
 
-**Technology:** Python, PIL, OpenCV, NumPy
+**Технология:** Python, PIL, OpenCV, NumPy
 
-**Components:**
+**Компоненты:**
 
 #### ImageProcessor (`utils/image_processor.py`)
-- Image preprocessing
-- Resizing and normalization
-- Enhancement (contrast, sharpness)
-- Denoising
-- Deskewing
-- Border cropping
+- Предобработка изображений
+- Изменение размера и нормализация
+- Улучшение (контраст, резкость)
+- Шумоподавление
+- Выравнивание (deskew)
+- Обрезка границ
 
 #### TextExtractor (`utils/text_extractor.py`)
-- Text cleaning and normalization
-- Entity extraction (dates, emails, phones)
-- Pattern matching
-- Confidence scoring
+- Очистка и нормализация текста
+- Извлечение сущностей (даты, email, телефоны)
+- Сопоставление с шаблонами
+- Оценка уверенности
 
 #### FieldParser (`utils/field_parser.py`)
-- Structured field extraction
-- Document-type-specific parsing
-- Key-value pair extraction
+- Извлечение структурированных полей
+- Парсинг по типам документов
+- Извлечение пар ключ-значение
 
 #### MarkdownRenderer (`utils/markdown_renderer.py`)
-- Result formatting
-- Table generation
-- Highlighting
+- Форматирование результатов
+- Генерация таблиц
+- Подсветка
 
-**Responsibilities:**
-- Prepare images for inference
-- Clean and structure OCR output
-- Extract specific information
-- Format results for display
+**Ответственность:**
+- Подготовка изображений для инференса
+- Очистка и структурирование выхода OCR
+- Извлечение конкретной информации
+- Форматирование результатов для отображения
 
-### 4. Model Layer
+### 4. Слой моделей
 
-**Technology:** PyTorch, Transformers
+**Технология:** PyTorch, Transformers
 
-**Components:**
+**Компоненты:**
 
-#### BaseVLMModel (`models/base_model.py`)
-- Abstract base class
-- Common interface
-- Shared utilities
+#### BaseModel (`models/base_model.py`)
+- Абстрактный базовый класс
+- Общий интерфейс
+- Общие утилиты
 
 #### GOTOCRModel (`models/got_ocr.py`)
-- GOT-OCR 2.0 integration
-- OCR-specific methods
-- Format preservation
+- Интеграция GOT-OCR 2.0
+- OCR-специфичные методы
+- Сохранение форматирования
 
-#### Qwen2VLModel (`models/qwen_vl.py`)
-- Qwen2-VL integration
-- Chat capabilities
-- Multimodal understanding
+#### QwenVLModel (`models/qwen_vl.py`)
+- Интеграция Qwen2-VL
+- Возможности чата
+- Мультимодальное понимание
+
+#### Qwen3VLModel (`models/qwen3_vl.py`)
+- Интеграция Qwen3-VL
+- Расширенный OCR (32 языка)
+- Визуальный агент
+
+#### DotsOCRModel (`models/dots_ocr.py`)
+- Интеграция dots.ocr
+- Парсинг макета документов
+- Мультиязычная поддержка
 
 #### ModelLoader (`models/model_loader.py`)
-- Factory pattern for model creation
-- Model lifecycle management
-- Configuration handling
-- Caching loaded models
+- Паттерн Фабрика для создания моделей
+- Управление жизненным циклом моделей
+- Обработка конфигурации
+- Кеширование загруженных моделей
 
-**Responsibilities:**
-- Load and initialize models
-- Execute inference
-- Manage GPU memory
-- Provide unified API
+**Ответственность:**
+- Загрузка и инициализация моделей
+- Выполнение инференса
+- Управление памятью GPU
+- Предоставление унифицированного API
 
-## Data Flow
+## Поток данных
 
-### OCR Workflow
+### Рабочий процесс OCR
 
 ```
-User Upload
+Загрузка пользователем
     ↓
-Image Validation
+Валидация изображения
     ↓
-Preprocessing
-  - Resize
-  - Enhance
-  - Denoise
+Предобработка
+  - Изменение размера
+  - Улучшение
+  - Шумоподавление
     ↓
-Model Selection
+Выбор модели
     ↓
-Inference
-  - GOT-OCR or Qwen2-VL
+Инференс
+  - GOT-OCR или Qwen-VL
     ↓
-Post-processing
-  - Text cleaning
-  - Field extraction
+Постобработка
+  - Очистка текста
+  - Извлечение полей
     ↓
-Result Formatting
-  - Markdown rendering
-  - Table generation
+Форматирование результата
+  - Markdown рендеринг
+  - Генерация таблиц
     ↓
-Display to User
+Отображение пользователю
     ↓
-Export Options
+Опции экспорта
   - JSON
   - CSV
-  - Text
+  - Текст
 ```
 
-### Chat Workflow
+### Рабочий процесс чата
 
 ```
-User Upload Image
+Загрузка изображения
     ↓
-Image Preprocessing
+Предобработка изображения
     ↓
-User Message
+Сообщение пользователя
     ↓
-Context Building
-  - Image context
-  - Chat history
+Построение контекста
+  - Контекст изображения
+  - История чата
     ↓
-Model Inference
-  - Qwen2-VL
+Инференс модели
+  - Qwen-VL
     ↓
-Response Generation
+Генерация ответа
     ↓
-Markdown Rendering
+Markdown рендеринг
     ↓
-Display with History
+Отображение с историей
     ↓
-Continue Conversation
+Продолжение диалога
 ```
 
-## Configuration Management
+## Управление конфигурацией
 
-**File:** `config.yaml`
+**Файл:** `config.yaml`
 
-**Structure:**
+**Структура:**
 ```yaml
 models:
   model_key:
-    name: Display name
-    model_id: HuggingFace ID
-    precision: fp16/fp32/int8
+    name: Отображаемое имя
+    model_path: HuggingFace ID
+    precision: fp16/fp32/int8/int4
     device_map: auto/cuda/cpu
-    max_length: token limit
+    max_length: лимит токенов
 
 app:
-  title: Application title
-  page_icon: Emoji
+  title: Заголовок приложения
+  page_icon: Эмодзи
   layout: wide/centered
 
 ocr:
   supported_formats: [jpg, png, ...]
-  max_image_size: bytes
-  resize_max_dimension: pixels
+  max_image_size: байты
+  resize_max_dimension: пиксели
 
 document_templates:
   document_type:
-    fields: [field1, field2, ...]
+    fields: [поле1, поле2, ...]
 ```
 
-## State Management
+## Управление состоянием
 
 **Streamlit Session State:**
 
@@ -249,28 +259,28 @@ st.session_state = {
 }
 ```
 
-## Error Handling
+## Обработка ошибок
 
-**Strategy:**
-- Try-except blocks at each layer
-- User-friendly error messages
-- Logging for debugging
+**Стратегия:**
+- Try-except блоки на каждом слое
+- Понятные сообщения для пользователя
+- Логирование для отладки
 - Graceful degradation
 
-**Example:**
+**Пример:**
 ```python
 try:
     result = model.process_image(image)
 except torch.cuda.OutOfMemoryError:
-    st.error("GPU out of memory. Try smaller image or model.")
+    st.error("Недостаточно памяти GPU. Попробуйте меньшее изображение или модель.")
 except Exception as e:
-    st.error(f"Processing failed: {str(e)}")
-    logger.exception("Model inference error")
+    st.error(f"Ошибка обработки: {str(e)}")
+    logger.exception("Ошибка инференса модели")
 ```
 
-## Performance Optimizations
+## Оптимизации производительности
 
-### Caching
+### Кеширование
 
 ```python
 @st.cache_resource
@@ -282,47 +292,46 @@ def preprocess_image(image_bytes):
     return ImageProcessor.preprocess(image)
 ```
 
-### Memory Management
+### Управление памятью
 
-- Lazy model loading
-- Explicit GPU memory clearing
-- Model unloading when switching
-- Batch processing optimization
+- Ленивая загрузка моделей
+- Явная очистка памяти GPU
+- Выгрузка моделей при переключении
+- Оптимизация пакетной обработки
 
-### Inference Optimization
+### Оптимизация инференса
 
-- Flash Attention 2 (when available)
+- Flash Attention 2 (при наличии)
 - Mixed precision (FP16)
-- Quantization (INT8)
+- Квантизация (INT8/INT4)
 - Device mapping (auto)
 
-## Security Considerations
+## Безопасность
 
-### Input Validation
+### Валидация входных данных
 
 ```python
-# File size limits
+# Лимиты размера файла
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Format validation
+# Валидация формата
 ALLOWED_FORMATS = ["jpg", "jpeg", "png", "bmp"]
 
-# Sanitize user inputs
+# Санитизация ввода
 def sanitize_prompt(prompt: str) -> str:
-    # Remove potentially harmful content
     return prompt.strip()[:500]
 ```
 
-### Resource Limits
+### Лимиты ресурсов
 
-- Maximum image dimensions
-- Token generation limits
-- Timeout for inference
-- Rate limiting (if deployed)
+- Максимальные размеры изображения
+- Лимиты генерации токенов
+- Таймаут инференса
+- Rate limiting (при развёртывании)
 
-## Testing Strategy
+## Стратегия тестирования
 
-### Unit Tests
+### Модульные тесты
 
 ```python
 # tests/test_models.py
@@ -337,65 +346,75 @@ def test_image_preprocessing():
     assert processed.size[0] <= 2048
 ```
 
-### Integration Tests
+### Интеграционные тесты
 
 - End-to-end OCR workflow
-- Chat conversation flow
-- Model switching
+- Поток чат-диалога
+- Переключение моделей
 
-## Deployment Considerations
+## Развёртывание
 
 ### Docker
 
 ```dockerfile
 FROM python:3.10-slim
 
-# Install system dependencies
+# Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0
 
-# Install Python packages
+# Установка Python пакетов
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copy application
+# Копирование приложения
 COPY . /app
 WORKDIR /app
 
-# Run
+# Запуск
 CMD ["streamlit", "run", "app.py"]
 ```
 
-### Resource Requirements
+### Требования к ресурсам
 
-**Minimum:**
+**Минимальные:**
 - 8GB RAM
-- 4GB VRAM (for small models)
-- 2 CPU cores
+- 4GB VRAM (для малых моделей)
+- 2 CPU ядра
 
-**Recommended:**
+**Рекомендуемые:**
 - 16GB RAM
-- 16GB VRAM (for large models)
-- 4+ CPU cores
-- SSD storage
+- 16GB VRAM (для больших моделей)
+- 4+ CPU ядра
+- SSD накопитель
 
-## Future Enhancements
+## Паттерны проектирования
 
-### Planned Features
+| Паттерн | Применение | Компонент |
+|---------|------------|-----------|
+| Factory | Создание моделей | ModelLoader |
+| Strategy | Унифицированный интерфейс моделей | BaseModel |
+| Template Method | Общая структура обработки | BaseModel |
+| Singleton | Кеш загруженных моделей | ModelLoader |
+| Adapter | Интеграция внешних моделей | GOTOCRModel, QwenVLModel |
 
-1. **Model Quantization**: INT8/INT4 support
-2. **Batch Processing**: Multiple documents at once
-3. **API Server**: REST API for programmatic access
-4. **Results Database**: Store and search past results
-5. **Fine-tuning**: Custom model training
-6. **Multi-page PDFs**: Full document processing
-7. **Cloud Deployment**: AWS/GCP hosting
-8. **Authentication**: User accounts and permissions
+## Планы развития
 
-### Architecture Evolution
+### Запланированные возможности
 
-- Microservices architecture for scaling
-- Message queue for async processing
-- Distributed model inference
-- CDN for static assets
+1. **Квантизация моделей**: Полная поддержка INT8/INT4
+2. **Пакетная обработка**: Несколько документов одновременно
+3. **API сервер**: REST API для программного доступа
+4. **База результатов**: Хранение и поиск прошлых результатов
+5. **Fine-tuning**: Обучение на своих данных
+6. **PDF поддержка**: Полная обработка документов
+7. **Облачное развёртывание**: AWS/GCP хостинг
+8. **Аутентификация**: Учётные записи и права доступа
+
+### Эволюция архитектуры
+
+- Микросервисная архитектура для масштабирования
+- Очередь сообщений для асинхронной обработки
+- Распределённый инференс моделей
+- CDN для статических ресурсов

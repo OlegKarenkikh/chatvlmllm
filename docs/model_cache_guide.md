@@ -1,323 +1,295 @@
-# Model Cache Management Guide
+# Руководство по кешу моделей
 
-## Overview
+## Обзор
 
-ChatVLMLLM uses HuggingFace's model caching system to efficiently store and reuse downloaded models. This guide explains how to manage the model cache.
+Модели HuggingFace автоматически кешируются после первой загрузки. Это руководство поможет управлять кешем моделей для экономии места и ускорения загрузки.
 
-## Cache Location
+## Расположение кеша
 
-### Default Cache Directory
+### По умолчанию
 
 ```
 ~/.cache/huggingface/hub/
 ```
 
-**Linux/Mac**: `/home/username/.cache/huggingface/hub/`  
-**Windows**: `C:\Users\username\.cache\huggingface\hub\`
-
-### Custom Cache Directory
-
-You can set a custom cache location using environment variables:
+### Изменение расположения
 
 ```bash
-# In .env file or shell
-export HF_HOME="/path/to/custom/cache"
-# or
-export HUGGINGFACE_HUB_CACHE="/path/to/custom/cache/hub"
+# Через переменную окружения
+export HF_HOME=/path/to/custom/cache
+export TRANSFORMERS_CACHE=/path/to/custom/cache
+
+# В Python
+import os
+os.environ['HF_HOME'] = '/path/to/custom/cache'
 ```
 
-## Checking Model Status
+## Размеры моделей
 
-### Quick Check
+| Модель | Размер на диске |
+|--------|-----------------|
+| GOT-OCR 2.0 | ~1.2 GB |
+| Qwen2-VL 2B | ~4.5 GB |
+| Qwen2-VL 7B | ~15 GB |
+| Qwen3-VL 2B | ~4.5 GB |
+| Qwen3-VL 4B | ~9 GB |
+| Qwen3-VL 8B | ~18 GB |
+| dots.ocr | ~8 GB |
+
+**Полный кеш всех моделей:** ~60 GB
+
+## Проверка кеша
+
+### Скрипт проверки
 
 ```bash
 python scripts/check_models.py
 ```
 
-This script will show:
-- ✅ Which models are configured
-- ✅ Which models are in cache
-- ✅ Cache size and locations
-- ✅ Recommendations for next steps
+Вывод:
+```
+=== Проверка кеша моделей ===
 
-### Programmatic Check
+Директория кеша: /home/user/.cache/huggingface/hub
+Всего размер: 45.2 GB
 
-```python
-from models.model_loader import ModelLoader
+Закешированные модели:
+  ✅ stepfun-ai/GOT-OCR2_0 (1.2 GB)
+  ✅ Qwen/Qwen2-VL-2B-Instruct (4.5 GB)
+  ✅ Qwen/Qwen3-VL-2B-Instruct (4.5 GB)
+  ❌ Qwen/Qwen3-VL-8B-Instruct (не загружена)
 
-# Check if specific model is cached
-is_cached, msg = ModelLoader.check_model_cache('got_ocr')
-print(f"GOT-OCR cached: {is_cached}")
-print(f"Status: {msg}")
-
-# Get cache info
-cache_info = ModelLoader.get_cache_info()
-print(f"Total cached models: {cache_info['model_count']}")
-print(f"Total size: {cache_info['total_size_gb']:.2f} GB")
+Рекомендации:
+  - Загрузите Qwen3-VL-8B для лучшего качества
 ```
 
-## Model Download Behavior
-
-### Automatic Download
-
-Models are downloaded automatically when first used:
+### Программная проверка
 
 ```python
-from models import ModelLoader
+from utils.model_cache import ModelCacheManager, check_model_availability
 
-# Will download if not cached
-model = ModelLoader.load_model('got_ocr')
-```
-
-### Manual Pre-download
-
-Download models before using the app:
-
-```bash
-# Interactive downloader
-python scripts/download_models.py
-```
-
-Options:
-- Download specific model by number
-- Download all models at once
-- Skip already cached models
-
-## Cache Management
-
-### View Cache Contents
-
-```python
-from utils.model_cache import ModelCacheManager
-
+# Создание менеджера кеша
 cache_manager = ModelCacheManager()
+
+# Проверка конкретной модели
+is_cached, message = check_model_availability("Qwen/Qwen3-VL-2B-Instruct")
+print(f"Закеширована: {is_cached}")
+print(f"Сообщение: {message}")
+
+# Список всех закешированных моделей
 cached_models = cache_manager.list_cached_models()
-
 for model in cached_models:
-    print(f"{model['model_id']}: {model['size_gb']:.2f} GB")
+    print(f"{model['model_id']}: {model['size_gb']} GB")
+
+# Общая информация о кеше
+info = cache_manager.get_cache_info()
+print(f"Всего моделей: {info['model_count']}")
+print(f"Общий размер: {info['total_size_gb']} GB")
 ```
 
-### Delete Specific Model
+## Предзагрузка моделей
 
-```python
-from utils.model_cache import ModelCacheManager
-
-cache_manager = ModelCacheManager()
-success = cache_manager.delete_model_cache('stepfun-ai/GOT-OCR2_0')
-
-if success:
-    print("Model deleted from cache")
-```
-
-### Clean All Cache
+### Скрипт загрузки
 
 ```bash
-# Use cleanup script (careful - removes all app caches)
-python scripts/cleanup.py
-```
-
-Or manually:
-
-```bash
-# Remove entire HuggingFace cache
-rm -rf ~/.cache/huggingface/hub/
-
-# Models will re-download on next use
-```
-
-## Model Sizes
-
-### Expected Cache Sizes
-
-| Model | Size | VRAM | Precision |
-|-------|------|------|----------|
-| GOT-OCR 2.0 | ~2-3 GB | ~3 GB | FP16 |
-| Qwen2-VL 2B | ~4-5 GB | ~5 GB | FP16 |
-| Qwen2-VL 7B | ~14-15 GB | ~14 GB | FP16 |
-
-### Disk Space Planning
-
-- **Minimal setup** (GOT-OCR only): ~3 GB
-- **Standard setup** (GOT-OCR + Qwen2-VL 2B): ~8 GB
-- **Full setup** (all models): ~22 GB
-
-**Recommendation**: Keep at least 30 GB free for comfortable operation.
-
-## Sharing Cache
-
-### Between Projects
-
-HuggingFace cache is shared across all projects automatically. If you use the same models in multiple projects, they'll reuse the same cache.
-
-### Between Users
-
-On shared systems:
-
-```bash
-# Set shared cache location
-export HF_HOME="/shared/huggingface/cache"
-
-# Ensure permissions
-chmod -R 755 /shared/huggingface/cache
-```
-
-## Troubleshooting
-
-### Model Not Found
-
-**Problem**: Model shows as "not cached" even after download.
-
-**Solutions**:
-1. Check cache location: `echo $HF_HOME`
-2. Verify download completed: `python scripts/check_models.py`
-3. Check disk space: `df -h ~/.cache`
-4. Re-download: Delete cache and try again
-
-### Corrupted Cache
-
-**Problem**: Model fails to load with cache errors.
-
-**Solutions**:
-
-```bash
-# Delete specific model
-rm -rf ~/.cache/huggingface/hub/models--stepfun-ai--GOT-OCR2_0
-
-# Re-download
 python scripts/download_models.py
 ```
 
-### Disk Space Issues
+### Выборочная загрузка
 
-**Problem**: Running out of disk space.
+```python
+from huggingface_hub import snapshot_download
 
-**Solutions**:
+# Загрузка конкретной модели
+snapshot_download(
+    repo_id="Qwen/Qwen3-VL-2B-Instruct",
+    local_dir_use_symlinks=False
+)
+```
 
-1. **Remove unused models**:
+### Загрузка с фильтром файлов
+
+```python
+from huggingface_hub import snapshot_download
+
+# Только safetensors (без pytorch_model.bin)
+snapshot_download(
+    repo_id="Qwen/Qwen3-VL-8B-Instruct",
+    ignore_patterns=["*.bin", "*.pt"]
+)
+```
+
+## Очистка кеша
+
+### Полная очистка
+
+```bash
+# Удаление всего кеша HuggingFace
+rm -rf ~/.cache/huggingface/hub/
+```
+
+### Выборочная очистка
+
 ```python
 from utils.model_cache import ModelCacheManager
 
 cache_manager = ModelCacheManager()
-for model in cache_manager.list_cached_models():
-    print(f"{model['model_id']}: {model['size_gb']} GB")
-    # Delete if not needed
-    # cache_manager.delete_model_cache(model['model_id'])
+
+# Удаление конкретной модели
+success = cache_manager.delete_model_cache("Qwen/Qwen2-VL-7B-Instruct")
+print(f"Удалена: {success}")
 ```
 
-2. **Move cache to larger drive**:
-```bash
-# Move cache
-mv ~/.cache/huggingface /mnt/large_drive/huggingface
-
-# Create symlink
-ln -s /mnt/large_drive/huggingface ~/.cache/huggingface
-```
-
-3. **Use quantized models** (smaller but may affect quality):
-```yaml
-# In config.yaml
-models:
-  qwen_vl_2b:
-    precision: "int8"  # Instead of fp16
-```
-
-## Best Practices
-
-### ✅ Do
-
-- Pre-download models before presentations/demos
-- Check cache status regularly
-- Keep at least 10 GB free space
-- Use `check_models.py` before running app
-- Share cache between projects
-
-### ❌ Don't
-
-- Delete cache while models are loading
-- Manually edit cache files
-- Store cache on slow drives (affects performance)
-- Share cache across different Python environments without testing
-
-## Cache Performance
-
-### First Load (Download)
-
-```
-GOT-OCR 2.0:    ~10-15 minutes (depends on internet speed)
-Qwen2-VL 2B:    ~15-20 minutes
-Qwen2-VL 7B:    ~30-45 minutes
-```
-
-### Subsequent Loads (From Cache)
-
-```
-GOT-OCR 2.0:    ~10-30 seconds
-Qwen2-VL 2B:    ~15-45 seconds
-Qwen2-VL 7B:    ~30-90 seconds
-```
-
-**Note**: Load times depend on:
-- Storage speed (SSD vs HDD)
-- Available RAM
-- GPU initialization
-- Model precision
-
-## Advanced: Cache Optimization
-
-### Symbolic Links for Organization
+### Очистка через CLI
 
 ```bash
-# Create organized cache structure
-mkdir -p /data/models/got-ocr
-mkdir -p /data/models/qwen-vl
+# Установка huggingface-cli
+pip install huggingface_hub
 
-# Move models
-mv ~/.cache/huggingface/hub/models--stepfun-ai--GOT-OCR2_0 /data/models/got-ocr/
-mv ~/.cache/huggingface/hub/models--Qwen--Qwen2-VL-2B-Instruct /data/models/qwen-vl/
-
-# Create symlinks
-ln -s /data/models/got-ocr/models--stepfun-ai--GOT-OCR2_0 ~/.cache/huggingface/hub/
-ln -s /data/models/qwen-vl/models--Qwen--Qwen2-VL-2B-Instruct ~/.cache/huggingface/hub/
+# Очистка неиспользуемых файлов
+huggingface-cli cache clean
 ```
 
-### Backup Cache
+## Офлайн режим
+
+### Настройка
 
 ```bash
-# Backup to archive
-tar -czf huggingface_cache_backup.tar.gz ~/.cache/huggingface/
-
-# Restore from archive
-tar -xzf huggingface_cache_backup.tar.gz -C ~/
+# Запрет сетевых запросов
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
 ```
 
-## Monitoring Cache
-
-### Create Monitoring Script
+### Использование локальных моделей
 
 ```python
-# scripts/monitor_cache.py
-from utils.model_cache import ModelCacheManager
-import time
+from transformers import AutoModel, AutoProcessor
 
-def monitor():
-    cache_manager = ModelCacheManager()
-    
-    while True:
-        info = cache_manager.get_cache_info()
-        print(f"\rCached: {info['model_count']} models, "
-              f"{info['total_size_gb']:.2f} GB", end='')
-        time.sleep(5)
-
-if __name__ == "__main__":
-    monitor()
+# Загрузка из локальной директории
+model = AutoModel.from_pretrained(
+    "/path/to/local/model",
+    local_files_only=True
+)
 ```
 
-## Summary
+## Советы по оптимизации
 
-- ✅ Cache is automatic and efficient
-- ✅ Use `check_models.py` to verify status
-- ✅ Models download once, reuse forever
-- ✅ Can be shared across projects
-- ✅ Easy to manage and clean
+### Экономия места
 
-For issues, see [Troubleshooting](#troubleshooting) section.
+1. **Используйте symlinks** (по умолчанию на Linux)
+2. **Удаляйте неиспользуемые модели**
+3. **Используйте квантизованные версии**
+
+### Ускорение загрузки
+
+1. **SSD накопитель** для кеша
+2. **Предзагрузка моделей** перед использованием
+3. **Локальная сеть** для HuggingFace Mirror
+
+### Зеркала HuggingFace
+
+```bash
+# Использование зеркала (для Китая)
+export HF_ENDPOINT=https://hf-mirror.com
+```
+
+## Структура кеша
+
+```
+~/.cache/huggingface/hub/
+├── models--Qwen--Qwen3-VL-2B-Instruct/
+│   ├── blobs/
+│   │   ├── abc123...  # Файлы модели
+│   │   └── def456...
+│   ├── refs/
+│   │   └── main      # Ссылка на текущую версию
+│   └── snapshots/
+│       └── abc123.../  # Версии модели
+│           ├── config.json
+│           ├── model.safetensors
+│           └── tokenizer.json
+└── models--stepfun-ai--GOT-OCR2_0/
+    └── ...
+```
+
+## Использование с Docker
+
+### Монтирование кеша
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+```
+
+### Предзагрузка в образ
+
+```dockerfile
+FROM python:3.10
+
+# Копирование локального кеша
+COPY ./model_cache /root/.cache/huggingface/hub/
+
+# Или загрузка при сборке
+RUN python -c "from huggingface_hub import snapshot_download; \
+    snapshot_download('Qwen/Qwen3-VL-2B-Instruct')"
+```
+
+## Устранение проблем
+
+### Повреждённый кеш
+
+```bash
+# Удаление и повторная загрузка
+rm -rf ~/.cache/huggingface/hub/models--Qwen--Qwen3-VL-2B-Instruct/
+```
+
+### Нехватка места
+
+```bash
+# Проверка использования диска
+du -sh ~/.cache/huggingface/hub/
+
+# Очистка старых версий
+huggingface-cli cache clean --prune
+```
+
+### Медленная загрузка
+
+1. Проверьте интернет-соединение
+2. Используйте зеркало HuggingFace
+3. Загружайте в нерабочее время
+4. Используйте предзагруженный кеш
+
+## API ModelCacheManager
+
+```python
+from utils.model_cache import ModelCacheManager
+
+class ModelCacheManager:
+    def __init__(self, cache_dir: str = None):
+        """Инициализация с кастомной директорией кеша."""
+        
+    def find_model_in_cache(self, model_id: str) -> Path:
+        """Поиск модели в кеше."""
+        
+    def is_model_cached(self, model_id: str) -> bool:
+        """Проверка наличия модели в кеше."""
+        
+    def get_cached_snapshot_path(self, model_id: str) -> Path:
+        """Получение пути к последнему снимку."""
+        
+    def get_model_size(self, model_id: str) -> int:
+        """Размер модели в байтах."""
+        
+    def list_cached_models(self) -> list:
+        """Список всех закешированных моделей."""
+        
+    def delete_model_cache(self, model_id: str) -> bool:
+        """Удаление модели из кеша."""
+        
+    def get_cache_info(self) -> dict:
+        """Общая информация о кеше."""
+```
