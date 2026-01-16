@@ -1,7 +1,7 @@
 """Utility modules for image processing and text extraction."""
 
-from .image_processor import ImageProcessor, preprocess_image
-from .text_extractor import TextExtractor, clean_text, extract_lines
+from .image_processor import ImageProcessor
+from .text_extractor import TextExtractor
 from .field_parser import FieldParser
 from .markdown_renderer import MarkdownRenderer
 from .logger import setup_logger, logger

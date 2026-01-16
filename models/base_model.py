@@ -6,7 +6,7 @@ from PIL import Image
 import torch
 
 
-class BaseVLMModel(ABC):
+class BaseModel(ABC):
     """Abstract base class for Vision Language Models."""
     
     def __init__(self, model_id: str, config: Dict[str, Any]):
