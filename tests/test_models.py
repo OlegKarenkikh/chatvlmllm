@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 
 from models import ModelLoader
-from models.base_model import BaseVLMModel
+from models.base_model import BaseModel
 
 
 @pytest.fixture
@@ -28,32 +28,32 @@ class TestModelLoader:
     
     def test_load_config(self, config_path):
         """Test configuration loading."""
-        config = ModelLoader.load_config(config_path)
+        config = ModelLoader.load_config()
         assert "models" in config
         assert "app" in config
         assert "ocr" in config
     
     def test_get_available_models(self, config_path):
         """Test listing available models."""
-        models = ModelLoader.get_available_models(config_path)
+        models = ModelLoader.MODEL_REGISTRY
         assert isinstance(models, dict)
         assert len(models) > 0
         assert "got_ocr" in models or "qwen_vl_2b" in models
     
     def test_model_configuration(self, config_path):
         """Test model configuration structure."""
-        config = ModelLoader.load_config(config_path)
+        config = ModelLoader.load_config()
         for model_key, model_config in config["models"].items():
             assert "name" in model_config
-            assert "model_id" in model_config
+            assert "model_path" in model_config
             assert "precision" in model_config
     
     @pytest.mark.skip(reason="Requires model download and GPU")
     def test_load_model(self, config_path):
         """Test model loading (requires GPU and downloads)."""
-        model = ModelLoader.load_model("got_ocr", config_path)
+        model = ModelLoader.load_model("got_ocr")
         assert model is not None
-        assert isinstance(model, BaseVLMModel)
+        assert isinstance(model, BaseModel)
         ModelLoader.unload_model("got_ocr")
     
     def test_model_caching(self):
@@ -62,17 +62,17 @@ class TestModelLoader:
         assert isinstance(loaded, list)
 
 
-class TestBaseVLMModel:
-    """Tests for BaseVLMModel class."""
+class TestBaseModel:
+    """Tests for BaseModel class."""
     
     def test_device_detection(self):
         """Test device detection logic."""
         # This is a basic test that doesn't require GPU
-        from models.base_model import BaseVLMModel
+        from models.base_model import BaseModel
         import torch
         
         # Mock a model instance
-        class MockModel(BaseVLMModel):
+        class MockModel(BaseModel):
             def load_model(self):
                 pass
             
@@ -84,9 +84,9 @@ class TestBaseVLMModel:
     
     def test_extract_fields_basic(self):
         """Test basic field extraction."""
-        from models.base_model import BaseVLMModel
+        from models.base_model import BaseModel
         
-        class MockModel(BaseVLMModel):
+        class MockModel(BaseModel):
             def load_model(self):
                 pass
             
