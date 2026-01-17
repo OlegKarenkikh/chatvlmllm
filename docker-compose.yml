@@ -1,27 +1,93 @@
+# Docker Compose for ChatVLMLLM
+# Default: CPU mode for development/testing
+#
+# For GPU/CUDA support, use docker-compose.cuda.yml instead:
+#   docker compose -f docker-compose.cuda.yml up -d
+#
+# Usage:
+#   Build:  docker compose build
+#   Start:  docker compose up -d
+#   Logs:   docker compose logs -f
+#   Stop:   docker compose down
+
 version: '3.8'
 
 services:
   chatvlmllm:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chatvlmllm:cpu
     container_name: chatvlmllm
+    
     ports:
-      - "8501:8501"
+      - "8501:8501"   # Streamlit UI
+      - "8000:8000"   # FastAPI (optional)
+    
     volumes:
+      # Application data
       - ./examples:/app/examples
+      - ./config.yaml:/app/config.yaml:ro
+      
+      # Model cache persistence
       - model_cache:/root/.cache/huggingface
+    
     environment:
+      # Application settings
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - STREAMLIT_SERVER_HEADLESS=true
-      - CUDA_VISIBLE_DEVICES=0
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+      
+      # HuggingFace settings
+      - HF_HOME=/root/.cache/huggingface
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface/transformers
+      # Uncomment and add your token for private models
+      # - HF_TOKEN=your_huggingface_token_here
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
     restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # GPU-enabled service (alternative)
+  # Uncomment to use GPU without separate compose file
+  # chatvlmllm-gpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.cuda
+  #   image: chatvlmllm:cuda
+  #   container_name: chatvlmllm-cuda
+  #   profiles:
+  #     - gpu
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   ports:
+  #     - "8501:8501"
+  #   volumes:
+  #     - model_cache:/root/.cache/huggingface
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #     - CUDA_VISIBLE_DEVICES=0
+  #   restart: unless-stopped
 
 volumes:
   model_cache:
+    driver: local

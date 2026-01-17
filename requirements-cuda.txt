@@ -1,0 +1,45 @@
+# CUDA-specific requirements for ChatVLMLLM
+# Note: torch, torchvision, torchaudio, flash-attn are installed separately
+# in the Dockerfile to ensure proper CUDA compatibility
+
+# Core ML (excluding torch which is pre-installed with CUDA)
+transformers>=4.40.0
+accelerate>=0.27.0
+
+# VLM specific
+qwen-vl-utils>=0.0.8
+bitsandbytes>=0.42.0
+einops>=0.7.0
+tiktoken>=0.6.0
+
+# Quantization support
+auto-gptq>=0.7.0
+optimum>=1.17.0
+
+# API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+
+# UI
+streamlit>=1.31.0
+
+# Image processing
+Pillow>=10.2.0
+opencv-python-headless>=4.9.0
+
+# Utils
+PyYAML>=6.0.1
+requests>=2.31.0
+numpy>=1.26.0
+pandas>=2.2.0
+python-magic>=0.4.27
+aiofiles>=23.2.0
+
+# Huggingface
+huggingface-hub>=0.20.0
+safetensors>=0.4.0
+
+# Monitoring and debugging
+psutil>=5.9.0
+GPUtil>=1.4.0

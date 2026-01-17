@@ -1,13 +1,15 @@
 # Core ML
-torch>=2.0.0
-torchvision>=0.15.0
-transformers>=4.36.0
-accelerate>=0.25.0
+# Note: torch and torchvision are installed separately in Dockerfile
+# to handle CPU/CUDA versions properly
+transformers>=4.40.0
+accelerate>=0.27.0
 
 # VLM specific
-qwen-vl-utils
-flash-attn>=2.3.0
-bitsandbytes>=0.41.0
+qwen-vl-utils>=0.0.8
+# flash-attn requires CUDA - only in requirements-cuda.txt
+# bitsandbytes requires CUDA - only in requirements-cuda.txt
+einops>=0.7.0
+tiktoken>=0.6.0
 
 # API
 fastapi>=0.104.0
