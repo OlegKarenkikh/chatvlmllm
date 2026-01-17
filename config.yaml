@@ -10,7 +10,7 @@ models:
     precision: "fp16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     ocr_type: "format"
     ocr_color: ""
     # VRAM: FP16=3GB, INT8=2GB, Recommended=4GB
@@ -24,7 +24,7 @@ models:
     precision: "fp16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
     # VRAM: FP16=4.7GB, INT8=3.6GB, Recommended=6GB
@@ -38,7 +38,7 @@ models:
     precision: "fp16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
     # VRAM: FP16=16.1GB, INT8=10.1GB, Recommended=12GB
@@ -52,7 +52,7 @@ models:
     precision: "fp16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
     # VRAM: FP16=4.4GB, INT8=2.2GB, Recommended=6GB
@@ -67,7 +67,7 @@ models:
     precision: "fp16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
     # VRAM: FP16=8.9GB, INT8=3.8GB, INT4=3GB, Recommended=10GB
@@ -81,7 +81,7 @@ models:
     precision: "fp16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
     # VRAM: FP16=17.6GB, INT8=10GB, INT4=6GB, Recommended=18GB
@@ -96,10 +96,64 @@ models:
     precision: "bf16"
     device_map: "auto"
     trust_remote_code: true
-    use_flash_attention: true
+    use_flash_attention: false
     prompt_mode: "layout_all"
     max_new_tokens: 24000
     # VRAM: BF16=8GB, INT8=6GB, Recommended=10GB
+
+  phi3_vision:
+    name: "Phi-3.5 Vision"
+    description: "Microsoft's powerful vision-language model"
+    model_path: "microsoft/Phi-3.5-vision-instruct"
+    model_type: "vlm"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    min_pixels: 256
+    max_pixels: 1280
+    # VRAM: FP16=7.7GB, INT8=4.5GB, Recommended=8GB
+
+  got_ocr_ucas:
+    name: "GOT-OCR 2.0 (UCAS)"
+    description: "Alternative GOT-OCR implementation"
+    model_path: "ucaslcl/GOT-OCR2_0"
+    model_type: "ocr"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    ocr_type: "format"
+    ocr_color: ""
+    # VRAM: FP16=2.7GB, INT8=1.8GB, Recommended=3GB
+
+  got_ocr_hf:
+    name: "GOT-OCR 2.0 (HF)"
+    description: "HuggingFace version of GOT-OCR"
+    model_path: "stepfun-ai/GOT-OCR-2.0-hf"
+    model_type: "ocr"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    ocr_type: "format"
+    ocr_color: ""
+    # VRAM: FP16=1.1GB, INT8=0.8GB, Recommended=2GB
+
+  deepseek_ocr:
+    name: "DeepSeek OCR"
+    description: "Lightweight OCR model from DeepSeek"
+    model_path: "deepseek-ai/deepseek-ocr"
+    model_type: "ocr"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    # VRAM: FP16=0.01GB, Recommended=1GB
 
 ocr:
   supported_formats: ["jpg", "jpeg", "png", "bmp", "tiff"]

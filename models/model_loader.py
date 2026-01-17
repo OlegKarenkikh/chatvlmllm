@@ -9,6 +9,9 @@ from models.got_ocr import GOTOCRModel
 from models.qwen_vl import QwenVLModel
 from models.qwen3_vl import Qwen3VLModel
 from models.dots_ocr import DotsOCRModel
+from models.phi3_vision import Phi3VisionModel
+from models.got_ocr_variants import GOTOCRUCASModel, GOTOCRHFModel
+from models.deepseek_ocr import DeepSeekOCRModel
 from utils.model_cache import ModelCacheManager, check_model_availability
 from utils.logger import logger
 
@@ -25,6 +28,10 @@ class ModelLoader:
         "qwen3_vl_4b": Qwen3VLModel,
         "qwen3_vl_8b": Qwen3VLModel,
         "dots_ocr": DotsOCRModel,
+        "phi3_vision": Phi3VisionModel,
+        "got_ocr_ucas": GOTOCRUCASModel,
+        "got_ocr_hf": GOTOCRHFModel,
+        "deepseek_ocr": DeepSeekOCRModel,
     }
     
     # Cache for loaded model instances
