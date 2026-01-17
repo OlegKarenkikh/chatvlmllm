@@ -178,7 +178,7 @@ document_templates:
              "subtotal", "tax", "total", "payment_method"]
 
 app:
-  title: "ChatVLMLLM - Document OCR & VLM Chat"
+  title: "ChatVLMLLM - Распознавание документов и чат с VLM"
   page_icon: "🔬"
   layout: "wide"
   theme: "light"

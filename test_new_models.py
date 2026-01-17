@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Test script for new model integrations."""
+"""Тестовый скрипт для интеграции новых моделей."""
 
 import sys
 import traceback
 from pathlib import Path
 
-# Add project root to path
+# Добавить корень проекта в путь
 sys.path.insert(0, str(Path(__file__).parent))
 
 from models.model_loader import ModelLoader
@@ -13,8 +13,8 @@ from utils.logger import logger
 
 
 def test_model_cache_status():
-    """Test cache status for all models."""
-    print("🔍 Checking cache status for all models...")
+    """Тест статуса кеша для всех моделей."""
+    print("🔍 Проверка статуса кеша для всех моделей...")
     print("=" * 60)
     
     config = ModelLoader.load_config()
@@ -24,8 +24,8 @@ def test_model_cache_status():
     missing_models = []
     
     for model_key, model_config in models.items():
-        print(f"\n📊 {model_key} ({model_config.get('name', 'Unknown')})")
-        print(f"   Path: {model_config.get('model_path', 'N/A')}")
+        print(f"\n📊 {model_key} ({model_config.get('name', 'Неизвестно')})")
+        print(f"   Путь: {model_config.get('model_path', 'Н/Д')}")
         
         try:
             is_cached, message = ModelLoader.check_model_cache(model_key)
@@ -36,21 +36,21 @@ def test_model_cache_status():
                 print(f"   ❌ {message}")
                 missing_models.append(model_key)
         except Exception as e:
-            print(f"   ⚠️  Error checking cache: {e}")
+            print(f"   ⚠️  Ошибка проверки кеша: {e}")
             missing_models.append(model_key)
     
-    print(f"\n📈 SUMMARY")
-    print(f"   Total models: {len(models)}")
-    print(f"   Cached: {len(cached_models)}")
-    print(f"   Missing: {len(missing_models)}")
+    print(f"\n📈 СВОДКА")
+    print(f"   Всего моделей: {len(models)}")
+    print(f"   Кешированных: {len(cached_models)}")
+    print(f"   Отсутствующих: {len(missing_models)}")
     
     if cached_models:
-        print(f"\n✅ CACHED MODELS:")
+        print(f"\n✅ КЕШИРОВАННЫЕ МОДЕЛИ:")
         for model in cached_models:
             print(f"   - {model}")
     
     if missing_models:
-        print(f"\n❌ MISSING MODELS:")
+        print(f"\n❌ ОТСУТСТВУЮЩИЕ МОДЕЛИ:")
         for model in missing_models:
             print(f"   - {model}")
     
@@ -58,89 +58,89 @@ def test_model_cache_status():
 
 
 def test_model_registry():
-    """Test model registry completeness."""
-    print("\n🔧 Checking model registry...")
+    """Тест полноты реестра моделей."""
+    print("\n🔧 Проверка реестра моделей...")
     print("=" * 60)
     
     config = ModelLoader.load_config()
     config_models = set(config.get('models', {}).keys())
     registry_models = set(ModelLoader.MODEL_REGISTRY.keys())
     
-    print(f"Config models: {len(config_models)}")
-    print(f"Registry models: {len(registry_models)}")
+    print(f"Модели в конфигурации: {len(config_models)}")
+    print(f"Модели в реестре: {len(registry_models)}")
     
     missing_in_registry = config_models - registry_models
     extra_in_registry = registry_models - config_models
     
     if missing_in_registry:
-        print(f"\n❌ MISSING IN REGISTRY:")
+        print(f"\n❌ ОТСУТСТВУЮТ В РЕЕСТРЕ:")
         for model in missing_in_registry:
             print(f"   - {model}")
     
     if extra_in_registry:
-        print(f"\n⚠️  EXTRA IN REGISTRY:")
+        print(f"\n⚠️  ЛИШНИЕ В РЕЕСТРЕ:")
         for model in extra_in_registry:
             print(f"   - {model}")
     
     if not missing_in_registry and not extra_in_registry:
-        print(f"\n✅ Registry and config are in sync!")
+        print(f"\n✅ Реестр и конфигурация синхронизированы!")
     
     return missing_in_registry, extra_in_registry
 
 
 def test_model_loading(model_key: str):
-    """Test loading a specific model."""
-    print(f"\n🚀 Testing model loading: {model_key}")
+    """Тест загрузки конкретной модели."""
+    print(f"\n🚀 Тестирование загрузки модели: {model_key}")
     print("-" * 40)
     
     try:
-        # Check cache first
+        # Сначала проверить кеш
         is_cached, cache_msg = ModelLoader.check_model_cache(model_key)
-        print(f"Cache status: {cache_msg}")
+        print(f"Статус кеша: {cache_msg}")
         
         if not is_cached:
-            print("⚠️  Model not in cache - would download on load")
+            print("⚠️  Модель не в кеше - будет скачана при загрузке")
             return False
         
-        # Try to load model
-        print("Loading model...")
+        # Попытка загрузить модель
+        print("Загрузка модели...")
         model = ModelLoader.load_model(model_key)
         
-        print(f"✅ Model loaded successfully!")
-        print(f"   Type: {type(model).__name__}")
-        print(f"   Config: {model.config.get('name', 'Unknown')}")
+        print(f"✅ Модель загружена успешно!")
+        print(f"   Тип: {type(model).__name__}")
+        print(f"   Конфигурация: {model.config.get('name', 'Неизвестно')}")
         
-        # Test model info
+        # Тест информации о модели
         info = model.get_model_info()
-        print(f"   Device: {info.get('device', 'Unknown')}")
-        print(f"   Loaded: {info.get('loaded', False)}")
+        print(f"   Устройство: {info.get('device', 'Неизвестно')}")
+        print(f"   Загружена: {info.get('loaded', False)}")
         
-        # Unload model to free memory
+        # Выгрузить модель для освобождения памяти
         ModelLoader.unload_model(model_key)
-        print("   Model unloaded")
+        print("   Модель выгружена")
         
         return True
         
     except Exception as e:
-        print(f"❌ Error loading model: {e}")
+        print(f"❌ Ошибка загрузки модели: {e}")
         traceback.print_exc()
         return False
 
 
 def main():
-    """Main test function."""
-    print("🧪 Testing New Model Integrations")
+    """Основная тестовая функция."""
+    print("🧪 Тестирование интеграции новых моделей")
     print("=" * 60)
     
-    # Test 1: Cache status
+    # Тест 1: Статус кеша
     cached_models, missing_models = test_model_cache_status()
     
-    # Test 2: Registry completeness
+    # Тест 2: Полнота реестра
     missing_in_registry, extra_in_registry = test_model_registry()
     
-    # Test 3: Try loading cached models
+    # Тест 3: Попытка загрузки кешированных моделей
     if cached_models:
-        print(f"\n🚀 Testing model loading for cached models...")
+        print(f"\n🚀 Тестирование загрузки моделей для кешированных моделей...")
         print("=" * 60)
         
         successful_loads = []
@@ -153,38 +153,38 @@ def main():
             else:
                 failed_loads.append(model_key)
         
-        print(f"\n📊 LOADING TEST RESULTS")
-        print(f"   Successful: {len(successful_loads)}")
-        print(f"   Failed: {len(failed_loads)}")
+        print(f"\n📊 РЕЗУЛЬТАТЫ ТЕСТОВ ЗАГРУЗКИ")
+        print(f"   Успешных: {len(successful_loads)}")
+        print(f"   Неудачных: {len(failed_loads)}")
         
         if successful_loads:
-            print(f"\n✅ SUCCESSFUL LOADS:")
+            print(f"\n✅ УСПЕШНЫЕ ЗАГРУЗКИ:")
             for model in successful_loads:
                 print(f"   - {model}")
         
         if failed_loads:
-            print(f"\n❌ FAILED LOADS:")
+            print(f"\n❌ НЕУДАЧНЫЕ ЗАГРУЗКИ:")
             for model in failed_loads:
                 print(f"   - {model}")
     
-    # Final summary
-    print(f"\n🎯 FINAL SUMMARY")
+    # Итоговая сводка
+    print(f"\n🎯 ИТОГОВАЯ СВОДКА")
     print("=" * 60)
-    print(f"✅ New model classes created and registered")
-    print(f"✅ API updated with new models")
-    print(f"✅ Model loader updated")
+    print(f"✅ Новые классы моделей созданы и зарегистрированы")
+    print(f"✅ API обновлен с новыми моделями")
+    print(f"✅ Загрузчик моделей обновлен")
     
     if missing_in_registry:
-        print(f"⚠️  {len(missing_in_registry)} models missing from registry")
+        print(f"⚠️  {len(missing_in_registry)} моделей отсутствуют в реестре")
     else:
-        print(f"✅ All config models are in registry")
+        print(f"✅ Все модели из конфигурации есть в реестре")
     
-    print(f"\n🔄 Next steps:")
+    print(f"\n🔄 Следующие шаги:")
     if missing_models:
-        print(f"   - Download missing models: {', '.join(missing_models[:3])}{'...' if len(missing_models) > 3 else ''}")
-    print(f"   - Test API endpoints with new models")
-    print(f"   - Verify model inference works correctly")
-    print(f"   - Optimize model loading and memory usage")
+        print(f"   - Скачать отсутствующие модели: {', '.join(missing_models[:3])}{'...' if len(missing_models) > 3 else ''}")
+    print(f"   - Тестировать эндпоинты API с новыми моделями")
+    print(f"   - Проверить, что инференс моделей работает корректно")
+    print(f"   - Оптимизировать загрузку моделей и использование памяти")
 
 
 if __name__ == "__main__":

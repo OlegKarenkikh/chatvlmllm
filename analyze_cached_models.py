@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analyze all cached HuggingFace models and check compatibility."""
+"""Анализ всех кешированных моделей HuggingFace и проверка совместимости."""
 
 import os
 import json
@@ -8,13 +8,13 @@ from transformers import AutoConfig
 import yaml
 
 def get_cache_dir():
-    """Get HuggingFace cache directory."""
+    """Получить директорию кеша HuggingFace."""
     return Path.home() / ".cache" / "huggingface" / "hub"
 
 def analyze_model(model_path):
-    """Analyze a single model."""
+    """Анализ одной модели."""
     try:
-        # Try to load config
+        # Попытка загрузить конфигурацию
         config_path = model_path / "config.json"
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -23,11 +23,11 @@ def analyze_model(model_path):
             model_type = config.get('model_type', 'unknown')
             architectures = config.get('architectures', [])
             
-            # Check if it's a vision-language model
+            # Проверка, является ли это моделью машинного зрения
             is_vlm = any(arch for arch in architectures if any(keyword in arch.lower() 
                         for keyword in ['vision', 'vlm', 'multimodal', 'qwen', 'phi', 'idefics', 'vila']))
             
-            # Check if it's an OCR model
+            # Проверка, является ли это OCR моделью
             is_ocr = any(keyword in str(model_path).lower() 
                         for keyword in ['ocr', 'got', 'dots'])
             
@@ -41,32 +41,32 @@ def analyze_model(model_path):
     except Exception as e:
         return {'error': str(e)}
     
-    return {'error': 'No config found'}
+    return {'error': 'Конфигурация не найдена'}
 
 def get_model_size(model_path):
-    """Calculate model size in GB."""
+    """Вычислить размер модели в ГБ."""
     total_size = 0
     for root, dirs, files in os.walk(model_path):
         for file in files:
             file_path = os.path.join(root, file)
             if os.path.exists(file_path):
                 total_size += os.path.getsize(file_path)
-    return total_size / (1024**3)  # Convert to GB
+    return total_size / (1024**3)  # Конвертация в ГБ
 
 def main():
-    """Main function."""
-    print("🔍 Analyzing all cached HuggingFace models...")
+    """Основная функция."""
+    print("🔍 Анализ всех кешированных моделей HuggingFace...")
     print("=" * 60)
     
     cache_dir = get_cache_dir()
     if not cache_dir.exists():
-        print("❌ HuggingFace cache directory not found!")
+        print("❌ Директория кеша HuggingFace не найдена!")
         return
     
-    # Find all model directories
+    # Поиск всех директорий моделей
     model_dirs = [d for d in cache_dir.iterdir() if d.is_dir() and d.name.startswith('models--')]
     
-    print(f"📁 Found {len(model_dirs)} cached models")
+    print(f"📁 Найдено {len(model_dirs)} кешированных моделей")
     print()
     
     vlm_models = []
@@ -75,26 +75,26 @@ def main():
     total_size = 0
     
     for model_dir in sorted(model_dirs):
-        # Extract model name
+        # Извлечение имени модели
         model_name = model_dir.name.replace('models--', '').replace('--', '/')
         
-        # Find the actual model files (in snapshots)
+        # Поиск фактических файлов модели (в снимках)
         snapshots_dir = model_dir / "snapshots"
         if not snapshots_dir.exists():
             continue
             
-        # Get the latest snapshot
+        # Получение последнего снимка
         snapshot_dirs = [d for d in snapshots_dir.iterdir() if d.is_dir()]
         if not snapshot_dirs:
             continue
             
         latest_snapshot = max(snapshot_dirs, key=lambda x: x.stat().st_mtime)
         
-        # Calculate size
+        # Вычисление размера
         size_gb = get_model_size(model_dir)
         total_size += size_gb
         
-        # Analyze model
+        # Анализ модели
         analysis = analyze_model(latest_snapshot)
         
         model_info = {
@@ -104,7 +104,7 @@ def main():
             'analysis': analysis
         }
         
-        # Categorize
+        # Категоризация
         if analysis.get('is_vlm'):
             vlm_models.append(model_info)
         elif analysis.get('is_ocr'):
@@ -112,52 +112,52 @@ def main():
         else:
             other_models.append(model_info)
     
-    # Print results
-    print("🤖 VISION-LANGUAGE MODELS (VLM)")
+    # Вывод результатов
+    print("🤖 МОДЕЛИ МАШИННОГО ЗРЕНИЯ (VLM)")
     print("-" * 40)
     for model in vlm_models:
         print(f"📊 {model['name']}")
-        print(f"   Size: {model['size_gb']} GB")
+        print(f"   Размер: {model['size_gb']} ГБ")
         if 'architectures' in model['analysis']:
-            print(f"   Architecture: {', '.join(model['analysis']['architectures'])}")
-        print(f"   Type: {model['analysis'].get('model_type', 'unknown')}")
+            print(f"   Архитектура: {', '.join(model['analysis']['architectures'])}")
+        print(f"   Тип: {model['analysis'].get('model_type', 'неизвестно')}")
         print()
     
-    print("🔍 OCR MODELS")
+    print("🔍 OCR МОДЕЛИ")
     print("-" * 40)
     for model in ocr_models:
         print(f"📊 {model['name']}")
-        print(f"   Size: {model['size_gb']} GB")
+        print(f"   Размер: {model['size_gb']} ГБ")
         if 'architectures' in model['analysis']:
-            print(f"   Architecture: {', '.join(model['analysis']['architectures'])}")
-        print(f"   Type: {model['analysis'].get('model_type', 'unknown')}")
+            print(f"   Архитектура: {', '.join(model['analysis']['architectures'])}")
+        print(f"   Тип: {model['analysis'].get('model_type', 'неизвестно')}")
         print()
     
-    print("📦 OTHER MODELS")
+    print("📦 ДРУГИЕ МОДЕЛИ")
     print("-" * 40)
     for model in other_models:
         print(f"📊 {model['name']}")
-        print(f"   Size: {model['size_gb']} GB")
+        print(f"   Размер: {model['size_gb']} ГБ")
         if 'architectures' in model['analysis']:
-            print(f"   Architecture: {', '.join(model['analysis']['architectures'])}")
-        print(f"   Type: {model['analysis'].get('model_type', 'unknown')}")
+            print(f"   Архитектура: {', '.join(model['analysis']['architectures'])}")
+        print(f"   Тип: {model['analysis'].get('model_type', 'неизвестно')}")
         print()
     
-    # Summary
-    print("📈 SUMMARY")
+    # Сводка
+    print("📈 СВОДКА")
     print("-" * 40)
-    print(f"Total models: {len(model_dirs)}")
-    print(f"VLM models: {len(vlm_models)}")
-    print(f"OCR models: {len(ocr_models)}")
-    print(f"Other models: {len(other_models)}")
-    print(f"Total cache size: {round(total_size, 2)} GB")
+    print(f"Всего моделей: {len(model_dirs)}")
+    print(f"VLM модели: {len(vlm_models)}")
+    print(f"OCR модели: {len(ocr_models)}")
+    print(f"Другие модели: {len(other_models)}")
+    print(f"Общий размер кеша: {round(total_size, 2)} ГБ")
     print()
     
-    # Recommendations
-    print("💡 INTEGRATION RECOMMENDATIONS")
+    # Рекомендации
+    print("💡 РЕКОМЕНДАЦИИ ПО ИНТЕГРАЦИИ")
     print("-" * 40)
     
-    # Check which models could be added to config
+    # Проверка, какие модели можно добавить в конфигурацию
     current_config_path = Path("config.yaml")
     if current_config_path.exists():
         with open(current_config_path, 'r', encoding='utf-8') as f:
@@ -165,17 +165,17 @@ def main():
         
         current_models = set(current_config.get('models', {}).keys())
         
-        print("🔧 Models that could be added to config.yaml:")
+        print("🔧 Модели, которые можно добавить в config.yaml:")
         
         for model in vlm_models + ocr_models:
             model_key = model['name'].lower().replace('/', '_').replace('-', '_')
             if model_key not in current_models:
-                print(f"   + {model['name']} ({model['size_gb']} GB)")
-                print(f"     Suggested key: {model_key}")
+                print(f"   + {model['name']} ({model['size_gb']} ГБ)")
+                print(f"     Предлагаемый ключ: {model_key}")
         
         print()
     
-    print("✅ Analysis complete!")
+    print("✅ Анализ завершен!")
 
 if __name__ == "__main__":
     main()

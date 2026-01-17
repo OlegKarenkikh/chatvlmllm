@@ -9,7 +9,7 @@ from ui.styles import get_custom_css
 
 # Page configuration
 st.set_page_config(
-    page_title="ChatVLMLLM - Document OCR & VLM Chat",
+    page_title="ChatVLMLLM - Распознавание документов и чат с VLM",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -41,26 +41,26 @@ if "loaded_model" not in st.session_state:
 st.markdown('<h1 class="gradient-text" style="text-align: center;">🔬 ChatVLMLLM</h1>', unsafe_allow_html=True)
 st.markdown(
     '<p style="text-align: center; font-size: 1.2rem; color: #888; margin-bottom: 2rem;">'
-    'Vision Language Models for Document OCR & Intelligent Chat</p>', 
+    'Модели машинного зрения для распознавания документов и интеллектуального чата</p>', 
     unsafe_allow_html=True
 )
 
 # Sidebar navigation
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/artificial-intelligence.png", width=80)
-    st.title("Navigation")
+    st.title("Навигация")
     
     page = st.radio(
-        "Select Mode",
-        ["🏠 Home", "📄 OCR Mode", "💬 Chat Mode", "📊 Model Comparison", "📚 Documentation"],
+        "Выберите режим",
+        ["🏠 Главная", "📄 Режим OCR", "💬 Режим чата", "📊 Сравнение моделей", "📚 Документация"],
         label_visibility="collapsed"
     )
     
     st.divider()
     
-    st.subheader("⚙️ Model Settings")
+    st.subheader("⚙️ Настройки модели")
     selected_model = st.selectbox(
-        "Select Model",
+        "Выберите модель",
         list(config["models"].keys()),
         format_func=lambda x: config["models"][x]["name"],
         key="model_selector"
@@ -71,33 +71,33 @@ with st.sidebar:
     st.info(
         f"**{model_info['name']}**\n\n"
         f"{model_info['description']}\n\n"
-        f"📊 Max tokens: {model_info['max_length']}"
+        f"📊 Макс. токенов: {model_info['max_length']}"
     )
     
     st.divider()
     
-    with st.expander("🔧 Advanced Settings"):
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, help="Controls randomness in generation")
-        max_tokens = st.number_input("Max Tokens", 100, 4096, 2048, 100, help="Maximum length of generated text")
-        use_gpu = st.checkbox("Use GPU", value=True, help="Enable GPU acceleration if available")
+    with st.expander("🔧 Расширенные настройки"):
+        temperature = st.slider("Температура", 0.0, 1.0, 0.7, 0.1, help="Контролирует случайность генерации")
+        max_tokens = st.number_input("Макс. токенов", 100, 4096, 2048, 100, help="Максимальная длина генерируемого текста")
+        use_gpu = st.checkbox("Использовать GPU", value=True, help="Включить ускорение GPU если доступно")
     
     st.divider()
     
     # Project stats
-    st.markdown("### 📊 Project Stats")
+    st.markdown("### 📊 Статистика проекта")
     col1, col2 = st.columns(2)
-    col1.metric("Models", "3")
-    col2.metric("Status", "✅ Ready")
+    col1.metric("Модели", "11")
+    col2.metric("Статус", "✅ Готов")
     
     # Model loading status
     if st.session_state.loaded_model:
-        st.success(f"✅ Loaded: {st.session_state.loaded_model}")
+        st.success(f"✅ Загружена: {st.session_state.loaded_model}")
     else:
-        st.warning("⚠️ No model loaded")
+        st.warning("⚠️ Модель не загружена")
 
 # Main content area
-if "🏠 Home" in page:
-    st.header("Welcome to ChatVLMLLM Research Project")
+if "🏠 Главная" in page:
+    st.header("Добро пожаловать в исследовательский проект ChatVLMLLM")
     
     # Feature cards
     col1, col2, col3 = st.columns(3)
@@ -105,13 +105,13 @@ if "🏠 Home" in page:
     with col1:
         st.markdown(
             '<div class="feature-card">'
-            '<h3>📄 OCR Mode</h3>'
-            '<p>Extract text and structured data from documents using specialized VLM models.</p>'
+            '<h3>📄 Режим OCR</h3>'
+            '<p>Извлечение текста и структурированных данных из документов с помощью специализированных VLM моделей.</p>'
             '<ul style="text-align: left; margin-top: 1rem;">'
-            '<li>✅ Text recognition</li>'
-            '<li>✅ Field extraction</li>'
-            '<li>✅ Multi-format support</li>'
-            '<li>✅ Export to JSON/CSV</li>'
+            '<li>✅ Распознавание текста</li>'
+            '<li>✅ Извлечение полей</li>'
+            '<li>✅ Поддержка множества форматов</li>'
+            '<li>✅ Экспорт в JSON/CSV</li>'
             '</ul>'
             '</div>',
             unsafe_allow_html=True
@@ -120,13 +120,13 @@ if "🏠 Home" in page:
     with col2:
         st.markdown(
             '<div class="feature-card">'
-            '<h3>💬 Chat Mode</h3>'
-            '<p>Interactive conversation with VLM models about document content.</p>'
+            '<h3>💬 Режим чата</h3>'
+            '<p>Интерактивное общение с VLM моделями о содержимом документов.</p>'
             '<ul style="text-align: left; margin-top: 1rem;">'
-            '<li>✅ Visual Q&A</li>'
-            '<li>✅ Context understanding</li>'
-            '<li>✅ Markdown support</li>'
-            '<li>✅ Chat history</li>'
+            '<li>✅ Визуальные вопросы и ответы</li>'
+            '<li>✅ Понимание контекста</li>'
+            '<li>✅ Поддержка Markdown</li>'
+            '<li>✅ История чата</li>'
             '</ul>'
             '</div>',
             unsafe_allow_html=True
@@ -135,13 +135,13 @@ if "🏠 Home" in page:
     with col3:
         st.markdown(
             '<div class="feature-card">'
-            '<h3>📊 Comparison</h3>'
-            '<p>Compare different models\' performance on various document types.</p>'
+            '<h3>📊 Сравнение</h3>'
+            '<p>Сравнение производительности различных моделей на разных типах документов.</p>'
             '<ul style="text-align: left; margin-top: 1rem;">'
-            '<li>✅ Accuracy metrics</li>'
-            '<li>✅ Speed benchmarks</li>'
-            '<li>✅ Memory usage</li>'
-            '<li>✅ Quality analysis</li>'
+            '<li>✅ Метрики точности</li>'
+            '<li>✅ Бенчмарки скорости</li>'
+            '<li>✅ Использование памяти</li>'
+            '<li>✅ Анализ качества</li>'
             '</ul>'
             '</div>',
             unsafe_allow_html=True
@@ -150,38 +150,38 @@ if "🏠 Home" in page:
     st.divider()
     
     # Research goals in tabs
-    st.header("🎯 Research Goals & Timeline")
+    st.header("🎯 Цели исследования и временные рамки")
     
-    tabs = st.tabs(["📋 Overview", "📅 Timeline", "🎓 Learning", "📈 Results"])
+    tabs = st.tabs(["📋 Обзор", "📅 Временные рамки", "🎓 Обучение", "📈 Результаты"])
     
     with tabs[0]:
         st.markdown("""
-        This educational project explores modern **Vision Language Models** for document OCR tasks.
-        We investigate different architectures, compare their performance, and develop practical
-        applications for real-world document processing.
+        Этот образовательный проект исследует современные **модели машинного зрения** для задач OCR документов.
+        Мы изучаем различные архитектуры, сравниваем их производительность и разрабатываем практические
+        приложения для обработки документов в реальном мире.
         
-        ### Key Research Questions
+        ### Ключевые исследовательские вопросы
         
-        1. 🔍 **Model Comparison**: How do specialized OCR models compare to general VLM models?
-        2. ⚖️ **Trade-offs**: What are the performance vs. accuracy trade-offs?
-        3. 📊 **Structured Extraction**: Can VLMs reliably extract structured data?
-        4. 🧠 **Context Understanding**: How does context improve OCR results?
+        1. 🔍 **Сравнение моделей**: Как специализированные OCR модели сравниваются с общими VLM моделями?
+        2. ⚖️ **Компромиссы**: Каковы компромиссы между производительностью и точностью?
+        3. 📊 **Структурированное извлечение**: Могут ли VLM надежно извлекать структурированные данные?
+        4. 🧠 **Понимание контекста**: Как контекст улучшает результаты OCR?
         
-        ### Methodology
+        ### Методология
         
-        - **Quantitative Analysis**: CER, WER, field accuracy metrics
-        - **Qualitative Assessment**: Layout preservation, structure understanding
-        - **Performance Benchmarking**: Speed, memory, scalability
-        - **Comparative Studies**: Model-to-model comparisons
+        - **Количественный анализ**: Метрики CER, WER, точность полей
+        - **Качественная оценка**: Сохранение макета, понимание структуры
+        - **Бенчмаркинг производительности**: Скорость, память, масштабируемость
+        - **Сравнительные исследования**: Сравнения модель к модели
         """)
     
     with tabs[1]:
         progress_data = [
-            ("Phase 1: Preparation", 100, "✅ Complete"),
-            ("Phase 2: Model Integration", 60, "🔄 In Progress"),
-            ("Phase 3: UI Development", 40, "🔄 In Progress"),
-            ("Phase 4: Testing", 0, "⏳ Pending"),
-            ("Phase 5: Documentation", 20, "🔄 In Progress"),
+            ("Фаза 1: Подготовка", 100, "✅ Завершено"),
+            ("Фаза 2: Интеграция моделей", 90, "✅ Почти готово"),
+            ("Фаза 3: Разработка UI", 80, "🔄 В процессе"),
+            ("Фаза 4: Тестирование", 30, "🔄 В процессе"),
+            ("Фаза 5: Документация", 60, "🔄 В процессе"),
         ]
         
         for phase, progress, status in progress_data:
@@ -197,55 +197,55 @@ if "🏠 Home" in page:
         
         with col1:
             st.markdown("""
-            ### 💻 Technical Skills
+            ### 💻 Технические навыки
             
-            - VLM model deployment & optimization
-            - Image preprocessing pipelines
-            - Inference optimization (Flash Attention, quantization)
-            - Full-stack development with Streamlit
-            - Docker containerization & deployment
-            - Testing & quality assurance
-            - Git version control & collaboration
+            - Развертывание и оптимизация VLM моделей
+            - Пайплайны предобработки изображений
+            - Оптимизация инференса (Flash Attention, квантизация)
+            - Полнофункциональная разработка с Streamlit
+            - Контейнеризация Docker и развертывание
+            - Тестирование и обеспечение качества
+            - Контроль версий Git и совместная работа
             """)
         
         with col2:
             st.markdown("""
-            ### 🔬 Research Skills
+            ### 🔬 Исследовательские навыки
             
-            - Model architecture analysis
-            - Comparative evaluation methodology
-            - Statistical analysis & metrics
-            - Scientific documentation
-            - Critical thinking & problem-solving
-            - Data visualization & presentation
-            - Technical writing & reporting
+            - Анализ архитектуры моделей
+            - Методология сравнительной оценки
+            - Статистический анализ и метрики
+            - Научная документация
+            - Критическое мышление и решение проблем
+            - Визуализация данных и презентация
+            - Техническое письмо и отчетность
             """)
     
     with tabs[3]:
-        st.info("📊 Results will be updated as experiments are conducted")
+        st.info("📊 Результаты будут обновляться по мере проведения экспериментов")
         
         st.markdown("""
-        ### Expected Outcomes
+        ### Ожидаемые результаты
         
-        - 📄 Comprehensive comparison report
-        - 📊 Performance benchmarks across models
-        - 📚 Best practices guide for VLM OCR
-        - 💻 Open-source implementation
-        - 🎓 Educational materials & tutorials
+        - 📄 Комплексный отчет сравнения
+        - 📊 Бенчмарки производительности по моделям
+        - 📚 Руководство по лучшим практикам VLM OCR
+        - 💻 Реализация с открытым исходным кодом
+        - 🎓 Образовательные материалы и учебники
         """)
 
-elif "📄 OCR Mode" in page:
-    st.header("📄 Document OCR Mode")
+elif "📄 Режим OCR" in page:
+    st.header("📄 Режим распознавания документов")
     
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("📤 Upload Document")
+        st.subheader("📤 Загрузить документ")
         
         uploaded_file = st.file_uploader(
-            "Choose an image",
+            "Выберите изображение",
             type=config["ocr"]["supported_formats"],
-            help="Supported formats: JPG, PNG, BMP, TIFF",
+            help="Поддерживаемые форматы: JPG, PNG, BMP, TIFF",
             key="ocr_upload"
         )
         
@@ -253,77 +253,77 @@ elif "📄 OCR Mode" in page:
             # Display uploaded image
             image = Image.open(uploaded_file)
             st.session_state.uploaded_image = image
-            st.image(image, caption="Uploaded Image", use_container_width=True)
+            st.image(image, caption="Загруженное изображение", use_container_width=True)
             
             # Image info
-            st.caption(f"📐 Size: {image.size[0]}x{image.size[1]} | Format: {image.format}")
+            st.caption(f"📐 Размер: {image.size[0]}x{image.size[1]} | Формат: {image.format}")
         
         st.divider()
         
         # Document type selection
         document_type = st.selectbox(
-            "📋 Document Type",
+            "📋 Тип документа",
             list(config["document_templates"].keys()),
             format_func=lambda x: x.capitalize(),
-            help="Select the type of document for optimized field extraction"
+            help="Выберите тип документа для оптимизированного извлечения полей"
         )
         
         # Processing options
-        with st.expander("⚙️ Processing Options"):
-            enhance_image = st.checkbox("Enhance image quality", value=True)
-            denoise = st.checkbox("Apply denoising", value=False)
-            deskew = st.checkbox("Auto-deskew", value=False)
+        with st.expander("⚙️ Параметры обработки"):
+            enhance_image = st.checkbox("Улучшить качество изображения", value=True)
+            denoise = st.checkbox("Применить шумоподавление", value=False)
+            deskew = st.checkbox("Автоматическое выравнивание", value=False)
         
         st.divider()
         
         # Process button
-        if st.button("🚀 Extract Text", type="primary", use_container_width=True):
+        if st.button("🚀 Извлечь текст", type="primary", use_container_width=True):
             if uploaded_file:
-                with st.spinner("🔄 Processing document..."):
+                with st.spinner("🔄 Обработка документа..."):
                     # Placeholder for actual model integration
                     import time
                     time.sleep(1.5)
                     
                     # Demo output
                     st.session_state.ocr_result = {
-                        "text": "Sample extracted text will appear here after model integration.\n\nThis is a placeholder demonstrating the UI flow.",
+                        "text": "Пример извлеченного текста появится здесь после интеграции модели.\n\nЭто заглушка, демонстрирующая поток UI.",
                         "confidence": 0.92,
                         "processing_time": 1.5
                     }
                     
-                    st.success("✅ Text extracted successfully!")
+                    st.success("✅ Текст успешно извлечен!")
                     st.rerun()
             else:
-                st.error("❌ Please upload an image first")
+                st.error("❌ Пожалуйста, сначала загрузите изображение")
     
     with col2:
-        st.subheader("📊 Extraction Results")
+        st.subheader("📊 Результаты извлечения")
         
         if st.session_state.ocr_result:
             result = st.session_state.ocr_result
             
             # Metrics
             metric_col1, metric_col2 = st.columns(2)
-            metric_col1.metric("Confidence", f"{result['confidence']:.1%}")
-            metric_col2.metric("Processing Time", f"{result['processing_time']:.2f}s")
+            metric_col1.metric("Уверенность", f"{result['confidence']:.1%}")
+            metric_col2.metric("Время обработки", f"{result['processing_time']:.2f}с")
             
             st.divider()
             
             # Extracted text
-            st.markdown("**🔤 Recognized Text:**")
+            st.markdown("**🔤 Распознанный текст:**")
             st.code(result["text"], language="text")
             
             st.divider()
             
             # Extracted fields
-            st.markdown("**📋 Extracted Fields:**")
+            st.markdown("**📋 Извлеченные поля:**")
             
             if document_type:
                 fields = config["document_templates"][document_type]["fields"]
                 for field in fields:
                     st.text_input(
                         field,
-                        placeholder=f"{field} will be extracted here",
+                        placeholder=f"{field} будет извлечено здесь",
                         disabled=True,
                         key=f"field_{field}"
                     )
@@ -331,11 +331,11 @@ elif "📄 OCR Mode" in page:
             st.divider()
             
             # Export options
-            st.markdown("**💾 Export Options:**")
+            st.markdown("**💾 Параметры экспорта:**")
             col_json, col_csv = st.columns(2)
             with col_json:
                 st.download_button(
-                    "📄 Export JSON",
+                    "📄 Экспорт JSON",
                     data="{}",
                     file_name="ocr_result.json",
                     mime="application/json",
@@ -343,25 +343,25 @@ elif "📄 OCR Mode" in page:
                 )
             with col_csv:
                 st.download_button(
-                    "📊 Export CSV",
+                    "📊 Экспорт CSV",
                     data="",
                     file_name="ocr_result.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
         else:
-            st.info("💡 Upload an image and click 'Extract Text' to see results here")
+            st.info("💡 Загрузите изображение и нажмите 'Извлечь текст', чтобы увидеть результаты здесь")
 
-elif "💬 Chat Mode" in page:
-    st.header("💬 Interactive VLM Chat")
+elif "💬 Режим чата" in page:
+    st.header("💬 Интерактивный чат с VLM")
     
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.subheader("🖼️ Upload Image")
+        st.subheader("🖼️ Загрузить изображение")
         
         chat_image = st.file_uploader(
-            "Image for chat context",
+            "Изображение для контекста чата",
             type=config["ocr"]["supported_formats"],
             key="chat_upload"
         )
@@ -369,21 +369,21 @@ elif "💬 Chat Mode" in page:
         if chat_image:
             image = Image.open(chat_image)
             st.session_state.uploaded_image = image
-            st.image(image, caption="Context Image", use_container_width=True)
+            st.image(image, caption="Контекстное изображение", use_container_width=True)
             
-            if st.button("🗑️ Clear Chat History", use_container_width=True):
+            if st.button("🗑️ Очистить историю чата", use_container_width=True):
                 st.session_state.messages = []
                 st.rerun()
     
     with col2:
-        st.subheader("💭 Conversation")
+        st.subheader("💭 Разговор")
         
         # Chat container
         chat_container = st.container(height=400)
         
         with chat_container:
             if not st.session_state.messages:
-                st.info("👋 Upload an image and start asking questions about it!")
+                st.info("👋 Загрузите изображение и начните задавать вопросы о нем!")
             
             # Display chat messages
             for message in st.session_state.messages:
@@ -391,7 +391,7 @@ elif "💬 Chat Mode" in page:
                     st.markdown(message["content"])
         
         # Chat input
-        if prompt := st.chat_input("Ask about the image...", disabled=not chat_image):
+        if prompt := st.chat_input("Спросите об изображении...", disabled=not chat_image):
             # Add user message
             st.session_state.messages.append({"role": "user", "content": prompt})
             
@@ -401,267 +401,289 @@ elif "💬 Chat Mode" in page:
             
             # Generate response (placeholder)
             with st.chat_message("assistant"):
-                with st.spinner("🤔 Thinking..."):
+                with st.spinner("🤔 Думаю..."):
                     import time
                     time.sleep(1)
                     
-                    response = f"This is a demo response. After model integration, I will analyze the image and answer: '{prompt}'"
+                    response = f"Это демонстрационный ответ. После интеграции модели я буду анализировать изображение и отвечать: '{prompt}'"
                     st.markdown(response)
             
             # Add assistant response
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.rerun()
 
-elif "📊 Model Comparison" in page:
-    st.header("📊 Model Performance Comparison")
+elif "📊 Сравнение моделей" in page:
+    st.header("📊 Сравнение производительности моделей")
     
-    st.info("📈 Comparative analysis will be available after benchmark testing")
+    st.info("📈 Сравнительный анализ будет доступен после бенчмарк тестирования")
     
     # Comparison table
     import pandas as pd
     
     comparison_data = pd.DataFrame({
-        "Model": ["GOT-OCR 2.0", "Qwen2-VL 2B", "Qwen2-VL 7B"],
-        "Parameters": ["580M", "2B", "7B"],
-        "VRAM (GB)": ["3", "5", "14"],
-        "CER (%)": ["-", "-", "-"],
-        "Speed (s/page)": ["-", "-", "-"],
-        "Best For": ["Complex layouts", "General OCR", "Advanced analysis"]
+        "Модель": ["GOT-OCR 2.0", "Qwen2-VL 2B", "Qwen3-VL 2B", "Phi-3.5 Vision", "dots.ocr"],
+        "Параметры": ["580M", "2B", "2B", "4.2B", "1.7B"],
+        "VRAM (ГБ)": ["3", "5", "4.4", "7.7", "8"],
+        "CER (%)": ["-", "-", "-", "-", "-"],
+        "Скорость (с/стр)": ["-", "-", "-", "-", "-"],
+        "Лучше для": ["Сложные макеты", "Общий OCR", "Многоязычный OCR", "Визуальный анализ", "Парсинг документов"]
     })
     
     st.dataframe(comparison_data, use_container_width=True, hide_index=True)
     
     st.divider()
     
-    st.subheader("📏 Evaluation Metrics")
+    st.subheader("📏 Метрики оценки")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("""
-        **Character Error Rate (CER)**
+        **Частота ошибок символов (CER)**
         
-        Measures accuracy at character level:
+        Измеряет точность на уровне символов:
         
         ```
         CER = (S + D + I) / N
         ```
         
-        Where:
-        - S = Substitutions
-        - D = Deletions
-        - I = Insertions
-        - N = Total characters
+        Где:
+        - S = Замены
+        - D = Удаления
+        - I = Вставки
+        - N = Общее количество символов
         """)
     
     with col2:
         st.markdown("""
-        **Word Error Rate (WER)**
+        **Частота ошибок слов (WER)**
         
-        Measures accuracy at word level:
+        Измеряет точность на уровне слов:
         
         ```
         WER = (S + D + I) / N
         ```
         
-        Where:
-        - S = Substitutions
-        - D = Deletions
-        - I = Insertions
-        - N = Total words
+        Где:
+        - S = Замены
+        - D = Удаления
+        - I = Вставки
+        - N = Общее количество слов
         """)
     
     with col3:
         st.markdown("""
-        **Field Accuracy**
+        **Точность полей**
         
-        Structured data extraction:
+        Извлечение структурированных данных:
         
         ```
-        Accuracy = Correct / Total
+        Точность = Правильные / Общие
         ```
         
-        Where:
-        - Correct = Correctly extracted fields
-        - Total = Total fields
+        Где:
+        - Правильные = Правильно извлеченные поля
+        - Общие = Общее количество полей
         """)
 
-else:  # Documentation
-    st.header("📚 Documentation")
+else:  # Документация
+    st.header("📚 Документация")
     
-    doc_tabs = st.tabs(["🚀 Quick Start", "🤖 Models", "🏗️ Architecture", "📖 API", "🤝 Contributing"])
+    doc_tabs = st.tabs(["🚀 Быстрый старт", "🤖 Модели", "🏗️ Архитектура", "📖 API", "🤝 Участие"])
     
     with doc_tabs[0]:
         st.markdown("""
-        ## Quick Start Guide
+        ## Руководство по быстрому старту
         
-        ### Installation
+        ### Установка
         
         ```bash
-        # Clone repository
+        # Клонировать репозиторий
         git clone https://github.com/OlegKarenkikh/chatvlmllm.git
         cd chatvlmllm
         
-        # Setup (automated)
+        # Настройка (автоматизированная)
         bash scripts/setup.sh  # Linux/Mac
         scripts\\setup.bat      # Windows
         
-        # Run application
+        # Запуск приложения
         streamlit run app.py
         ```
         
-        ### First Steps
+        ### Первые шаги
         
-        1. ✅ Select a model from the sidebar
-        2. 📄 Choose OCR or Chat mode
-        3. 📤 Upload your document
-        4. 🚀 Get instant results!
+        1. ✅ Выберите модель в боковой панели
+        2. 📄 Выберите режим OCR или чата
+        3. 📤 Загрузите ваш документ
+        4. 🚀 Получите мгновенные результаты!
         
-        ### Model Selection
+        ### Выбор модели
         
-        - **GOT-OCR**: Fast, accurate text extraction
-        - **Qwen2-VL 2B**: Lightweight multimodal chat
-        - **Qwen2-VL 7B**: Advanced document analysis
+        - **GOT-OCR**: Быстрое, точное извлечение текста
+        - **Qwen2-VL 2B**: Легкий мультимодальный чат
+        - **Qwen3-VL 2B**: Продвинутый анализ документов с поддержкой 32 языков
+        - **Phi-3.5 Vision**: Мощная модель Microsoft для визуального анализа
+        - **dots.ocr**: Специализированный парсер документов
         """)
         
-        st.info("📖 For detailed instructions, see [QUICKSTART.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/QUICKSTART.md)")
+        st.info("📖 Для подробных инструкций см. [QUICKSTART.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/QUICKSTART.md)")
     
     with doc_tabs[1]:
         st.markdown("""
-        ## Supported Models
+        ## Поддерживаемые модели
         
         ### GOT-OCR 2.0
         
-        Specialized OCR model for complex document layouts.
+        Специализированная OCR модель для сложных макетов документов.
         
-        **Strengths:**
-        - ✅ High accuracy on structured documents
-        - ✅ Table extraction
-        - ✅ Mathematical formula recognition
-        - ✅ Multi-language support (100+ languages)
+        **Сильные стороны:**
+        - ✅ Высокая точность на структурированных документах
+        - ✅ Извлечение таблиц
+        - ✅ Распознавание математических формул
+        - ✅ Поддержка множества языков (100+ языков)
         
-        **Use Cases:**
-        - Scientific papers
-        - Financial documents
-        - Forms and tables
+        **Случаи использования:**
+        - Научные статьи
+        - Финансовые документы
+        - Формы и таблицы
         
-        ### Qwen2-VL
+        ### Qwen3-VL
         
-        General-purpose vision-language models.
+        Модели машинного зрения общего назначения с улучшенными возможностями OCR.
         
-        **Strengths:**
-        - ✅ Multimodal understanding
-        - ✅ Context-aware responses
-        - ✅ Interactive chat
-        - ✅ Reasoning capabilities
+        **Сильные стороны:**
+        - ✅ Мультимодальное понимание
+        - ✅ Контекстно-зависимые ответы
+        - ✅ Интерактивный чат
+        - ✅ Возможности рассуждения
+        - ✅ Поддержка 32 языков OCR
         
-        **Use Cases:**
-        - Document Q&A
-        - Visual analysis
-        - Content extraction
+        **Случаи использования:**
+        - Вопросы и ответы по документам
+        - Визуальный анализ
+        - Извлечение контента
+        
+        ### Phi-3.5 Vision
+        
+        Мощная модель Microsoft для визуального анализа.
+        
+        **Сильные стороны:**
+        - ✅ Высокое качество понимания изображений
+        - ✅ Эффективная архитектура
+        - ✅ Хорошая производительность на визуальных задачах
+        
+        ### dots.ocr
+        
+        Специализированный парсер документов для сложных макетов.
+        
+        **Сильные стороны:**
+        - ✅ Понимание структуры документа
+        - ✅ Извлечение макета
+        - ✅ Поддержка множества языков
+        - ✅ JSON вывод
         """)
         
-        st.info("📖 For detailed documentation, see [docs/models.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/docs/models.md)")
+        st.info("📖 Для подробной документации см. [docs/models.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/docs/models.md)")
     
     with doc_tabs[2]:
         st.markdown("""
-        ## System Architecture
+        ## Архитектура системы
         
-        ### Layered Design
+        ### Слоистый дизайн
         
         ```
-        UI Layer (Streamlit)
+        UI слой (Streamlit)
               ↓
-        Application Layer
+        Слой приложения
               ↓
-        Processing Layer (Utils)
+        Слой обработки (Utils)
               ↓
-        Model Layer (VLM Models)
+        Слой моделей (VLM модели)
               ↓
-        Foundation (PyTorch/HF)
+        Основа (PyTorch/HF)
         ```
         
-        ### Key Components
+        ### Ключевые компоненты
         
-        - **Models**: VLM integration and inference
-        - **Utils**: Image processing and text extraction
-        - **UI**: Streamlit interface and styling
-        - **Tests**: Quality assurance
+        - **Модели**: Интеграция VLM и инференс
+        - **Утилиты**: Обработка изображений и извлечение текста
+        - **UI**: Интерфейс Streamlit и стилизация
+        - **Тесты**: Обеспечение качества
         """)
         
-        st.info("📖 For architecture details, see [docs/architecture.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/docs/architecture.md)")
+        st.info("📖 Для деталей архитектуры см. [docs/architecture.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/docs/architecture.md)")
     
     with doc_tabs[3]:
         st.markdown("""
-        ## API Reference
+        ## Справочник API
         
-        ### Loading Models
+        ### Загрузка моделей
         
         ```python
         from models import ModelLoader
         
-        # Load a model
+        # Загрузить модель
         model = ModelLoader.load_model('got_ocr')
         
-        # Process image
+        # Обработать изображение
         from PIL import Image
         image = Image.open('document.jpg')
         text = model.process_image(image)
         ```
         
-        ### Field Extraction
+        ### Извлечение полей
         
         ```python
         from utils.field_parser import FieldParser
         
-        # Parse invoice
+        # Парсинг счета
         fields = FieldParser.parse_invoice(text)
         print(fields['invoice_number'])
         ```
         
-        ### Chat Interface
+        ### Интерфейс чата
         
         ```python
-        # Interactive chat
-        model = ModelLoader.load_model('qwen_vl_2b')
-        response = model.chat(image, "What's in this document?")
+        # Интерактивный чат
+        model = ModelLoader.load_model('qwen3_vl_2b')
+        response = model.chat(image, "Что в этом документе?")
         ```
         """)
     
     with doc_tabs[4]:
         st.markdown("""
-        ## Contributing
+        ## Участие в проекте
         
-        We welcome contributions! 🎉
+        Мы приветствуем вклад! 🎉
         
-        ### How to Contribute
+        ### Как внести вклад
         
-        1. 🍴 Fork the repository
-        2. 🌿 Create a feature branch
-        3. ✍️ Make your changes
-        4. ✅ Write tests
-        5. 📝 Update documentation
-        6. 🚀 Submit a pull request
+        1. 🍴 Сделайте форк репозитория
+        2. 🌿 Создайте ветку функции
+        3. ✍️ Внесите изменения
+        4. ✅ Напишите тесты
+        5. 📝 Обновите документацию
+        6. 🚀 Отправьте pull request
         
-        ### Areas for Contribution
+        ### Области для вклада
         
-        - 🐛 Bug fixes
-        - ✨ New features
-        - 📝 Documentation
-        - 🧪 Tests
-        - 🎨 UI improvements
+        - 🐛 Исправления ошибок
+        - ✨ Новые функции
+        - 📝 Документация
+        - 🧪 Тесты
+        - 🎨 Улучшения UI
         """)
         
-        st.info("📖 For contribution guidelines, see [CONTRIBUTING.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/CONTRIBUTING.md)")
+        st.info("📖 Для руководящих принципов участия см. [CONTRIBUTING.md](https://github.com/OlegKarenkikh/chatvlmllm/blob/main/CONTRIBUTING.md)")
 
 # Footer
 st.divider()
 st.markdown("""
 <div style="text-align: center; color: #888; padding: 2rem;">
-    <p><strong>ChatVLMLLM</strong> - Educational Research Project</p>
-    <p>Built with ❤️ using Streamlit | 
+    <p><strong>ChatVLMLLM</strong> - Образовательный исследовательский проект</p>
+    <p>Создано с ❤️ используя Streamlit | 
     <a href="https://github.com/OlegKarenkikh/chatvlmllm" target="_blank" style="color: #FF4B4B;">GitHub</a> | 
-    MIT License</p>
-    <p style="font-size: 0.9rem; margin-top: 1rem;">🔬 Exploring Vision Language Models for Document OCR</p>
+    Лицензия MIT</p>
+    <p style="font-size: 0.9rem; margin-top: 1rem;">🔬 Исследование моделей машинного зрения для OCR документов</p>
 </div>
 """, unsafe_allow_html=True)

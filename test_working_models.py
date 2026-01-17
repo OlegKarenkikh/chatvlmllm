@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Quick test of working models."""
+"""Быстрый тест рабочих моделей."""
 
 import sys
 from pathlib import Path
 
-# Add project root to path
+# Добавить корень проекта в путь
 sys.path.insert(0, str(Path(__file__).parent))
 
 from models.model_loader import ModelLoader
 
 
 def test_working_models():
-    """Test models that should work."""
+    """Тест моделей, которые должны работать."""
     working_models = [
         "qwen_vl_2b",
         "qwen3_vl_2b", 
@@ -21,30 +21,30 @@ def test_working_models():
         "got_ocr_ucas"
     ]
     
-    print("🧪 Testing Working Models")
+    print("🧪 Тестирование рабочих моделей")
     print("=" * 50)
     
     for model_key in working_models:
-        print(f"\n🚀 Testing {model_key}...")
+        print(f"\n🚀 Тестирование {model_key}...")
         try:
-            # Check cache
+            # Проверить кеш
             is_cached, msg = ModelLoader.check_model_cache(model_key)
             if not is_cached:
-                print(f"   ❌ Not cached: {msg}")
+                print(f"   ❌ Не кеширована: {msg}")
                 continue
                 
-            # Load model
+            # Загрузить модель
             model = ModelLoader.load_model(model_key)
-            print(f"   ✅ Loaded successfully: {type(model).__name__}")
+            print(f"   ✅ Загружена успешно: {type(model).__name__}")
             
-            # Unload
+            # Выгрузить
             ModelLoader.unload_model(model_key)
-            print(f"   🔄 Unloaded")
+            print(f"   🔄 Выгружена")
             
         except Exception as e:
-            print(f"   ❌ Failed: {e}")
+            print(f"   ❌ Неудача: {e}")
     
-    print(f"\n✅ Test complete!")
+    print(f"\n✅ Тест завершен!")
 
 
 if __name__ == "__main__":
