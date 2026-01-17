@@ -94,19 +94,49 @@ class GOTOCRUCASModel(BaseModel):
             
             logger.info(f"Processing image with GOT-OCR UCAS (type: {ocr_type})")
             
-            with torch.no_grad():
-                if hasattr(self.model, 'chat'):
-                    result = self.model.chat(
-                        self.tokenizer,
-                        image,
-                        ocr_type=ocr_type,
-                        ocr_color=ocr_color
-                    )
-                else:
-                    # Fallback implementation
-                    result = self._basic_inference(image)
+            # Convert PIL Image to temporary file path if needed
+            import tempfile
+            import os
             
-            return result
+            if isinstance(image, Image.Image):
+                # Save image to temporary file
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                    image.save(tmp_file.name, format='PNG')
+                    image_path = tmp_file.name
+            else:
+                # Assume it's already a path
+                image_path = image
+            
+            try:
+                with torch.no_grad():
+                    if hasattr(self.model, 'chat'):
+                        result = self.model.chat(
+                            self.tokenizer,
+                            image_path,  # Use file path instead of PIL Image
+                            ocr_type=ocr_type,
+                            ocr_color=ocr_color
+                        )
+                    else:
+                        # Fallback implementation
+                        result = self._basic_inference(image_path)
+                
+                # Clean up temporary file
+                if isinstance(image, Image.Image) and os.path.exists(image_path):
+                    try:
+                        os.unlink(image_path)
+                    except:
+                        pass  # Ignore cleanup errors
+                
+                return result
+                
+            except Exception as e:
+                # Clean up temporary file on error
+                if isinstance(image, Image.Image) and os.path.exists(image_path):
+                    try:
+                        os.unlink(image_path)
+                    except:
+                        pass
+                raise e
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
@@ -238,7 +268,40 @@ class GOTOCRHFModel(BaseModel):
     
     def _basic_inference(self, image: Image.Image) -> str:
         """Basic inference fallback."""
-        return "[GOT-OCR HF inference - implement based on model API]"
+        # Попробуем использовать стандартную генерацию
+        try:
+            # Обработка изображения
+            inputs = self.processor(image, return_tensors="pt")
+            
+            # Перемещение на устройство
+            device = next(self.model.parameters()).device
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+            
+            # Генерация
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=2048,
+                    do_sample=False,
+                    pad_token_id=getattr(self.processor, 'tokenizer', self.processor).eos_token_id
+                )
+                
+                # Декодирование
+                if hasattr(self.processor, 'decode'):
+                    result = self.processor.decode(outputs[0], skip_special_tokens=True)
+                elif hasattr(self.processor, 'tokenizer'):
+                    result = self.processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                else:
+                    # Последняя попытка
+                    from transformers import AutoTokenizer
+                    tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+                    result = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                
+                return result
+                
+        except Exception as e:
+            logger.error(f"Basic inference failed: {e}")
+            return f"[GOT-OCR HF inference error: {e}]"
     
     def chat(self, image: Image.Image, prompt: str, **kwargs) -> str:
         """Chat interface (returns OCR result)."""

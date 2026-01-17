@@ -1,0 +1,14 @@
+{
+  "ocr_only": {
+    "error": "'NoneType' object has no attribute 'shape'"
+  },
+  "layout_all": {
+    "error": "'NoneType' object has no attribute 'shape'"
+  },
+  "layout_only": {
+    "error": "'NoneType' object has no attribute 'shape'"
+  },
+  "chat": {
+    "error": "'NoneType' object has no attribute 'shape'"
+  }
+}

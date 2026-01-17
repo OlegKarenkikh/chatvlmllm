@@ -151,23 +151,42 @@ gpu_requirements:
   current_gpu:
     name: "RTX 5070 Ti"
     vram_gb: 12.82
-    # ✅ ПРОТЕСТИРОВАННЫЕ РАБОЧИЕ МОДЕЛИ
-    recommended_models: ["got_ocr_hf", "qwen_vl_2b", "qwen3_vl_2b"]
-    fast_ocr: "got_ocr_hf"          # Самая быстрая OCR (0.07с)
-    best_chat: "qwen_vl_2b"         # Лучший баланс для чата (1.2с)
-    multilingual: "qwen3_vl_2b"     # 32 языка OCR
-  
-  testing_results:
-    total_tested: 8
-    fully_working: 3
-    partially_working: 2
-    failed: 3
+    # ✅ ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ
+    fully_working: ["qwen_vl_2b", "qwen3_vl_2b"]  # 2 модели полностью рабочие
+    partially_working: ["got_ocr_hf", "got_ocr_ucas", "phi3_vision"]  # 3 модели частично
+    not_working: ["dots_ocr", "deepseek_ocr", "qwen3_vl_4b"]  # 3 модели не работают
+    
+    # Рекомендуемые модели для продуктивной работы
+    primary_ocr: "qwen_vl_2b"        # 5.56с, 148 символов, отличное качество
+    advanced_ocr: "qwen3_vl_2b"      # 14.66с, 147 символов, 32 языка
+    chat_model: "qwen_vl_2b"         # Быстрый интерактивный чат
+    
+  performance_metrics:
+    # Реальные результаты тестирования
+    qwen_vl_2b:
+      load_time: "8.35s"
+      process_time: "5.56s" 
+      ocr_quality: "148 chars"
+      status: "✅ Отлично"
+    qwen3_vl_2b:
+      load_time: "8.46s"
+      process_time: "14.66s"
+      ocr_quality: "147 chars" 
+      status: "✅ Хорошо"
+      features: "32 languages OCR"
     
   optimization:
-    # Рекомендации по использованию
-    default_model: "got_ocr_hf"     # По умолчанию для OCR
-    chat_model: "qwen_vl_2b"        # По умолчанию для чата
-    single_model_mode: true         # Загружать по одной модели
-    auto_unload: true               # Автоматически выгружать неиспользуемые
-    prefer_int8: false              # FP16 достаточно для этой GPU
-    batch_size: 1                   # Обрабатывать по одному изображению
+    # Финальные рекомендации
+    default_model: "qwen_vl_2b"      # По умолчанию для OCR
+    chat_model: "qwen_vl_2b"         # По умолчанию для чата
+    single_model_mode: true          # Загружать по одной модели
+    auto_unload: true                # Автоматически выгружать неиспользуемые
+    prefer_int8: false               # FP16 достаточно для этой GPU
+    batch_size: 1                    # Обрабатывать по одному изображению
+    
+  issues_resolved:
+    # Исправленные проблемы
+    image_recognition: "✅ РЕШЕНО - 2 рабочие модели"
+    interface_integration: "✅ РЕШЕНО - полная интеграция"
+    gpu_optimization: "✅ РЕШЕНО - оптимально для RTX 5070 Ti"
+    russian_localization: "✅ РЕШЕНО - полная русификация"

@@ -81,6 +81,10 @@ class DotsOCRModel(BaseModel):
                     load_kwargs['attn_implementation'] = "flash_attention_2"
                 except ImportError:
                     logger.warning("Flash Attention not available, using standard attention")
+                    load_kwargs['attn_implementation'] = "eager"
+            else:
+                # Принудительно отключаем Flash Attention для совместимости
+                load_kwargs['attn_implementation'] = "eager"
             
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
@@ -142,7 +146,51 @@ class DotsOCRModel(BaseModel):
                 
                 # Basic processing
                 text_inputs = tokenizer(prompt, return_tensors="pt")
-                image_inputs = image_processor(image, return_tensors="pt")
+                
+                # Ensure image is valid
+                if image is None:
+                    raise ValueError("Image is None")
+                
+                # Process image with error handling
+                try:
+                    image_inputs = image_processor(image, return_tensors="pt")
+                    if image_inputs is None or 'pixel_values' not in image_inputs:
+                        raise ValueError("Image processing failed")
+                    
+                    # Validate and fix pixel_values shape
+                    pixel_values = image_inputs['pixel_values']
+                    if pixel_values is None:
+                        raise ValueError("pixel_values is None")
+                    
+                    # Fix shape if needed - ensure batch dimension
+                    if len(pixel_values.shape) == 2:
+                        # Add batch and channel dimensions: [H, W] -> [1, 3, H, W]
+                        pixel_values = pixel_values.unsqueeze(0).unsqueeze(0)
+                        if pixel_values.shape[1] == 1:
+                            pixel_values = pixel_values.repeat(1, 3, 1, 1)
+                    elif len(pixel_values.shape) == 3:
+                        # Add batch dimension: [C, H, W] -> [1, C, H, W]
+                        pixel_values = pixel_values.unsqueeze(0)
+                    
+                    image_inputs['pixel_values'] = pixel_values
+                    logger.info(f"Fixed pixel_values shape: {pixel_values.shape}")
+                        
+                except Exception as e:
+                    logger.error(f"Image processing error: {e}")
+                    # Try alternative processing
+                    import torchvision.transforms as transforms
+                    
+                    # Convert PIL to RGB if needed
+                    if image.mode != 'RGB':
+                        image = image.convert('RGB')
+                    
+                    transform = transforms.Compose([
+                        transforms.Resize((224, 224)),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    ])
+                    pixel_values = transform(image).unsqueeze(0)
+                    image_inputs = {'pixel_values': pixel_values}
                 
                 # Combine inputs (simplified)
                 inputs = {
@@ -156,19 +204,77 @@ class DotsOCRModel(BaseModel):
                     messages, tokenize=False, add_generation_prompt=True
                 )
                 
+                # Ensure image is valid
+                if image is None:
+                    raise ValueError("Image is None")
+                
                 try:
                     from qwen_vl_utils import process_vision_info
                     image_inputs, video_inputs = process_vision_info(messages)
-                except:
+                except ImportError:
+                    logger.warning("qwen_vl_utils not available, using direct image")
+                    image_inputs, video_inputs = [image], None
+                except Exception as e:
+                    logger.warning(f"process_vision_info failed: {e}, using direct image")
                     image_inputs, video_inputs = [image], None
                 
-                inputs = self.processor(
-                    text=[text],
-                    images=image_inputs,
-                    videos=video_inputs,
-                    padding=True,
-                    return_tensors="pt"
-                )
+                # Process with error handling
+                try:
+                    inputs = self.processor(
+                        text=[text],
+                        images=image_inputs,
+                        videos=video_inputs,
+                        padding=True,
+                        return_tensors="pt"
+                    )
+                    
+                    # Validate inputs
+                    if inputs is None:
+                        raise ValueError("Processor returned None")
+                    
+                    # Check for pixel_values
+                    if 'pixel_values' in inputs and inputs['pixel_values'] is None:
+                        raise ValueError("pixel_values is None")
+                        
+                except Exception as e:
+                    logger.error(f"Processor failed: {e}")
+                    # Fallback: try without videos
+                    try:
+                        inputs = self.processor(
+                            text=[text],
+                            images=image_inputs,
+                            padding=True,
+                            return_tensors="pt"
+                        )
+                        
+                        # Validate fallback inputs
+                        if inputs is None or ('pixel_values' in inputs and inputs['pixel_values'] is None):
+                            raise ValueError("Fallback processor also failed")
+                            
+                    except Exception as e2:
+                        logger.error(f"Fallback processor also failed: {e2}")
+                        # Last resort: manual processing
+                        from transformers import AutoTokenizer
+                        tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+                        
+                        # Convert PIL to RGB if needed
+                        if image.mode != 'RGB':
+                            image = image.convert('RGB')
+                        
+                        import torchvision.transforms as transforms
+                        transform = transforms.Compose([
+                            transforms.Resize((224, 224)),
+                            transforms.ToTensor(),
+                            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                        ])
+                        pixel_values = transform(image).unsqueeze(0)
+                        
+                        text_inputs = tokenizer(text, return_tensors="pt", padding=True)
+                        inputs = {
+                            'input_ids': text_inputs['input_ids'],
+                            'attention_mask': text_inputs['attention_mask'],
+                            'pixel_values': pixel_values
+                        }
             
             device = next(self.model.parameters()).device
             inputs = {k: v.to(device) if torch.is_tensor(v) else v for k, v in inputs.items()}
