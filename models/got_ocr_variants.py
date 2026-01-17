@@ -180,7 +180,7 @@ class GOTOCRHFModel(BaseModel):
         try:
             logger.info(f"Loading GOT-OCR HF from {self.model_path}")
             
-            from transformers import AutoModel, AutoProcessor
+            from transformers import AutoModelForImageTextToText, AutoProcessor
             
             device = self._get_device()
             logger.info(f"Using device: {device}")
@@ -203,8 +203,8 @@ class GOTOCRHFModel(BaseModel):
             elif self.precision == "int8":
                 load_kwargs['load_in_8bit'] = True
             
-            # Load model
-            self.model = AutoModel.from_pretrained(
+            # Load model - используем правильный класс
+            self.model = AutoModelForImageTextToText.from_pretrained(
                 self.model_path,
                 **load_kwargs
             )
@@ -241,61 +241,56 @@ class GOTOCRHFModel(BaseModel):
             
             logger.info(f"Processing image with GOT-OCR HF (type: {ocr_type})")
             
-            # Process image
-            inputs = self.processor(image, return_tensors="pt")
-            
-            # Move to device
+            # Process image using the official API
             device = next(self.model.parameters()).device
-            inputs = {k: v.to(device) for k, v in inputs.items()}
+            
+            # Determine format parameter
+            format_text = (ocr_type == "format")
+            
+            # Process inputs
+            inputs = self.processor(image, return_tensors="pt", format=format_text).to(device)
             
             with torch.no_grad():
-                if hasattr(self.model, 'generate'):
-                    outputs = self.model.generate(
-                        **inputs,
-                        max_new_tokens=2048,
-                        do_sample=False
-                    )
-                    result = self.processor.decode(outputs[0], skip_special_tokens=True)
-                else:
-                    # Alternative inference method
-                    result = self._basic_inference(image)
+                # Generate using the official API
+                generated_ids = self.model.generate(
+                    **inputs,
+                    do_sample=False,
+                    tokenizer=self.processor.tokenizer,
+                    stop_strings="<|im_end|>",
+                    max_new_tokens=4096,
+                )
+                
+                # Decode the result
+                result = self.processor.decode(
+                    generated_ids[0, inputs["input_ids"].shape[1]:], 
+                    skip_special_tokens=True
+                )
             
             return result
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
-            raise
+            # Fallback to basic inference
+            return self._basic_inference(image)
     
     def _basic_inference(self, image: Image.Image) -> str:
         """Basic inference fallback."""
-        # Попробуем использовать стандартную генерацию
         try:
-            # Обработка изображения
-            inputs = self.processor(image, return_tensors="pt")
-            
-            # Перемещение на устройство
+            # Простой fallback с базовыми параметрами
             device = next(self.model.parameters()).device
-            inputs = {k: v.to(device) for k, v in inputs.items()}
+            inputs = self.processor(image, return_tensors="pt").to(device)
             
-            # Генерация
             with torch.no_grad():
-                outputs = self.model.generate(
+                generated_ids = self.model.generate(
                     **inputs,
-                    max_new_tokens=2048,
                     do_sample=False,
-                    pad_token_id=getattr(self.processor, 'tokenizer', self.processor).eos_token_id
+                    max_new_tokens=2048,
                 )
                 
-                # Декодирование
-                if hasattr(self.processor, 'decode'):
-                    result = self.processor.decode(outputs[0], skip_special_tokens=True)
-                elif hasattr(self.processor, 'tokenizer'):
-                    result = self.processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
-                else:
-                    # Последняя попытка
-                    from transformers import AutoTokenizer
-                    tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
-                    result = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                result = self.processor.decode(
+                    generated_ids[0, inputs["input_ids"].shape[1]:], 
+                    skip_special_tokens=True
+                )
                 
                 return result
                 

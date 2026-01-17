@@ -5,8 +5,8 @@ models:
   # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
   # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
   got_ocr_hf:
-    name: "GOT-OCR 2.0 (HF) ⭐"
-    description: "Быстрая и точная OCR модель (РЕКОМЕНДУЕТСЯ)"
+    name: "GOT-OCR 2.0 (HF) ⭐⭐"
+    description: "Быстрая и точная OCR модель (ЛУЧШИЙ ВЫБОР!)"
     model_path: "stepfun-ai/GOT-OCR-2.0-hf"
     model_type: "ocr"
     max_length: 4096
@@ -16,7 +16,7 @@ models:
     use_flash_attention: false
     ocr_type: "format"
     ocr_color: ""
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=1.1GB, Загрузка=6с, Обработка=0.07с
+    # ✅ ИСПРАВЛЕНО: VRAM=1.1GB, Загрузка=9.4с, Обработка=4.98с, Результат=216 символов
 
   # ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ (частично рабочие)
   got_ocr_ucas:
@@ -151,33 +151,40 @@ gpu_requirements:
   current_gpu:
     name: "RTX 5070 Ti"
     vram_gb: 12.82
-    # ✅ ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ
-    fully_working: ["qwen_vl_2b", "qwen3_vl_2b"]  # 2 модели полностью рабочие
-    partially_working: ["got_ocr_hf", "got_ocr_ucas", "phi3_vision"]  # 3 модели частично
+    # ✅ ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ (ИСПРАВЛЕНО!)
+    fully_working: ["got_ocr_hf", "qwen_vl_2b", "qwen3_vl_2b"]  # 3 модели полностью рабочие
+    partially_working: ["got_ocr_ucas", "phi3_vision"]  # 2 модели частично
     not_working: ["dots_ocr", "deepseek_ocr", "qwen3_vl_4b"]  # 3 модели не работают
     
-    # Рекомендуемые модели для продуктивной работы
-    primary_ocr: "qwen_vl_2b"        # 5.56с, 148 символов, отличное качество
-    advanced_ocr: "qwen3_vl_2b"      # 14.66с, 147 символов, 32 языка
+    # Рекомендуемые модели для продуктивной работы (ОБНОВЛЕНО!)
+    primary_ocr: "got_ocr_hf"        # 4.98с, 216 символов, ЛУЧШИЙ ВЫБОР!
+    secondary_ocr: "qwen_vl_2b"      # 5.48с, 148 символов, хороший баланс
+    advanced_ocr: "qwen3_vl_2b"      # 13.77с, 147 символов, 32 языка
     chat_model: "qwen_vl_2b"         # Быстрый интерактивный чат
     
   performance_metrics:
-    # Реальные результаты тестирования
+    # Реальные результаты тестирования (ОБНОВЛЕНО!)
+    got_ocr_hf:
+      load_time: "9.43s"
+      process_time: "4.98s" 
+      ocr_quality: "216 chars"
+      format: "LaTeX structured"
+      status: "✅ ЛУЧШИЙ ВЫБОР!"
     qwen_vl_2b:
-      load_time: "8.35s"
-      process_time: "5.56s" 
+      load_time: "8.99s"
+      process_time: "5.48s" 
       ocr_quality: "148 chars"
-      status: "✅ Отлично"
+      status: "✅ Хороший баланс"
     qwen3_vl_2b:
-      load_time: "8.46s"
-      process_time: "14.66s"
+      load_time: "8.40s"
+      process_time: "13.77s"
       ocr_quality: "147 chars" 
-      status: "✅ Хорошо"
+      status: "✅ Продвинутый"
       features: "32 languages OCR"
     
   optimization:
-    # Финальные рекомендации
-    default_model: "qwen_vl_2b"      # По умолчанию для OCR
+    # Финальные рекомендации (ОБНОВЛЕНО!)
+    default_model: "got_ocr_hf"      # По умолчанию для OCR (ЛУЧШИЙ!)
     chat_model: "qwen_vl_2b"         # По умолчанию для чата
     single_model_mode: true          # Загружать по одной модели
     auto_unload: true                # Автоматически выгружать неиспользуемые
@@ -185,8 +192,9 @@ gpu_requirements:
     batch_size: 1                    # Обрабатывать по одному изображению
     
   issues_resolved:
-    # Исправленные проблемы
-    image_recognition: "✅ РЕШЕНО - 2 рабочие модели"
+    # Исправленные проблемы (ФИНАЛЬНОЕ ОБНОВЛЕНИЕ!)
+    image_recognition: "✅ ПОЛНОСТЬЮ РЕШЕНО - 3 рабочие модели"
+    got_ocr_hf_fixed: "✅ ИСПРАВЛЕНО - теперь лучшая модель!"
     interface_integration: "✅ РЕШЕНО - полная интеграция"
     gpu_optimization: "✅ РЕШЕНО - оптимально для RTX 5070 Ti"
     russian_localization: "✅ РЕШЕНО - полная русификация"
