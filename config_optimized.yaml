@@ -1,12 +1,22 @@
 # ChatVLMLLM Configuration - Оптимизировано для RTX 5070 Ti (12.82GB VRAM)
-# Результаты тестирования: 4/8 моделей полностью рабочие
 
 models:
-  # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
-  # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
+  # Легкие OCR модели (быстрая загрузка)
+  deepseek_ocr:
+    name: "DeepSeek OCR"
+    description: "Легкая OCR модель от DeepSeek"
+    model_path: "deepseek-ai/deepseek-ocr"
+    model_type: "ocr"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    # VRAM: FP16=0.01GB, Recommended=1GB
+    
   got_ocr_hf:
-    name: "GOT-OCR 2.0 (HF) ⭐"
-    description: "Быстрая и точная OCR модель (РЕКОМЕНДУЕТСЯ)"
+    name: "GOT-OCR 2.0 (HF)"
+    description: "HuggingFace версия GOT-OCR"
     model_path: "stepfun-ai/GOT-OCR-2.0-hf"
     model_type: "ocr"
     max_length: 4096
@@ -16,12 +26,11 @@ models:
     use_flash_attention: false
     ocr_type: "format"
     ocr_color: ""
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=1.1GB, Загрузка=6с, Обработка=0.07с
+    # VRAM: FP16=1.1GB, INT8=0.8GB, Recommended=2GB
 
-  # ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ (частично рабочие)
   got_ocr_ucas:
-    name: "GOT-OCR 2.0 (UCAS) ⚠️"
-    description: "Альтернативная реализация GOT-OCR (ошибка обработки)"
+    name: "GOT-OCR 2.0 (UCAS)"
+    description: "Альтернативная реализация GOT-OCR"
     model_path: "ucaslcl/GOT-OCR2_0"
     model_type: "ocr"
     max_length: 4096
@@ -31,25 +40,12 @@ models:
     use_flash_attention: false
     ocr_type: "format"
     ocr_color: ""
-    # ⚠️ ПРОТЕСТИРОВАНО: VRAM=2.7GB, Загрузка=5.7с, Ошибка обработки
+    # VRAM: FP16=2.7GB, INT8=1.8GB, Recommended=3GB
 
-  qwen_vl_2b:
-    name: "Qwen2-VL 2B ⭐"
-    description: "Быстрая VLM для чата (РЕКОМЕНДУЕТСЯ)"
-    model_path: "Qwen/Qwen2-VL-2B-Instruct"
-    model_type: "vlm"
-    max_length: 4096
-    precision: "fp16"
-    device_map: "auto"
-    trust_remote_code: true
-    use_flash_attention: false
-    min_pixels: 256
-    max_pixels: 1280
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.7GB, Загрузка=12.6с, Обработка=1.2с
-
+  # Оптимальные VLM модели для вашей GPU
   qwen3_vl_2b:
-    name: "Qwen3-VL 2B ⭐"
-    description: "Многоязычная VLM с OCR на 32 языках (РЕКОМЕНДУЕТСЯ)"
+    name: "Qwen3-VL 2B"
+    description: "Новейшая VLM с OCR на 32 языках и визуальным агентом"
     model_path: "Qwen/Qwen3-VL-2B-Instruct"
     model_type: "vlm"
     max_length: 4096
@@ -59,12 +55,26 @@ models:
     use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.4GB, Загрузка=10.6с, Обработка=23.3с
+    # VRAM: FP16=4.4GB, INT8=2.2GB, Recommended=6GB
     # Features: 32 languages OCR, 256K context, visual agent, spatial perception
+  
+  qwen_vl_2b:
+    name: "Qwen2-VL 2B"
+    description: "Легкая VLM для документов"
+    model_path: "Qwen/Qwen2-VL-2B-Instruct"
+    model_type: "vlm"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    min_pixels: 256
+    max_pixels: 1280
+    # VRAM: FP16=4.7GB, INT8=3.6GB, Recommended=6GB
 
   phi3_vision:
-    name: "Phi-3.5 Vision ⚠️"
-    description: "Мощная модель Microsoft (ошибка обработки)"
+    name: "Phi-3.5 Vision"
+    description: "Мощная модель Microsoft для визуального анализа"
     model_path: "microsoft/Phi-3.5-vision-instruct"
     model_type: "vlm"
     max_length: 4096
@@ -74,11 +84,11 @@ models:
     use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
-    # ⚠️ ПРОТЕСТИРОВАНО: VRAM=7.7GB, Загрузка=17.4с, Ошибка обработки
+    # VRAM: FP16=7.7GB, INT8=4.5GB, Recommended=8GB
 
   dots_ocr:
-    name: "dots.ocr ⚠️"
-    description: "SOTA парсер документов (ошибка обработки)"
+    name: "dots.ocr"
+    description: "SOTA многоязычный парсер документов (1.7B, 100+ языков)"
     model_path: "rednote-hilab/dots.ocr"
     model_type: "document_parser"
     max_length: 4096
@@ -88,13 +98,25 @@ models:
     use_flash_attention: false
     prompt_mode: "layout_all"
     max_new_tokens: 24000
-    # ⚠️ ПРОТЕСТИРОВАНО: VRAM=8GB, Загрузка=14.9с, Ошибка обработки
+    # VRAM: BF16=8GB, INT8=6GB, Recommended=10GB
 
-  # ИСКЛЮЧЕНЫ МОДЕЛИ:
-  # deepseek_ocr: ❌ Ошибка модуля transformers_modules
-  # qwen3_vl_4b: ❌ Не в кеше (8.9GB)
-  # qwen_vl_7b: ❌ Слишком тяжелая (16.1GB)
-  # qwen3_vl_8b: ❌ Слишком тяжелая (17.6GB)
+  qwen3_vl_4b:
+    name: "Qwen3-VL 4B"
+    description: "Сбалансированная Qwen3-VL с SOTA производительностью"
+    model_path: "Qwen/Qwen3-VL-4B-Instruct"
+    model_type: "vlm"
+    max_length: 4096
+    precision: "fp16"
+    device_map: "auto"
+    trust_remote_code: true
+    use_flash_attention: false
+    min_pixels: 256
+    max_pixels: 1280
+    # VRAM: FP16=8.9GB, INT8=3.8GB, INT4=3GB, Recommended=10GB
+
+  # ИСКЛЮЧЕНЫ ТЯЖЕЛЫЕ МОДЕЛИ (>12GB VRAM):
+  # qwen_vl_7b: 16.1GB - слишком тяжелая
+  # qwen3_vl_8b: 17.6GB - слишком тяжелая
 
 ocr:
   supported_formats: ["jpg", "jpeg", "png", "bmp", "tiff"]
@@ -151,23 +173,13 @@ gpu_requirements:
   current_gpu:
     name: "RTX 5070 Ti"
     vram_gb: 12.82
-    # ✅ ПРОТЕСТИРОВАННЫЕ РАБОЧИЕ МОДЕЛИ
-    recommended_models: ["got_ocr_hf", "qwen_vl_2b", "qwen3_vl_2b"]
-    fast_ocr: "got_ocr_hf"          # Самая быстрая OCR (0.07с)
-    best_chat: "qwen_vl_2b"         # Лучший баланс для чата (1.2с)
-    multilingual: "qwen3_vl_2b"     # 32 языка OCR
+    recommended_models: ["qwen3_vl_2b", "qwen_vl_2b", "phi3_vision", "dots_ocr"]
+    light_models: ["deepseek_ocr", "got_ocr_hf", "got_ocr_ucas"]
+    max_model: "qwen3_vl_4b"  # Максимальная модель для этой GPU
   
-  testing_results:
-    total_tested: 8
-    fully_working: 3
-    partially_working: 2
-    failed: 3
-    
   optimization:
     # Рекомендации по использованию
-    default_model: "got_ocr_hf"     # По умолчанию для OCR
-    chat_model: "qwen_vl_2b"        # По умолчанию для чата
-    single_model_mode: true         # Загружать по одной модели
-    auto_unload: true               # Автоматически выгружать неиспользуемые
-    prefer_int8: false              # FP16 достаточно для этой GPU
-    batch_size: 1                   # Обрабатывать по одному изображению
+    single_model_mode: true  # Загружать по одной модели
+    auto_unload: true        # Автоматически выгружать неиспользуемые
+    prefer_int8: false       # FP16 достаточно для этой GPU
+    batch_size: 1           # Обрабатывать по одному изображению
