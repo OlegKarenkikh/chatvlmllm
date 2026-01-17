@@ -244,29 +244,51 @@ class GOTOCRHFModel(BaseModel):
             # Process image using the official API
             device = next(self.model.parameters()).device
             
-            # Determine format parameter
-            format_text = (ocr_type == "format")
-            
-            # Process inputs
-            inputs = self.processor(image, return_tensors="pt", format=format_text).to(device)
-            
-            with torch.no_grad():
-                # Generate using the official API
-                generated_ids = self.model.generate(
-                    **inputs,
-                    do_sample=False,
-                    tokenizer=self.processor.tokenizer,
-                    stop_strings="<|im_end|>",
-                    max_new_tokens=4096,
-                )
+            # Попробуем сначала без форматирования для чистого текста
+            try:
+                # Первая попытка: без форматирования (чистый текст)
+                inputs = self.processor(image, return_tensors="pt", format=False).to(device)
                 
-                # Decode the result
-                result = self.processor.decode(
-                    generated_ids[0, inputs["input_ids"].shape[1]:], 
-                    skip_special_tokens=True
-                )
-            
-            return result
+                with torch.no_grad():
+                    generated_ids = self.model.generate(
+                        **inputs,
+                        do_sample=False,
+                        tokenizer=self.processor.tokenizer,
+                        stop_strings="<|im_end|>",
+                        max_new_tokens=4096,
+                    )
+                    
+                    result = self.processor.decode(
+                        generated_ids[0, inputs["input_ids"].shape[1]:], 
+                        skip_special_tokens=True
+                    )
+                
+                # Если результат слишком короткий, попробуем с форматированием
+                if len(result.strip()) < 10:
+                    logger.info("Short result, trying with formatting...")
+                    
+                    inputs = self.processor(image, return_tensors="pt", format=True).to(device)
+                    
+                    with torch.no_grad():
+                        generated_ids = self.model.generate(
+                            **inputs,
+                            do_sample=False,
+                            tokenizer=self.processor.tokenizer,
+                            stop_strings="<|im_end|>",
+                            max_new_tokens=4096,
+                        )
+                        
+                        result = self.processor.decode(
+                            generated_ids[0, inputs["input_ids"].shape[1]:], 
+                            skip_special_tokens=True
+                        )
+                
+                return result
+                
+            except Exception as e:
+                logger.error(f"Error in main processing: {e}")
+                # Fallback to basic inference
+                return self._basic_inference(image)
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")

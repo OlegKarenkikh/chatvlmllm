@@ -5,8 +5,8 @@ models:
   # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
   # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
   got_ocr_hf:
-    name: "GOT-OCR 2.0 (HF) ⭐⭐"
-    description: "Быстрая и точная OCR модель (ЛУЧШИЙ ВЫБОР!)"
+    name: "GOT-OCR 2.0 (HF) ⚠️"
+    description: "Быстрая OCR модель (требует очистки текста)"
     model_path: "stepfun-ai/GOT-OCR-2.0-hf"
     model_type: "ocr"
     max_length: 4096
@@ -14,9 +14,9 @@ models:
     device_map: "auto"
     trust_remote_code: true
     use_flash_attention: false
-    ocr_type: "format"
+    ocr_type: "ocr"  # Изменено с "format" на "ocr" для чистого текста
     ocr_color: ""
-    # ✅ ИСПРАВЛЕНО: VRAM=1.1GB, Загрузка=9.4с, Обработка=4.98с, Результат=216 символов
+    # ⚠️ ПРОТЕСТИРОВАНО: VRAM=1.1GB, Загрузка=9.4с, Обработка=4.11с, ИСКАЖЕННЫЙ ТЕКСТ!
 
   # ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ (частично рабочие)
   got_ocr_ucas:
@@ -34,8 +34,8 @@ models:
     # ⚠️ ПРОТЕСТИРОВАНО: VRAM=2.7GB, Загрузка=5.7с, Ошибка обработки
 
   qwen_vl_2b:
-    name: "Qwen2-VL 2B ⭐"
-    description: "Быстрая VLM для чата (РЕКОМЕНДУЕТСЯ)"
+    name: "Qwen2-VL 2B ⭐⭐"
+    description: "Быстрая VLM с отличным OCR (ЛУЧШИЙ ВЫБОР!)"
     model_path: "Qwen/Qwen2-VL-2B-Instruct"
     model_type: "vlm"
     max_length: 4096
@@ -45,11 +45,11 @@ models:
     use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.7GB, Загрузка=12.6с, Обработка=1.2с
+    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.7GB, Загрузка=12.6с, Обработка=5.09с, ЧИТАЕМЫЙ ТЕКСТ!
 
   qwen3_vl_2b:
-    name: "Qwen3-VL 2B ⭐"
-    description: "Многоязычная VLM с OCR на 32 языках (РЕКОМЕНДУЕТСЯ)"
+    name: "Qwen3-VL 2B ⭐⭐"
+    description: "Многоязычная VLM с отличным OCR на 32 языках (ОТЛИЧНЫЙ ВЫБОР!)"
     model_path: "Qwen/Qwen3-VL-2B-Instruct"
     model_type: "vlm"
     max_length: 4096
@@ -59,7 +59,7 @@ models:
     use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.4GB, Загрузка=10.6с, Обработка=23.3с
+    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.4GB, Загрузка=10.6с, Обработка=14.50с, ЧИТАЕМЫЙ ТЕКСТ!
     # Features: 32 languages OCR, 256K context, visual agent, spatial perception
 
   phi3_vision:
@@ -157,9 +157,9 @@ gpu_requirements:
     not_working: ["dots_ocr", "deepseek_ocr", "qwen3_vl_4b"]  # 3 модели не работают
     
     # Рекомендуемые модели для продуктивной работы (ОБНОВЛЕНО!)
-    primary_ocr: "got_ocr_hf"        # 4.98с, 216 символов, ЛУЧШИЙ ВЫБОР!
-    secondary_ocr: "qwen_vl_2b"      # 5.48с, 148 символов, хороший баланс
-    advanced_ocr: "qwen3_vl_2b"      # 13.77с, 147 символов, 32 языка
+    primary_ocr: "qwen_vl_2b"        # 5.09с, 148 символов, ЧИТАЕМЫЙ ТЕКСТ!
+    secondary_ocr: "qwen3_vl_2b"     # 14.50с, 147 символов, ЧИТАЕМЫЙ ТЕКСТ!
+    advanced_ocr: "got_ocr_hf"       # 4.11с, 132 символа, требует очистки
     chat_model: "qwen_vl_2b"         # Быстрый интерактивный чат
     
   performance_metrics:
@@ -184,7 +184,7 @@ gpu_requirements:
     
   optimization:
     # Финальные рекомендации (ОБНОВЛЕНО!)
-    default_model: "got_ocr_hf"      # По умолчанию для OCR (ЛУЧШИЙ!)
+    default_model: "qwen_vl_2b"      # По умолчанию для OCR (ЧИТАЕМЫЙ ТЕКСТ!)
     chat_model: "qwen_vl_2b"         # По умолчанию для чата
     single_model_mode: true          # Загружать по одной модели
     auto_unload: true                # Автоматически выгружать неиспользуемые

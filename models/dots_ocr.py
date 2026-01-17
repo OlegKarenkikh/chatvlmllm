@@ -270,11 +270,61 @@ class DotsOCRModel(BaseModel):
                         pixel_values = transform(image).unsqueeze(0)
                         
                         text_inputs = tokenizer(text, return_tensors="pt", padding=True)
-                        inputs = {
-                            'input_ids': text_inputs['input_ids'],
-                            'attention_mask': text_inputs['attention_mask'],
-                            'pixel_values': pixel_values
-                        }
+                # Последний шанс: упрощенная обработка
+                try:
+                    import torch
+                    from transformers import AutoTokenizer
+                    
+                    tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+                    
+                    # Простая токенизация
+                    text_inputs = tokenizer(prompt, return_tensors="pt", padding=True)
+                    
+                    # Преобразование изображения
+                    if image.mode != 'RGB':
+                        image = image.convert('RGB')
+                    
+                    import torchvision.transforms as transforms
+                    transform = transforms.Compose([
+                        transforms.Resize((224, 224)),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    ])
+                    pixel_values = transform(image).unsqueeze(0)
+                    
+                    # Объединение входов
+                    device = next(self.model.parameters()).device
+                    inputs = {
+                        'input_ids': text_inputs['input_ids'].to(device),
+                        'attention_mask': text_inputs['attention_mask'].to(device),
+                        'pixel_values': pixel_values.to(device)
+                    }
+                    
+                    # Генерация с проверками
+                    with torch.no_grad():
+                        outputs = self.model.generate(
+                            **inputs,
+                            max_new_tokens=min(self.max_new_tokens, 2000),
+                            do_sample=False,
+                            pad_token_id=tokenizer.eos_token_id
+                        )
+                    
+                    # Проверка результата
+                    if outputs is None:
+                        raise ValueError("Generation returned None")
+                    
+                    # Декодирование только новых токенов
+                    if len(outputs) > 0 and len(outputs[0]) > len(inputs['input_ids'][0]):
+                        new_tokens = outputs[0][len(inputs['input_ids'][0]):]
+                        result = tokenizer.decode(new_tokens, skip_special_tokens=True)
+                    else:
+                        result = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                    
+                    return result
+                    
+                except Exception as e3:
+                    logger.error(f"Last resort processing failed: {e3}")
+                    return f"[dots.ocr processing error: {e3}]"
             
             device = next(self.model.parameters()).device
             inputs = {k: v.to(device) if torch.is_tensor(v) else v for k, v in inputs.items()}
@@ -282,8 +332,16 @@ class DotsOCRModel(BaseModel):
             with torch.no_grad():
                 generated_ids = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
             
+            # Проверяем, что generated_ids не None
+            if generated_ids is None:
+                raise ValueError("Model generation returned None")
+            
+            # Проверяем, что inputs.input_ids существует
+            if 'input_ids' not in inputs or inputs['input_ids'] is None:
+                raise ValueError("input_ids is None or missing")
+            
             generated_ids_trimmed = [
-                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs['input_ids'], generated_ids)
             ]
             
             # Handle decoding
