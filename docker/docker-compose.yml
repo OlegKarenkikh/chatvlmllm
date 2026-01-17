@@ -1,3 +1,15 @@
+# Docker Compose for ChatVLMLLM (docker/ directory)
+# 
+# Note: Main compose files are in project root:
+#   - docker-compose.yml       (CPU mode)
+#   - docker-compose.cuda.yml  (GPU/CUDA mode for WSL)
+#
+# Usage from docker/ directory:
+#   docker compose up -d
+#
+# For GPU support from project root:
+#   cd .. && docker compose -f docker-compose.cuda.yml up -d
+
 version: '3.8'
 
 services:
@@ -5,25 +17,42 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    image: chatvlmllm:latest
     container_name: chatvlmllm
+    
     ports:
       - "8501:8501"
+    
     volumes:
-      - ../models:/app/models
       - ../examples:/app/examples
+      - ../config.yaml:/app/config.yaml:ro
       - model_cache:/root/.cache/huggingface
+    
     environment:
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
-      - CUDA_VISIBLE_DEVICES=0  # Set GPU device
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - HF_HOME=/root/.cache/huggingface
+    
+    # Uncomment for GPU support (requires nvidia-docker)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    # environment:
+    #   - CUDA_VISIBLE_DEVICES=0
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
     restart: unless-stopped
+    
     networks:
       - chatvlmllm_network
 

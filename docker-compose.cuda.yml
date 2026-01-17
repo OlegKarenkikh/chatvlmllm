@@ -1,0 +1,154 @@
+# Docker Compose for ChatVLMLLM with CUDA support
+# Optimized for WSL2 with NVIDIA GPU
+#
+# Prerequisites:
+#   - Docker Desktop with WSL2 backend
+#   - NVIDIA GPU driver for Windows (535.104.05+)
+#   - NVIDIA Container Toolkit in WSL
+#
+# Usage:
+#   Build:  docker compose -f docker-compose.cuda.yml build
+#   Start:  docker compose -f docker-compose.cuda.yml up -d
+#   Logs:   docker compose -f docker-compose.cuda.yml logs -f
+#   Stop:   docker compose -f docker-compose.cuda.yml down
+
+version: '3.8'
+
+services:
+  chatvlmllm:
+    build:
+      context: .
+      dockerfile: Dockerfile.cuda
+      args:
+        CUDA_VERSION: "12.1.0"
+        UBUNTU_VERSION: "ubuntu22.04"
+    image: chatvlmllm:cuda
+    container_name: chatvlmllm-cuda
+    
+    # GPU configuration for WSL2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all  # Use all available GPUs
+              capabilities: [gpu, compute, utility]
+    
+    # Alternative GPU config (for older Docker versions)
+    # runtime: nvidia
+    
+    ports:
+      - "8501:8501"   # Streamlit UI
+      - "8000:8000"   # FastAPI (optional)
+    
+    volumes:
+      # Application data
+      - ./examples:/app/examples
+      - ./config.yaml:/app/config.yaml:ro
+      
+      # Model cache persistence (important for large models!)
+      - model_cache:/root/.cache/huggingface
+      
+      # Optional: Mount local models directory
+      # - ./local_models:/app/local_models
+    
+    environment:
+      # Application settings
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+      
+      # CUDA settings
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_VISIBLE_DEVICES=0  # Use first GPU, change if needed
+      
+      # PyTorch optimizations
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - TORCH_HOME=/root/.cache/torch
+      
+      # HuggingFace settings
+      - HF_HOME=/root/.cache/huggingface
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface/transformers
+      - HF_HUB_CACHE=/root/.cache/huggingface/hub
+      # Uncomment and add your token for private models
+      # - HF_TOKEN=your_huggingface_token_here
+      
+      # Memory optimization
+      - PYTORCH_NO_CUDA_MEMORY_CACHING=0
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 120s  # Models take time to load
+    
+    restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    
+    networks:
+      - chatvlmllm_network
+
+  # Optional: API-only service
+  chatvlmllm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.cuda
+    image: chatvlmllm:cuda
+    container_name: chatvlmllm-api
+    profiles:
+      - api  # Only starts with: docker compose --profile api up
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    ports:
+      - "8000:8000"
+    
+    volumes:
+      - model_cache:/root/.cache/huggingface
+    
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_HOME=/root/.cache/huggingface
+    
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    restart: unless-stopped
+    networks:
+      - chatvlmllm_network
+
+networks:
+  chatvlmllm_network:
+    driver: bridge
+
+volumes:
+  model_cache:
+    driver: local
+    # Optional: specify a host path for model cache
+    # driver_opts:
+    #   type: none
+    #   device: /path/to/your/model/cache
+    #   o: bind

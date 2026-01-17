@@ -1,59 +1,87 @@
+# Git
+.git
+.gitignore
+
 # Python
-__pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
+.eggs/
 *.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Virtual environments
 venv/
 env/
-ENV/
-env.bak/
-venv.bak/
+.env
+.venv/
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Git
-.git/
-.gitignore
-
 # Documentation
 *.md
+!README.md
 docs/
 
-# Tests
+# Test files
 tests/
-pytest_cache/
-.coverage
-htmlcov/
+*.test.py
+test_*.py
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Build artifacts
+build/
+dist/
+*.whl
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+docker/
+.dockerignore
+
+# Cache
+.cache/
+*.cache
+
+# Local model files (too large)
+*.bin
+*.pt
+*.pth
+*.onnx
+*.safetensors
 
 # Logs
 *.log
 logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Examples data (will be mounted as volume)
+examples/invoices/*
+examples/passports/*
+examples/receipts/*
+!examples/**/.gitkeep
+
+# GitHub
+.github/

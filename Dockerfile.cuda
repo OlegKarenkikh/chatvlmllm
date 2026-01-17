@@ -1,0 +1,109 @@
+# CUDA-enabled Dockerfile for ChatVLMLLM
+# Optimized for WSL2 with NVIDIA GPU support
+#
+# Build:   docker build -f Dockerfile.cuda -t chatvlmllm:cuda .
+# Run:     docker run --gpus all -p 8501:8501 chatvlmllm:cuda
+
+# Use NVIDIA CUDA base image with Ubuntu 22.04
+# CUDA 12.1 provides good compatibility with PyTorch 2.x
+ARG CUDA_VERSION=12.1.0
+ARG UBUNTU_VERSION=ubuntu22.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-${UBUNTU_VERSION}
+
+LABEL maintainer="OlegKarenkikh"
+LABEL description="ChatVLMLLM - Vision Language Models for Document OCR (CUDA enabled)"
+LABEL cuda_version="${CUDA_VERSION}"
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    # CUDA environment for WSL
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    # PyTorch CUDA settings
+    TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;8.9;9.0" \
+    # Flash Attention settings
+    FLASH_ATTENTION_SKIP_CUDA_BUILD=FALSE \
+    MAX_JOBS=4 \
+    # HuggingFace cache
+    HF_HOME=/root/.cache/huggingface \
+    TRANSFORMERS_CACHE=/root/.cache/huggingface/transformers
+
+# Install system dependencies and Python 3.10
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python and build tools
+    python3.10 \
+    python3.10-dev \
+    python3.10-venv \
+    python3-pip \
+    build-essential \
+    cmake \
+    ninja-build \
+    # Git and download tools
+    git \
+    wget \
+    curl \
+    # OpenCV dependencies
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    # Additional libraries
+    libmagic1 \
+    libffi-dev \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set Python 3.10 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 \
+    && update-alternatives --set python /usr/bin/python3.10 \
+    && update-alternatives --set python3 /usr/bin/python3.10
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Create app directory
+WORKDIR /app
+
+# Install PyTorch with CUDA support first (for better caching)
+# Using CUDA 12.1 wheels for compatibility
+RUN pip install --no-cache-dir \
+    torch==2.2.0 \
+    torchvision==0.17.0 \
+    torchaudio==2.2.0 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# Install flash-attn (requires CUDA toolkit, hence separate step)
+# This can take a while to compile
+RUN pip install --no-cache-dir packaging ninja \
+    && pip install --no-cache-dir flash-attn --no-build-isolation
+
+# Copy requirements and install remaining dependencies
+COPY requirements-cuda.txt requirements.txt ./
+RUN pip install --no-cache-dir -r requirements-cuda.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/examples/invoices \
+    /app/examples/passports \
+    /app/examples/receipts \
+    /root/.cache/huggingface
+
+# Expose ports
+# 8501 - Streamlit UI
+# 8000 - FastAPI (optional)
+EXPOSE 8501 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+    CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+
+# Default command - run Streamlit
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]

@@ -87,8 +87,11 @@ curl -X POST "http://localhost:8000/ocr?model=qwen3_vl_2b" \
 #### Docker
 
 ```bash
-# Сборка и запуск
-docker-compose up -d
+# CPU режим (по умолчанию)
+docker compose up -d
+
+# CUDA/GPU режим (для WSL2 или Linux с NVIDIA GPU)
+docker compose -f docker-compose.cuda.yml up -d
 
 # Доступ к сервисам
 # Streamlit: http://localhost:8501
@@ -110,6 +113,7 @@ docker-compose up -d
 ## Документация
 
 - [Требования к GPU](docs/gpu_requirements.md) - Полное руководство по совместимости
+- [Настройка CUDA в WSL](docs/wsl_cuda_setup.md) - Docker с GPU в Windows/WSL2
 - [Руководство по Qwen3-VL](docs/qwen3_vl_guide.md) - Использование и оптимизация
 - [Руководство по API](docs/api_guide.md) - Документация REST API
 - [Руководство по кешу моделей](docs/model_cache_guide.md) - Управление загрузками моделей
@@ -163,31 +167,83 @@ curl -X POST "http://localhost:8000/chat" \
 
 ## Docker развёртывание
 
-### Использование docker-compose
+### CPU режим (по умолчанию)
 
 ```bash
-# Запуск всех сервисов
-docker-compose up -d
+# Сборка и запуск
+docker compose build
+docker compose up -d
 
 # Просмотр логов
-docker-compose logs -f
+docker compose logs -f
 
-# Остановка сервисов
-docker-compose down
+# Остановка
+docker compose down
+```
+
+### CUDA/GPU режим (WSL2 или Linux)
+
+```bash
+# Проверка окружения CUDA
+python scripts/check_wsl_cuda.py
+
+# Сборка с CUDA поддержкой
+docker compose -f docker-compose.cuda.yml build
+
+# Запуск с GPU
+docker compose -f docker-compose.cuda.yml up -d
+
+# Просмотр логов
+docker compose -f docker-compose.cuda.yml logs -f
+
+# Остановка
+docker compose -f docker-compose.cuda.yml down
+```
+
+### Требования для CUDA в WSL2
+
+1. **Windows**: 21H2 или выше
+2. **WSL2**: `wsl --update`
+3. **NVIDIA Driver**: 535.104.05+ для Windows
+4. **NVIDIA Container Toolkit**: см. [docs/wsl_cuda_setup.md](docs/wsl_cuda_setup.md)
+
+```bash
+# Быстрая установка NVIDIA Container Toolkit в WSL
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
 ```
 
 ### Сервисы
 
+- **Streamlit UI**: http://localhost:8501
 - **API**: http://localhost:8000
   - Swagger UI: http://localhost:8000/docs
   - ReDoc: http://localhost:8000/redoc
-- **Streamlit**: http://localhost:8501
 
-### Требования
+### Docker файлы
 
-- Docker 20.10+
-- NVIDIA Docker runtime
-- Рекомендуется 16GB+ VRAM
+| Файл | Описание |
+|------|----------|
+| `Dockerfile` | CPU режим |
+| `Dockerfile.cuda` | CUDA/GPU режим |
+| `docker-compose.yml` | Compose для CPU |
+| `docker-compose.cuda.yml` | Compose для GPU/WSL |
+| `requirements.txt` | Зависимости CPU |
+| `requirements-cuda.txt` | Зависимости CUDA |
+
+### Рекомендуемые конфигурации
+
+| VRAM | Режим | Compose файл |
+|------|-------|--------------|
+| CPU only | CPU | `docker-compose.yml` |
+| 8GB | INT4/INT8 | `docker-compose.cuda.yml` |
+| 12GB+ | INT8/FP16 | `docker-compose.cuda.yml` |
+| 16GB+ | FP16 | `docker-compose.cuda.yml` |
 
 ## Конфигурация
 
@@ -305,30 +361,37 @@ model = ModelLoader.load_model(
 
 ```
 chatvlmllm/
-├── api.py                  # FastAPI REST API
-├── app.py                  # Streamlit приложение
+├── api.py                    # FastAPI REST API
+├── app.py                    # Streamlit приложение
 ├── models/
-│   ├── got_ocr.py          # Интеграция GOT-OCR
-│   ├── qwen_vl.py          # Интеграция Qwen2-VL
-│   ├── qwen3_vl.py         # Интеграция Qwen3-VL
-│   ├── dots_ocr.py         # Интеграция dots.ocr
-│   └── model_loader.py     # Фабрика моделей
+│   ├── got_ocr.py            # Интеграция GOT-OCR
+│   ├── qwen_vl.py            # Интеграция Qwen2-VL
+│   ├── qwen3_vl.py           # Интеграция Qwen3-VL
+│   ├── dots_ocr.py           # Интеграция dots.ocr
+│   └── model_loader.py       # Фабрика моделей
 ├── utils/
 │   ├── logger.py
 │   └── model_cache.py
 ├── scripts/
-│   ├── check_gpu.py        # Проверка совместимости GPU
-│   └── check_models.py     # Проверка кеша моделей
+│   ├── check_gpu.py          # Проверка совместимости GPU
+│   ├── check_wsl_cuda.py     # Проверка CUDA в WSL
+│   ├── docker_build_cuda.sh  # Сборка Docker с CUDA
+│   └── check_models.py       # Проверка кеша моделей
 ├── docs/
 │   ├── gpu_requirements.md
+│   ├── wsl_cuda_setup.md     # Настройка CUDA в WSL
 │   ├── qwen3_vl_guide.md
 │   └── api_guide.md
 ├── examples/
 │   ├── api_usage.py
 │   └── api_curl.sh
-├── Dockerfile              # Docker образ
-├── docker-compose.yml      # Docker сервисы
-└── config.yaml             # Конфигурация
+├── Dockerfile                # Docker образ (CPU)
+├── Dockerfile.cuda           # Docker образ (CUDA/GPU)
+├── docker-compose.yml        # Docker Compose (CPU)
+├── docker-compose.cuda.yml   # Docker Compose (CUDA/GPU)
+├── requirements.txt          # Зависимости (CPU)
+├── requirements-cuda.txt     # Зависимости (CUDA)
+└── config.yaml               # Конфигурация
 ```
 
 ### Тестирование
