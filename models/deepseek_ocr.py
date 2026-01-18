@@ -31,60 +31,81 @@ class DeepSeekOCRModel(BaseModel):
         try:
             logger.info(f"Loading DeepSeek OCR from {self.model_path}")
             
-            from transformers import AutoModel, AutoProcessor
-            
             device = self._get_device()
             logger.info(f"Using device: {device}")
             
-            # Load processor
+            # Try different import strategies
             try:
-                self.processor = AutoProcessor.from_pretrained(
+                from transformers import AutoModel, AutoProcessor
+                model_class = AutoModel
+                processor_class = AutoProcessor
+            except ImportError as e:
+                logger.warning(f"Standard imports failed: {e}")
+                try:
+                    from transformers import AutoModelForCausalLM, AutoTokenizer
+                    model_class = AutoModelForCausalLM
+                    processor_class = AutoTokenizer
+                except ImportError as e2:
+                    logger.error(f"Fallback imports also failed: {e2}")
+                    raise e2
+            
+            # Load processor with multiple fallbacks
+            try:
+                self.processor = processor_class.from_pretrained(
                     self.model_path,
                     trust_remote_code=True
                 )
-            except Exception:
-                # Fallback to tokenizer if processor not available
-                from transformers import AutoTokenizer
-                self.processor = AutoTokenizer.from_pretrained(
-                    self.model_path,
-                    trust_remote_code=True
-                )
+                logger.info("Processor loaded successfully")
+            except Exception as proc_error:
+                logger.warning(f"Processor loading failed: {proc_error}")
+                try:
+                    # Try tokenizer as fallback
+                    from transformers import AutoTokenizer
+                    self.processor = AutoTokenizer.from_pretrained(
+                        self.model_path,
+                        trust_remote_code=True
+                    )
+                    logger.info("Fallback tokenizer loaded")
+                except Exception as tok_error:
+                    logger.error(f"Tokenizer fallback also failed: {tok_error}")
+                    # Create dummy processor
+                    self.processor = None
+                    logger.warning("Using dummy processor")
             
-            # Build loading kwargs
-            load_kwargs = {
-                'trust_remote_code': True,
-                'device_map': self.device_map,
-            }
+            # Build loading kwargs using base class method
+            load_kwargs = self._get_load_kwargs()
             
-            # Set precision
-            if self.precision == "fp16":
-                load_kwargs['torch_dtype'] = torch.float16
-            elif self.precision == "bf16":
-                load_kwargs['torch_dtype'] = torch.bfloat16
-            elif self.precision == "int8":
-                load_kwargs['load_in_8bit'] = True
-            elif self.precision == "int4":
-                from transformers import BitsAndBytesConfig
-                load_kwargs['quantization_config'] = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True,
-                    bnb_4bit_quant_type="nf4"
-                )
-            
-            # Load model
+            # Load model with error handling
             logger.info("Loading model weights...")
-            self.model = AutoModel.from_pretrained(
-                self.model_path,
-                **load_kwargs
-            )
+            try:
+                self.model = model_class.from_pretrained(
+                    self.model_path,
+                    **load_kwargs
+                )
+                logger.info("Model loaded with AutoModel")
+            except Exception as model_error:
+                logger.warning(f"AutoModel failed: {model_error}")
+                try:
+                    # Try AutoModelForCausalLM
+                    from transformers import AutoModelForCausalLM
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_path,
+                        **load_kwargs
+                    )
+                    logger.info("Model loaded with AutoModelForCausalLM")
+                except Exception as causal_error:
+                    logger.error(f"AutoModelForCausalLM also failed: {causal_error}")
+                    raise causal_error
             
             self.model.eval()
             logger.info("DeepSeek OCR loaded successfully")
             
         except Exception as e:
             logger.error(f"Failed to load DeepSeek OCR: {e}")
-            raise
+            # Don't raise, return error message instead
+            self.model = None
+            self.processor = None
+            logger.warning("DeepSeek OCR loading failed, model will return error messages")
     
     def process_image(
         self,
@@ -100,22 +121,48 @@ class DeepSeekOCRModel(BaseModel):
         Returns:
             Extracted text
         """
-        if self.model is None or self.processor is None:
-            raise RuntimeError("Model not loaded")
+        if self.model is None:
+            return "[DeepSeek OCR model not loaded - check model availability]"
+        
+        if self.processor is None:
+            return "[DeepSeek OCR processor not available - using fallback]"
         
         try:
             logger.info("Processing image with DeepSeek OCR")
             
-            # Process image
-            if hasattr(self.processor, 'process'):
-                # If processor has process method
-                inputs = self.processor.process(image, return_tensors="pt")
-            elif hasattr(self.processor, '__call__'):
-                # If processor is callable
-                inputs = self.processor(image, return_tensors="pt")
-            else:
-                # Fallback: basic preprocessing
-                inputs = self._preprocess_image(image)
+            # Ensure image is PIL Image
+            if isinstance(image, str):
+                image = Image.open(image)
+            
+            # Convert to RGB if needed
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Try different processing approaches
+            try:
+                # Method 1: Standard processor
+                if hasattr(self.processor, 'process'):
+                    inputs = self.processor.process(image, return_tensors="pt")
+                elif hasattr(self.processor, '__call__'):
+                    inputs = self.processor(image, return_tensors="pt")
+                else:
+                    raise AttributeError("Processor has no callable method")
+                    
+            except Exception as proc_error:
+                logger.warning(f"Standard processing failed: {proc_error}")
+                try:
+                    # Method 2: Text + image processing
+                    text_prompt = prompt or "Extract all text from this image"
+                    inputs = self.processor(
+                        text=text_prompt,
+                        images=image,
+                        return_tensors="pt",
+                        padding=True
+                    )
+                except Exception as text_proc_error:
+                    logger.warning(f"Text processing failed: {text_proc_error}")
+                    # Method 3: Basic preprocessing fallback
+                    inputs = self._preprocess_image(image)
             
             # Move to device
             device = next(self.model.parameters()).device
@@ -124,36 +171,53 @@ class DeepSeekOCRModel(BaseModel):
             else:
                 inputs = inputs.to(device)
             
-            # Generate text
+            # Generate text with multiple strategies
             with torch.no_grad():
-                if hasattr(self.model, 'generate'):
-                    outputs = self.model.generate(
-                        **inputs if isinstance(inputs, dict) else {'input_ids': inputs},
-                        max_new_tokens=2048,
-                        do_sample=False,
-                        pad_token_id=self.processor.pad_token_id if hasattr(self.processor, 'pad_token_id') else 0
-                    )
-                    
-                    # Decode output
-                    if hasattr(self.processor, 'decode'):
-                        result = self.processor.decode(outputs[0], skip_special_tokens=True)
-                    else:
-                        result = self._decode_output(outputs[0])
+                try:
+                    # Strategy 1: Generate method
+                    if hasattr(self.model, 'generate'):
+                        gen_kwargs = {
+                            'max_new_tokens': 2048,
+                            'do_sample': False,
+                            'use_cache': False  # Avoid cache issues
+                        }
                         
-                elif hasattr(self.model, 'forward'):
-                    # Direct forward pass
-                    outputs = self.model(**inputs if isinstance(inputs, dict) else {'input_ids': inputs})
-                    result = self._process_outputs(outputs)
-                else:
-                    # Fallback
-                    result = self._basic_inference(image)
+                        if hasattr(self.processor, 'pad_token_id') and self.processor.pad_token_id is not None:
+                            gen_kwargs['pad_token_id'] = self.processor.pad_token_id
+                        elif hasattr(self.processor, 'eos_token_id') and self.processor.eos_token_id is not None:
+                            gen_kwargs['pad_token_id'] = self.processor.eos_token_id
+                        
+                        outputs = self.model.generate(
+                            **inputs if isinstance(inputs, dict) else {'input_ids': inputs},
+                            **gen_kwargs
+                        )
+                        
+                        # Decode output
+                        if hasattr(self.processor, 'decode'):
+                            result = self.processor.decode(outputs[0], skip_special_tokens=True)
+                        elif hasattr(self.processor, 'batch_decode'):
+                            result = self.processor.batch_decode(outputs, skip_special_tokens=True)[0]
+                        else:
+                            result = self._decode_output(outputs[0])
+                            
+                    elif hasattr(self.model, 'forward'):
+                        # Strategy 2: Direct forward pass
+                        outputs = self.model(**inputs if isinstance(inputs, dict) else {'input_ids': inputs})
+                        result = self._process_outputs(outputs)
+                    else:
+                        # Strategy 3: Basic inference
+                        result = self._basic_inference(image)
+                        
+                except Exception as gen_error:
+                    logger.error(f"Generation failed: {gen_error}")
+                    result = f"[DeepSeek OCR processing error: {gen_error}]"
             
             logger.info("OCR processing completed")
             return result.strip() if isinstance(result, str) else str(result)
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
-            raise
+            return f"[DeepSeek OCR error: {e}]"
     
     def _preprocess_image(self, image: Image.Image) -> torch.Tensor:
         """Basic image preprocessing fallback."""

@@ -70,21 +70,13 @@ class QwenVLModel(BaseModel):
                 max_pixels=self.max_pixels * 28 * 28
             )
             
-            # Build loading kwargs following official recommendations
-            load_kwargs = {
-                'device_map': self.device_map,
-            }
+            # Build loading kwargs using base class method
+            load_kwargs = self._get_load_kwargs()
             
             # Set precision (official recommendation: bfloat16 or float16)
-            if self.precision == "fp16":
-                load_kwargs['torch_dtype'] = torch.float16
-            elif self.precision == "bf16":
-                load_kwargs['torch_dtype'] = torch.bfloat16
-            elif self.precision == "int8":
-                load_kwargs['load_in_8bit'] = True
-            else:
-                # Default to bfloat16 as recommended
-                load_kwargs['torch_dtype'] = torch.bfloat16
+            if not torch.cuda.is_available():
+                # Force float32 on CPU for better compatibility
+                load_kwargs['torch_dtype'] = torch.float32
             
             # Enable Flash Attention if requested
             if self.config.get('use_flash_attention', False):

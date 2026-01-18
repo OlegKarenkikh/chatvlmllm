@@ -62,17 +62,8 @@ class GOTOCRModel(BaseModel):
             # Load model (official recommendation: trust_remote_code=True)
             logger.info("Loading model weights...")
             
-            # Build loading kwargs
-            load_kwargs = {
-                'trust_remote_code': True,
-                'device_map': self.device_map,
-            }
-            
-            # Add precision settings
-            if self.precision == "fp16":
-                load_kwargs['torch_dtype'] = torch.float16
-            elif self.precision == "int8":
-                load_kwargs['load_in_8bit'] = True
+            # Build loading kwargs using base class method
+            load_kwargs = self._get_load_kwargs()
             
             # Load model
             self.model = AutoModel.from_pretrained(

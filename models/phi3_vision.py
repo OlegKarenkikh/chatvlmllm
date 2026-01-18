@@ -33,6 +33,7 @@ class Phi3VisionModel(BaseModel):
     def load_model(self) -> None:
         """Load Phi-3.5 Vision model."""
         try:
+            from utils.logger import logger
             logger.info(f"Loading Phi-3.5 Vision from {self.model_path}")
             
             from transformers import AutoModelForCausalLM, AutoProcessor
@@ -47,59 +48,79 @@ class Phi3VisionModel(BaseModel):
             )
             
             # Build loading kwargs
-            load_kwargs = {
-                'device_map': self.device_map,
-                'trust_remote_code': True,
-            }
+            load_kwargs = self._get_load_kwargs()
             
-            # Set precision
-            if self.precision == "fp16":
-                load_kwargs['torch_dtype'] = torch.float16
-            elif self.precision == "bf16":
-                load_kwargs['torch_dtype'] = torch.bfloat16
-            elif self.precision == "int8":
-                load_kwargs['load_in_8bit'] = True
-            elif self.precision == "int4":
-                from transformers import BitsAndBytesConfig
-                load_kwargs['quantization_config'] = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True,
-                    bnb_4bit_quant_type="nf4"
-                )
+            # CRITICAL: Force eager attention to avoid Flash Attention issues
+            load_kwargs['attn_implementation'] = "eager"
             
-            # Enable Flash Attention 2 if requested and not disabled
-            if self.config.get('use_flash_attention', False):
-                try:
-                    import flash_attn
-                    load_kwargs['attn_implementation'] = "flash_attention_2"
-                except ImportError:
-                    logger.warning("Flash Attention not available, using standard attention")
-                    # Don't set attn_implementation to avoid errors
+            # Remove invalid parameters that cause errors
+            load_kwargs.pop('_attn_implementation', None)
+            load_kwargs.pop('use_flash_attention_2', None)
             
             # Load model
             logger.info("Loading model weights...")
             
-            # Try to load with eager attention first
+            # Try multiple approaches to disable Flash Attention
             try:
-                load_kwargs['attn_implementation'] = "eager"
+                # Method 1: Pre-load config and modify it
+                from transformers import AutoConfig
+                config = AutoConfig.from_pretrained(self.model_path, trust_remote_code=True)
+                
+                # Force disable Flash Attention in config - ALL possible attributes
+                if hasattr(config, '_attn_implementation'):
+                    config._attn_implementation = "eager"
+                if hasattr(config, 'attn_implementation'):
+                    config.attn_implementation = "eager"
+                if hasattr(config, 'use_flash_attention_2'):
+                    config.use_flash_attention_2 = False
+                if hasattr(config, '_flash_attn_2_enabled'):
+                    config._flash_attn_2_enabled = False
+                if hasattr(config, 'flash_attention'):
+                    config.flash_attention = False
+                
+                # Load with modified config
                 self.model = AutoModelForCausalLM.from_pretrained(
                     self.model_path,
+                    config=config,
                     **load_kwargs
                 )
+                
+                # Move to device if not using device_map
+                if not torch.cuda.is_available():
+                    device = self._get_device()
+                    self.model = self.model.to(device)
+                    
             except Exception as e:
-                logger.warning(f"Failed with eager attention: {e}")
-                # Remove attn_implementation and try default
-                load_kwargs.pop('attn_implementation', None)
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_path,
-                    **load_kwargs
-                )
+                logger.warning(f"Failed with config modification: {e}")
+                
+                # Method 2: Try with environment variable
+                import os
+                os.environ['TRANSFORMERS_ATTN_IMPLEMENTATION'] = 'eager'
+                
+                try:
+                    # Remove device_map for CPU to avoid accelerate requirement
+                    if not torch.cuda.is_available():
+                        load_kwargs.pop('device_map', None)
+                    
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_path,
+                        **load_kwargs
+                    )
+                    
+                    # Move to device manually
+                    if not torch.cuda.is_available():
+                        device = self._get_device()
+                        self.model = self.model.to(device)
+                        
+                except Exception as e2:
+                    logger.error(f"All loading methods failed: {e2}")
+                    raise
             
             self.model.eval()
             logger.info("Phi-3.5 Vision loaded successfully")
             
         except Exception as e:
+            from utils.logger import logger
             logger.error(f"Failed to load Phi-3.5 Vision: {e}")
             raise
     
@@ -125,6 +146,14 @@ class Phi3VisionModel(BaseModel):
         try:
             logger.info("Processing image with Phi-3.5 Vision")
             
+            # Ensure image is PIL Image
+            if isinstance(image, str):
+                image = Image.open(image)
+            
+            # Convert to RGB if needed
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
             # Prepare messages in chat format
             messages = [
                 {
@@ -134,59 +163,116 @@ class Phi3VisionModel(BaseModel):
             ]
             
             # Apply chat template
-            prompt_text = self.processor.tokenizer.apply_chat_template(
-                messages, 
-                tokenize=False, 
-                add_generation_prompt=True
-            )
+            try:
+                prompt_text = self.processor.tokenizer.apply_chat_template(
+                    messages, 
+                    tokenize=False, 
+                    add_generation_prompt=True
+                )
+            except Exception as template_error:
+                logger.warning(f"Chat template failed: {template_error}, using simple prompt")
+                prompt_text = f"<|image_1|>\n{prompt}"
             
-            # Process inputs
-            inputs = self.processor(
-                prompt_text, 
-                [image], 
-                return_tensors="pt"
-            )
+            # Process inputs with error handling
+            try:
+                inputs = self.processor(
+                    prompt_text, 
+                    [image], 
+                    return_tensors="pt"
+                )
+                
+                # Validate inputs
+                if inputs is None:
+                    raise ValueError("Processor returned None")
+                
+                # Handle BatchFeature object properly
+                if hasattr(inputs, 'data'):
+                    # BatchFeature object - extract data
+                    inputs = inputs.data
+                elif not isinstance(inputs, dict):
+                    # Convert to dict if needed
+                    if hasattr(inputs, 'keys') and hasattr(inputs, '__getitem__'):
+                        inputs = {k: inputs[k] for k in inputs.keys()}
+                    else:
+                        raise ValueError(f"Expected dict or BatchFeature, got {type(inputs)}")
+                
+                if 'input_ids' not in inputs:
+                    raise ValueError("input_ids not found in processor output")
+                
+            except Exception as process_error:
+                logger.error(f"Processing failed: {process_error}")
+                # Fallback: simple tokenization
+                try:
+                    text_inputs = self.processor.tokenizer(
+                        prompt_text, 
+                        return_tensors="pt", 
+                        padding=True,
+                        truncation=True
+                    )
+                    
+                    # Simple image processing
+                    import torchvision.transforms as transforms
+                    
+                    transform = transforms.Compose([
+                        transforms.Resize((336, 336)),  # Phi-3.5 Vision input size
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    ])
+                    
+                    pixel_values = transform(image).unsqueeze(0)
+                    
+                    inputs = {
+                        'input_ids': text_inputs['input_ids'],
+                        'attention_mask': text_inputs.get('attention_mask'),
+                        'pixel_values': pixel_values
+                    }
+                    
+                except Exception as fallback_error:
+                    logger.error(f"Fallback processing failed: {fallback_error}")
+                    return f"[Phi-3.5 Vision processing error: {fallback_error}]"
             
             # Move to device
             device = next(self.model.parameters()).device
-            inputs = {k: v.to(device) for k, v in inputs.items()}
+            inputs = {k: v.to(device) if torch.is_tensor(v) and v is not None else v for k, v in inputs.items()}
             
             # Generation parameters
             gen_kwargs = {
-                'max_new_tokens': kwargs.get('max_new_tokens', 512),
+                'max_new_tokens': kwargs.get('max_new_tokens', 256),  # Reduced for stability
                 'do_sample': kwargs.get('do_sample', False),
-                'eos_token_id': self.processor.tokenizer.eos_token_id,
+                'use_cache': False,  # Disable cache for stability
+                'pad_token_id': self.processor.tokenizer.eos_token_id,
             }
             
             if kwargs.get('temperature'):
                 gen_kwargs['temperature'] = kwargs['temperature']
                 gen_kwargs['do_sample'] = True
-            if kwargs.get('top_p'):
-                gen_kwargs['top_p'] = kwargs['top_p']
-                gen_kwargs['do_sample'] = True
             
-            # Generate
+            # Generate with robust error handling
             with torch.no_grad():
-                generated_ids = self.model.generate(**inputs, **gen_kwargs)
-            
-            # Decode only the new tokens
-            generated_ids_trimmed = [
-                out_ids[len(in_ids):] 
-                for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-            ]
-            
-            output = self.processor.tokenizer.batch_decode(
-                generated_ids_trimmed, 
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )[0]
-            
-            logger.info("Processing completed")
-            return output.strip()
+                try:
+                    generated_ids = self.model.generate(**inputs, **gen_kwargs)
+                    
+                    if generated_ids is None:
+                        raise ValueError("Generation returned None")
+                    
+                    # Decode only the new tokens
+                    input_length = inputs['input_ids'].shape[1]
+                    if generated_ids.shape[1] <= input_length:
+                        return "[Phi-3.5 Vision: No new tokens generated]"
+                    
+                    new_tokens = generated_ids[0][input_length:]
+                    output = self.processor.tokenizer.decode(new_tokens, skip_special_tokens=True)
+                    
+                    logger.info("Processing completed")
+                    return output.strip() if output.strip() else "[Phi-3.5 Vision: Empty output]"
+                    
+                except Exception as gen_error:
+                    logger.error(f"Generation failed: {gen_error}")
+                    return f"[Phi-3.5 Vision generation error: {gen_error}]"
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
-            raise
+            return f"[Phi-3.5 Vision error: {e}]"
     
     def chat(
         self,

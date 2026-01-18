@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from PIL import Image
 import torch
+from utils.logger import logger
 
 
 class BaseModel(ABC):
@@ -29,12 +30,56 @@ class BaseModel(ABC):
         self.device = self._get_device()
         
     def _get_device(self) -> str:
-        """Determine optimal device for model inference."""
+        """Determine optimal device for model inference - FORCE GPU USAGE."""
+        # CRITICAL: Always prefer CUDA if available
         if torch.cuda.is_available():
-            return "cuda"
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            # Check if GPU has enough memory
+            try:
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+                logger.info(f"GPU detected: {torch.cuda.get_device_name(0)} with {gpu_memory:.2f}GB VRAM")
+                return "cuda"
+            except Exception as e:
+                logger.warning(f"GPU detection failed: {e}, falling back to CPU")
+        
+        # Fallback to MPS on Apple Silicon
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             return "mps"
+        
+        logger.warning("No GPU available, using CPU (will be very slow)")
         return "cpu"
+    
+    def _get_load_kwargs(self) -> dict:
+        """Get loading kwargs with FORCED GPU usage."""
+        load_kwargs = {
+            'trust_remote_code': True,
+        }
+        
+        # CRITICAL: Force GPU usage if available
+        if torch.cuda.is_available():
+            logger.info("FORCING GPU usage with device_map='auto'")
+            load_kwargs['device_map'] = 'auto'  # Force auto device mapping to GPU
+            
+            # GPU precision settings
+            if self.precision == "fp16":
+                load_kwargs['torch_dtype'] = torch.float16
+            elif self.precision == "bf16":
+                load_kwargs['torch_dtype'] = torch.bfloat16
+            elif self.precision == "int8":
+                load_kwargs['load_in_8bit'] = True
+            elif self.precision == "int4":
+                from transformers import BitsAndBytesConfig
+                load_kwargs['quantization_config'] = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4"
+                )
+        else:
+            # CPU fallback (will be slow)
+            logger.warning("⚠️ NO GPU AVAILABLE - USING CPU (VERY SLOW)")
+            load_kwargs['torch_dtype'] = torch.float32
+        
+        return load_kwargs
     
     @abstractmethod
     def load_model(self) -> None:

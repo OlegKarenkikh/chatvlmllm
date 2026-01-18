@@ -131,8 +131,11 @@ class DotsOCRModel(BaseModel):
             
             # Simple, reliable processing
             try:
-                # Always use simple processing to avoid chat template issues
-                result = self._process_simple(image, prompt)
+                # Method 1: Try with processor if available
+                if hasattr(self.processor, 'apply_chat_template'):
+                    result = self._process_with_chat_template(image, prompt)
+                else:
+                    result = self._process_simple(image, prompt)
                 
                 logger.info("Processing completed successfully")
                 return result.strip() if result else "[dots.ocr: Empty result]"
@@ -211,118 +214,50 @@ class DotsOCRModel(BaseModel):
     def _process_simple(self, image: Image.Image, prompt: str) -> str:
         """Simple processing fallback."""
         try:
-            # Validate inputs
-            if image is None:
-                raise ValueError("Image is None")
-            if self.tokenizer is None:
-                raise ValueError("Tokenizer is None")
-            if self.model is None:
-                raise ValueError("Model is None")
+            # Tokenize prompt
+            text_inputs = self.tokenizer(prompt, return_tensors="pt", padding=True)
             
-            # Tokenize prompt with validation
-            try:
-                text_inputs = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
-                
-                if text_inputs is None or 'input_ids' not in text_inputs:
-                    raise ValueError("Tokenization failed")
-                
-            except Exception as tok_error:
-                logger.error(f"Tokenization failed: {tok_error}")
-                return f"[dots.ocr tokenization error: {tok_error}]"
+            # Simple image processing
+            import torchvision.transforms as transforms
             
-            # Simple image processing with validation
-            try:
-                import torchvision.transforms as transforms
-                
-                # Convert to RGB if needed
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                
-                transform = transforms.Compose([
-                    transforms.Resize((224, 224)),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                ])
-                
-                pixel_values = transform(image)
-                
-                if pixel_values is None:
-                    raise ValueError("Image transformation failed")
-                
-                pixel_values = pixel_values.unsqueeze(0)
-                
-            except Exception as img_error:
-                logger.error(f"Image processing failed: {img_error}")
-                return f"[dots.ocr image processing error: {img_error}]"
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
             
-            # Combine inputs with validation
-            try:
-                device = next(self.model.parameters()).device
-                
-                inputs = {
-                    'input_ids': text_inputs['input_ids'].to(device),
-                    'attention_mask': text_inputs['attention_mask'].to(device),
-                    'pixel_values': pixel_values.to(device)
-                }
-                
-                # Validate all inputs
-                for key, value in inputs.items():
-                    if value is None:
-                        raise ValueError(f"{key} is None")
-                    if not torch.is_tensor(value):
-                        raise ValueError(f"{key} is not a tensor")
-                
-            except Exception as input_error:
-                logger.error(f"Input preparation failed: {input_error}")
-                return f"[dots.ocr input error: {input_error}]"
+            pixel_values = transform(image).unsqueeze(0)
             
-            # Generate with robust error handling
-            try:
-                with torch.no_grad():
-                    generated_ids = self.model.generate(
-                        **inputs,
-                        max_new_tokens=min(self.max_new_tokens, 512),  # Reduced for stability
-                        do_sample=False,
-                        use_cache=False,
-                        pad_token_id=self.tokenizer.eos_token_id if hasattr(self.tokenizer, 'eos_token_id') else None
-                    )
-                
-                # Validate generation result
-                if generated_ids is None:
-                    raise ValueError("Generation returned None")
-                
-                if not torch.is_tensor(generated_ids):
-                    raise ValueError("Generated IDs is not a tensor")
-                
-                if generated_ids.shape[0] == 0:
-                    raise ValueError("Generated IDs is empty")
-                
-            except Exception as gen_error:
-                logger.error(f"Generation failed: {gen_error}")
-                return f"[dots.ocr generation error: {gen_error}]"
+            # Combine inputs
+            device = next(self.model.parameters()).device
+            inputs = {
+                'input_ids': text_inputs['input_ids'].to(device),
+                'attention_mask': text_inputs['attention_mask'].to(device),
+                'pixel_values': pixel_values.to(device)
+            }
             
-            # Decode with validation
-            try:
-                input_length = inputs['input_ids'].shape[1]
-                
-                if generated_ids.shape[1] <= input_length:
-                    return "[dots.ocr: No new tokens generated]"
-                
-                new_tokens = generated_ids[0][input_length:]
-                
-                if new_tokens is None or len(new_tokens) == 0:
-                    return "[dots.ocr: No new tokens to decode]"
-                
-                result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
-                
-                if result is None:
-                    return "[dots.ocr: Decoding returned None]"
-                
-                return result.strip() if result.strip() else "[dots.ocr: Empty result after decoding]"
-                
-            except Exception as decode_error:
-                logger.error(f"Decoding failed: {decode_error}")
-                return f"[dots.ocr decoding error: {decode_error}]"
+            # Generate
+            with torch.no_grad():
+                generated_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=self.max_new_tokens,
+                    do_sample=False,
+                    use_cache=False,
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
+            
+            # Decode
+            if generated_ids is None:
+                raise ValueError("Generation returned None")
+            
+            input_length = inputs['input_ids'].shape[1]
+            if generated_ids.shape[1] <= input_length:
+                return "[dots.ocr: No new tokens generated]"
+            
+            new_tokens = generated_ids[0][input_length:]
+            result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+            
+            return result
             
         except Exception as e:
             logger.error(f"Simple processing failed: {e}")

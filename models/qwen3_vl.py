@@ -49,29 +49,12 @@ class Qwen3VLModel(BaseModel):
                 max_pixels=self.max_pixels * 28 * 28
             )
             
-            # Build loading kwargs
-            load_kwargs = {
-                'device_map': self.device_map,
-                'trust_remote_code': True,
-            }
+            # Build loading kwargs using base class method
+            load_kwargs = self._get_load_kwargs()
             
-            # Set precision
-            if self.precision == "fp16":
-                load_kwargs['torch_dtype'] = torch.float16
-            elif self.precision == "bf16":
-                load_kwargs['torch_dtype'] = torch.bfloat16
-            elif self.precision == "int8":
-                load_kwargs['load_in_8bit'] = True
-            elif self.precision == "int4":
-                from transformers import BitsAndBytesConfig
-                load_kwargs['quantization_config'] = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True,
-                    bnb_4bit_quant_type="nf4"
-                )
-            else:
-                load_kwargs['dtype'] = "auto"
+            # Force float32 on CPU for better compatibility
+            if not torch.cuda.is_available():
+                load_kwargs['torch_dtype'] = torch.float32
             
             # Enable Flash Attention 2
             if self.config.get('use_flash_attention', False):
