@@ -129,6 +129,11 @@ if "ocr_result" not in st.session_state:
 if "loaded_model" not in st.session_state:
     st.session_state.loaded_model = None
 
+# Функция для безопасного получения значений из session_state
+def get_session_state(key, default=None):
+    """Безопасное получение значения из session_state."""
+    return getattr(st.session_state, key, default)
+
 # Header
 st.markdown('<h1 class="gradient-text" style="text-align: center;">🔬 ChatVLMLLM</h1>', unsafe_allow_html=True)
 st.markdown(
@@ -424,9 +429,9 @@ elif "📄 Режим OCR" in page:
         if st.button("🚀 Извлечь текст", type="primary", use_container_width=True):
             if uploaded_file:
                 # Принудительная очистка всех кешей
-                if "ocr_result" in st.session_state:
+                if hasattr(st.session_state, 'ocr_result'):
                     del st.session_state.ocr_result
-                if "loaded_model" in st.session_state:
+                if hasattr(st.session_state, 'loaded_model'):
                     del st.session_state.loaded_model
                 
                 # Принудительная выгрузка всех моделей
@@ -523,8 +528,8 @@ elif "📄 Режим OCR" in page:
     with col2:
         st.subheader("📊 Результаты извлечения")
         
-        if st.session_state.ocr_result:
-            result = st.session_state.ocr_result
+        if get_session_state('ocr_result'):
+            result = get_session_state('ocr_result')
             
             # Metrics
             metric_col1, metric_col2, metric_col3 = st.columns(3)

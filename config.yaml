@@ -77,8 +77,8 @@ models:
     # ⚠️ ПРОТЕСТИРОВАНО: VRAM=7.7GB, Загрузка=17.4с, Ошибка обработки
 
   dots_ocr:
-    name: "dots.ocr ⚠️"
-    description: "SOTA парсер документов (ошибка обработки)"
+    name: "dots.ocr ❌"
+    description: "SOTA парсер документов (нестабильная работа)"
     model_path: "rednote-hilab/dots.ocr"
     model_type: "document_parser"
     max_length: 4096
@@ -88,7 +88,7 @@ models:
     use_flash_attention: false
     prompt_mode: "layout_all"
     max_new_tokens: 24000
-    # ⚠️ ПРОТЕСТИРОВАНО: VRAM=8GB, Загрузка=14.9с, Ошибка обработки
+    # ❌ ПРОТЕСТИРОВАНО: VRAM=8GB, Загрузка=46.47с, Ошибка обработки
 
   # ИСКЛЮЧЕНЫ МОДЕЛИ:
   # deepseek_ocr: ❌ Ошибка модуля transformers_modules

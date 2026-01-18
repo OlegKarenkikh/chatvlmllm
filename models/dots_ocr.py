@@ -272,7 +272,7 @@ class DotsOCRModel(BaseModel):
                         text_inputs = tokenizer(text, return_tensors="pt", padding=True)
                 # Последний шанс: упрощенная обработка
                 try:
-                    import torch
+                    # torch уже импортирован в начале файла
                     from transformers import AutoTokenizer
                     
                     tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
@@ -330,7 +330,21 @@ class DotsOCRModel(BaseModel):
             inputs = {k: v.to(device) if torch.is_tensor(v) else v for k, v in inputs.items()}
             
             with torch.no_grad():
-                generated_ids = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
+                try:
+                    generated_ids = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
+                except Exception as gen_error:
+                    logger.error(f"Generation failed: {gen_error}")
+                    # Попробуем с упрощенными параметрами
+                    try:
+                        generated_ids = self.model.generate(
+                            input_ids=inputs.get('input_ids'),
+                            pixel_values=inputs.get('pixel_values'),
+                            max_new_tokens=min(self.max_new_tokens, 1000),
+                            do_sample=False
+                        )
+                    except Exception as gen_error2:
+                        logger.error(f"Simplified generation also failed: {gen_error2}")
+                        raise gen_error2
             
             # Проверяем, что generated_ids не None
             if generated_ids is None:
