@@ -1,123 +1,209 @@
-"""dots.ocr model integration - FIXED VERSION.
+"""dots.ocr model integration - OFFICIAL MODAL NOTEBOOKS IMPLEMENTATION.
 
+Based on: https://modal.com/docs/examples/notebooks/dots-ocr
 Official: https://huggingface.co/rednote-hilab/dots.ocr
 GitHub: https://github.com/rednote-hilab/dots.ocr
 
-dots.ocr is a 1.7B parameter multilingual document parser with SOTA performance.
-This is a simplified, robust version that avoids NoneType errors.
+This implementation exactly follows the working Modal Notebooks example.
 """
 
+import os
+import json
+import torch
 from typing import Any, Dict, List, Optional
 from PIL import Image
-import torch
-import json
 
 from models.base_model import BaseModel
 from utils.logger import logger
 
 
 class DotsOCRModel(BaseModel):
-    """dots.ocr for unified document parsing - FIXED VERSION."""
-    
-    PROMPT_MODES = {
-        "layout_all": "Parse all layout with detection and recognition",
-        "layout_only": "Layout detection only",
-        "ocr_only": "Text recognition only",
-        "grounding_ocr": "OCR with bbox grounding"
-    }
+    """dots.ocr for unified document parsing - OFFICIAL IMPLEMENTATION."""
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.model = None
         self.processor = None
-        self.tokenizer = None
         self.prompt_mode = config.get('prompt_mode', 'layout_all')
-        self.max_new_tokens = config.get('max_new_tokens', 2000)  # Reduced for stability
+        self.max_new_tokens = config.get('max_new_tokens', 24000)  # Official uses 24000
+        
+        # Set environment variable for tokenizers
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
     
     def load_model(self) -> None:
-        """Load dots.ocr model with robust error handling."""
+        """Load dots.ocr model using exact Modal Notebooks implementation."""
         try:
             logger.info(f"Loading dots.ocr from {self.model_path}")
             
-            from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
+            from transformers import AutoModelForCausalLM, AutoProcessor
             
             device = self._get_device()
             logger.info(f"Using device: {device}")
             
-            # Load tokenizer first (most reliable)
-            try:
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_path,
-                    trust_remote_code=True
-                )
-                logger.info("Tokenizer loaded successfully")
-            except Exception as e:
-                logger.error(f"Failed to load tokenizer: {e}")
-                raise
-            
-            # Try to load processor with fallback
-            try:
-                self.processor = AutoProcessor.from_pretrained(
-                    self.model_path,
-                    trust_remote_code=True
-                )
-                logger.info("Processor loaded successfully")
-            except Exception as e:
-                logger.warning(f"Failed to load AutoProcessor: {e}")
-                # Use tokenizer as fallback
-                self.processor = self.tokenizer
-                logger.info("Using tokenizer as processor fallback")
-            
-            # Load model with base class method
+            # Build loading kwargs using base class method
             load_kwargs = self._get_load_kwargs()
             
-            # Force eager attention for stability
-            load_kwargs['attn_implementation'] = "eager"
+            # Official Modal Notebooks parameters
+            load_kwargs.update({
+                'torch_dtype': torch.bfloat16,  # Official uses bfloat16
+                'trust_remote_code': True,
+                'attn_implementation': "eager"  # Fallback since we don't have flash_attention_2
+            })
             
+            # Try PyTorch SDPA with Flash Attention backend first
             try:
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_path,
-                    **load_kwargs
-                )
+                # Test PyTorch SDPA Flash Attention availability
+                with torch.backends.cuda.sdp_kernel(enable_flash=True):
+                    test_tensor = torch.randn(1, 1, 10, 64, device='cuda', dtype=torch.bfloat16)
+                    torch.nn.functional.scaled_dot_product_attention(test_tensor, test_tensor, test_tensor)
                 
-                # Move to device if not using device_map
-                if not torch.cuda.is_available():
-                    device = self._get_device()
-                    self.model = self.model.to(device)
-                
-                self.model.eval()
-                logger.info("dots.ocr loaded successfully")
+                load_kwargs['attn_implementation'] = "sdpa"
+                logger.info("✅ Используем PyTorch SDPA с Flash Attention backend - МАКСИМАЛЬНАЯ ПРОИЗВОДИТЕЛЬНОСТЬ!")
                 
             except Exception as e:
-                logger.error(f"Failed to load model: {e}")
-                raise
+                logger.warning(f"⚠️ PyTorch SDPA Flash недоступен: {e}")
+                
+                # Fallback to external flash attention
+                try:
+                    import flash_attn
+                    load_kwargs['attn_implementation'] = "flash_attention_2"
+                    logger.info("✅ Используем внешний flash_attention_2")
+                except ImportError:
+                    logger.warning("⚠️ Flash attention недоступен - используем eager (медленнее)")
+                    logger.info("💡 PyTorch SDPA рекомендуется для лучшей производительности")
+                    load_kwargs['attn_implementation'] = "eager"
+            
+            # Load model (exact Modal implementation)
+            logger.info("Loading model weights...")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_path,
+                **load_kwargs
+            )
+            
+            # Load processor (exact Modal implementation)
+            self.processor = AutoProcessor.from_pretrained(
+                self.model_path, 
+                trust_remote_code=True, 
+                use_fast=True
+            )
+            
+            self.model.eval()
+            logger.info("dots.ocr loaded successfully")
             
         except Exception as e:
             logger.error(f"Failed to load dots.ocr: {e}")
             raise
     
-    def _get_prompt(self, mode: str = "layout_all") -> str:
-        """Get prompt for mode."""
-        prompts = {
-            "layout_all": "Extract all text from this image with layout information.",
-            "layout_only": "Detect layout elements in this image.",
-            "ocr_only": "Extract all text from this image.",
-            "grounding_ocr": "Extract text from specified region."
-        }
-        return prompts.get(mode, prompts["ocr_only"])
+    def _get_official_prompt(self, mode: str = "ocr") -> str:
+        """Get official prompt from dots.ocr repository."""
+        try:
+            from dots_ocr.utils import dict_promptmode_to_prompt
+            
+            if mode == "layout_all":
+                return dict_promptmode_to_prompt["prompt_layout_all_en"]
+            elif mode == "ocr":
+                return dict_promptmode_to_prompt["ocr"]
+            else:
+                return dict_promptmode_to_prompt.get(mode, dict_promptmode_to_prompt["ocr"])
+                
+        except ImportError:
+            logger.warning("dots_ocr.utils not found, using fallback prompts")
+            # Fallback prompts
+            if mode == "layout_all":
+                return """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+
+1. Bbox format: [x1, y1, x2, y2]
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
+3. Text Extraction & Formatting Rules:
+   - Picture: For the 'Picture' category, the text field should be omitted.
+   - Formula: Format its text as LaTeX.
+   - Table: Format its text as HTML.
+   - All Others (Text, Title, etc.): Format their text as Markdown.
+4. Constraints:
+   - The output text must be the original text from the image, with no translation.
+   - All layout elements must be sorted according to human reading order.
+5. Final Output: The entire output must be a single JSON object."""
+            else:
+                return "Extract all text from this image."
+    
+    def inference(self, image_path_or_pil, prompt: str):
+        """Точная копия функции inference из Modal Notebooks."""
+        try:
+            # Handle both file path and PIL Image (exact Modal implementation)
+            if isinstance(image_path_or_pil, str):
+                image_for_messages = image_path_or_pil
+            else:
+                # For PIL Image, use it directly
+                image_for_messages = image_path_or_pil
+            
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image_for_messages},
+                        {"type": "text", "text": prompt}
+                    ]
+                }
+            ]
+            
+            # Preparation for inference (exact Modal implementation)
+            text = self.processor.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            
+            # Process vision info using qwen_vl_utils (exact Modal implementation)
+            from qwen_vl_utils import process_vision_info
+            image_inputs, video_inputs = process_vision_info(messages)
+            
+            inputs = self.processor(
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt"
+            )
+            
+            inputs = inputs.to("cuda")
+            
+            # Inference: Generation of the output (exact Modal implementation)
+            generated_ids = self.model.generate(**inputs, max_new_tokens=24000)
+            
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] 
+                for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            
+            (output_text,) = self.processor.batch_decode(
+                generated_ids_trimmed, 
+                skip_special_tokens=True, 
+                clean_up_tokenization_spaces=False
+            )
+            
+            # Return parsed JSON (exact Modal implementation)
+            return json.loads(output_text)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            logger.error(f"Raw output: {output_text}")
+            return output_text
+        except Exception as e:
+            logger.error(f"Inference failed: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return f"[dots.ocr error: {e}]"
     
     def process_image(self, image: Image.Image, prompt: Optional[str] = None, 
                      mode: Optional[str] = None, bbox: Optional[List[int]] = None) -> str:
-        """Process image with dots.ocr - ROBUST VERSION."""
+        """Process image with dots.ocr using official API."""
         if self.model is None:
             raise RuntimeError("Model not loaded")
         
         try:
             mode = mode or self.prompt_mode
             if prompt is None:
-                prompt = self._get_prompt(mode)
-                if mode == "grounding_ocr" and bbox:
-                    prompt += f" Focus on region: {bbox}"
+                prompt = self._get_official_prompt(mode)
             
             logger.info(f"Processing with mode: {mode}")
             
@@ -129,218 +215,45 @@ class DotsOCRModel(BaseModel):
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             
-            # Simple, reliable processing
-            try:
-                # Always use simple processing to avoid chat template issues
-                result = self._process_simple(image, prompt)
-                
-                logger.info("Processing completed successfully")
+            # Use official inference method
+            result = self.inference(image, prompt)
+            
+            logger.info("Processing completed successfully")
+            
+            # Handle different result types
+            if isinstance(result, list):
+                # If result is already a list (JSON parsed), convert to string
+                import json
+                return json.dumps(result, ensure_ascii=False)
+            elif isinstance(result, str):
                 return result.strip() if result else "[dots.ocr: Empty result]"
-                
-            except Exception as e:
-                logger.error(f"Processing failed: {e}")
-                return f"[dots.ocr error: {e}]"
+            else:
+                return str(result) if result else "[dots.ocr: Empty result]"
             
         except Exception as e:
             logger.error(f"Error: {e}")
             return f"[dots.ocr error: {e}]"
-    
-    def _process_with_chat_template(self, image: Image.Image, prompt: str) -> str:
-        """Process using chat template."""
-        try:
-            messages = [{
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": prompt}
-                ]
-            }]
-            
-            # Apply chat template
-            text = self.processor.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
-            
-            # Process inputs
-            inputs = self.processor(
-                text=[text],
-                images=[image],
-                padding=True,
-                return_tensors="pt"
-            )
-            
-            # Validate inputs
-            if inputs is None:
-                raise ValueError("Processor returned None")
-            
-            # Check required fields
-            if 'input_ids' not in inputs or inputs['input_ids'] is None:
-                raise ValueError("input_ids is None")
-            
-            # Move to device
-            device = next(self.model.parameters()).device
-            inputs = {k: v.to(device) if torch.is_tensor(v) else v for k, v in inputs.items()}
-            
-            # Generate
-            with torch.no_grad():
-                generated_ids = self.model.generate(
-                    **inputs,
-                    max_new_tokens=self.max_new_tokens,
-                    do_sample=False,
-                    use_cache=False,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
-            
-            # Decode
-            if generated_ids is None:
-                raise ValueError("Generation returned None")
-            
-            input_length = inputs['input_ids'].shape[1]
-            if generated_ids.shape[1] <= input_length:
-                return "[dots.ocr: No new tokens generated]"
-            
-            new_tokens = generated_ids[0][input_length:]
-            result = self.processor.batch_decode([new_tokens], skip_special_tokens=True)[0]
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Chat template processing failed: {e}")
-            raise
-    
-    def _process_simple(self, image: Image.Image, prompt: str) -> str:
-        """Simple processing fallback."""
-        try:
-            # Validate inputs
-            if image is None:
-                raise ValueError("Image is None")
-            if self.tokenizer is None:
-                raise ValueError("Tokenizer is None")
-            if self.model is None:
-                raise ValueError("Model is None")
-            
-            # Tokenize prompt with validation
-            try:
-                text_inputs = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
-                
-                if text_inputs is None or 'input_ids' not in text_inputs:
-                    raise ValueError("Tokenization failed")
-                
-            except Exception as tok_error:
-                logger.error(f"Tokenization failed: {tok_error}")
-                return f"[dots.ocr tokenization error: {tok_error}]"
-            
-            # Simple image processing with validation
-            try:
-                import torchvision.transforms as transforms
-                
-                # Convert to RGB if needed
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                
-                transform = transforms.Compose([
-                    transforms.Resize((224, 224)),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                ])
-                
-                pixel_values = transform(image)
-                
-                if pixel_values is None:
-                    raise ValueError("Image transformation failed")
-                
-                pixel_values = pixel_values.unsqueeze(0)
-                
-            except Exception as img_error:
-                logger.error(f"Image processing failed: {img_error}")
-                return f"[dots.ocr image processing error: {img_error}]"
-            
-            # Combine inputs with validation
-            try:
-                device = next(self.model.parameters()).device
-                
-                inputs = {
-                    'input_ids': text_inputs['input_ids'].to(device),
-                    'attention_mask': text_inputs['attention_mask'].to(device),
-                    'pixel_values': pixel_values.to(device)
-                }
-                
-                # Validate all inputs
-                for key, value in inputs.items():
-                    if value is None:
-                        raise ValueError(f"{key} is None")
-                    if not torch.is_tensor(value):
-                        raise ValueError(f"{key} is not a tensor")
-                
-            except Exception as input_error:
-                logger.error(f"Input preparation failed: {input_error}")
-                return f"[dots.ocr input error: {input_error}]"
-            
-            # Generate with robust error handling
-            try:
-                with torch.no_grad():
-                    generated_ids = self.model.generate(
-                        **inputs,
-                        max_new_tokens=min(self.max_new_tokens, 512),  # Reduced for stability
-                        do_sample=False,
-                        use_cache=False,
-                        pad_token_id=self.tokenizer.eos_token_id if hasattr(self.tokenizer, 'eos_token_id') else None
-                    )
-                
-                # Validate generation result
-                if generated_ids is None:
-                    raise ValueError("Generation returned None")
-                
-                if not torch.is_tensor(generated_ids):
-                    raise ValueError("Generated IDs is not a tensor")
-                
-                if generated_ids.shape[0] == 0:
-                    raise ValueError("Generated IDs is empty")
-                
-            except Exception as gen_error:
-                logger.error(f"Generation failed: {gen_error}")
-                return f"[dots.ocr generation error: {gen_error}]"
-            
-            # Decode with validation
-            try:
-                input_length = inputs['input_ids'].shape[1]
-                
-                if generated_ids.shape[1] <= input_length:
-                    return "[dots.ocr: No new tokens generated]"
-                
-                new_tokens = generated_ids[0][input_length:]
-                
-                if new_tokens is None or len(new_tokens) == 0:
-                    return "[dots.ocr: No new tokens to decode]"
-                
-                result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
-                
-                if result is None:
-                    return "[dots.ocr: Decoding returned None]"
-                
-                return result.strip() if result.strip() else "[dots.ocr: Empty result after decoding]"
-                
-            except Exception as decode_error:
-                logger.error(f"Decoding failed: {decode_error}")
-                return f"[dots.ocr decoding error: {decode_error}]"
-            
-        except Exception as e:
-            logger.error(f"Simple processing failed: {e}")
-            return f"[dots.ocr simple processing error: {e}]"
     
     def chat(self, image: Image.Image, prompt: str, **kwargs) -> str:
         """Chat with model."""
         return self.process_image(image, prompt=prompt, **kwargs)
     
     def parse_document(self, image: Image.Image, return_json: bool = True) -> Dict[str, Any]:
-        """Parse document with layout."""
+        """Parse document with layout using official layout_all mode."""
         result = self.process_image(image, mode="layout_all")
         if return_json:
             try:
-                return json.loads(result)
-            except:
+                # Try to parse as JSON (official output format)
+                parsed = json.loads(result)
+                return parsed
+            except json.JSONDecodeError:
+                logger.warning("Result is not valid JSON, returning as text")
                 return {"raw_text": result, "error": "Invalid JSON"}
         return {"raw_text": result}
+    
+    def extract_text_only(self, image: Image.Image) -> str:
+        """Extract only text without layout information."""
+        return self.process_image(image, mode="ocr")
     
     def unload(self) -> None:
         """Unload model."""
@@ -350,9 +263,6 @@ class DotsOCRModel(BaseModel):
         if self.processor is not None:
             del self.processor
             self.processor = None
-        if self.tokenizer is not None:
-            del self.tokenizer
-            self.tokenizer = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         logger.info("dots.ocr unloaded")

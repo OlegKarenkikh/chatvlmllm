@@ -31,7 +31,6 @@ class GOTOCRUCASModel(BaseModel):
     def load_model(self) -> None:
         """Load GOT-OCR UCAS model."""
         try:
-            from utils.logger import logger
             logger.info(f"Loading GOT-OCR UCAS from {self.model_path}")
             
             from transformers import AutoModel, AutoTokenizer
@@ -45,8 +44,17 @@ class GOTOCRUCASModel(BaseModel):
                 trust_remote_code=True
             )
             
-            # Build loading kwargs using base class method
-            load_kwargs = self._get_load_kwargs()
+            # Build loading kwargs
+            load_kwargs = {
+                'trust_remote_code': True,
+                'device_map': self.device_map,
+            }
+            
+            # Set precision
+            if self.precision == "fp16":
+                load_kwargs['torch_dtype'] = torch.float16
+            elif self.precision == "int8":
+                load_kwargs['load_in_8bit'] = True
             
             # Load model
             self.model = AutoModel.from_pretrained(
@@ -58,7 +66,6 @@ class GOTOCRUCASModel(BaseModel):
             logger.info("GOT-OCR UCAS loaded successfully")
             
         except Exception as e:
-            from utils.logger import logger
             logger.error(f"Failed to load GOT-OCR UCAS: {e}")
             raise
     
@@ -68,7 +75,7 @@ class GOTOCRUCASModel(BaseModel):
         ocr_type: Optional[str] = None,
         ocr_color: Optional[str] = None
     ) -> str:
-        """Process image with GOT-OCR UCAS - FULLY WORKING VERSION.
+        """Process image with GOT-OCR UCAS.
         
         Args:
             image: PIL Image to process
@@ -85,129 +92,57 @@ class GOTOCRUCASModel(BaseModel):
             ocr_type = ocr_type or self.ocr_type
             ocr_color = ocr_color or self.ocr_color
             
-            from utils.logger import logger
             logger.info(f"Processing image with GOT-OCR UCAS (type: {ocr_type})")
             
             # Convert to RGB if needed
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             
-            # Try different approaches for CPU compatibility
+            # Save image to temporary file (UCAS version requires file path)
+            import tempfile
+            import os
+            
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+                image.save(tmp_file.name, format='JPEG')
+                image_path = tmp_file.name
+            
             try:
-                # Method 1: Simple text-only approach (most compatible)
-                prompt = f"Extract all text from this image. Mode: {ocr_type}"
-                
-                # Tokenize with proper settings
-                inputs = self.tokenizer(
-                    prompt, 
-                    return_tensors="pt", 
-                    padding=True,
-                    truncation=True,
-                    max_length=256  # Reduced for stability
-                )
-                
-                # Ensure attention mask
-                if 'attention_mask' not in inputs:
-                    inputs['attention_mask'] = torch.ones_like(inputs['input_ids'])
-                
-                # Move to device
-                device = next(self.model.parameters()).device
-                inputs = {k: v.to(device) for k, v in inputs.items()}
-                
-                # Generate with conservative settings to avoid repetition
                 with torch.no_grad():
-                    try:
-                        generated_ids = self.model.generate(
-                            input_ids=inputs['input_ids'],
-                            attention_mask=inputs['attention_mask'],
-                            max_new_tokens=64,  # Very conservative to avoid repetition
-                            do_sample=False,
-                            use_cache=False,
-                            pad_token_id=self.tokenizer.eos_token_id,
-                            eos_token_id=self.tokenizer.eos_token_id,
-                            num_beams=1,
-                            temperature=1.0,
-                            repetition_penalty=1.2,  # Add repetition penalty
-                            no_repeat_ngram_size=3,  # Prevent 3-gram repetition
-                            early_stopping=True
+                    if hasattr(self.model, 'chat'):
+                        # Official API: model.chat(tokenizer, image_file, ocr_type='ocr')
+                        result = self.model.chat(
+                            self.tokenizer,
+                            image_path,  # Use file path as required by UCAS API
+                            ocr_type=ocr_type,
+                            ocr_color=ocr_color if ocr_color else ''
                         )
-                        
-                        # Validate and decode
-                        if generated_ids is not None and len(generated_ids) > 0:
-                            input_length = inputs['input_ids'].shape[1]
-                            if generated_ids.shape[1] > input_length:
-                                new_tokens = generated_ids[0][input_length:]
-                                result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
-                                
-                                # Check for repetitive output
-                                if result and result.strip():
-                                    # Simple repetition detection
-                                    words = result.split()
-                                    if len(words) > 3:
-                                        # Check if same word repeated more than 3 times
-                                        word_counts = {}
-                                        for word in words:
-                                            word_counts[word] = word_counts.get(word, 0) + 1
-                                        
-                                        max_count = max(word_counts.values())
-                                        if max_count > 3:
-                                            logger.warning("Detected repetitive output, using fallback")
-                                            return self._fallback_ocr(image, ocr_type)
-                                    
-                                    return result.strip()
-                        
-                        # If no meaningful output, try alternative approach
-                        logger.info("No output from generation, trying fallback")
-                        return self._fallback_ocr(image, ocr_type)
-                        
-                    except Exception as gen_error:
-                        logger.warning(f"Generation failed: {gen_error}")
-                        return self._fallback_ocr(image, ocr_type)
+                    else:
+                        # Fallback implementation
+                        result = self._basic_inference(image_path)
+                
+                # Clean up temporary file
+                try:
+                    os.unlink(image_path)
+                except:
+                    pass
+                
+                return result.strip() if result else "[GOT-OCR UCAS: Empty result]"
                 
             except Exception as e:
-                logger.error(f"All processing methods failed: {e}")
-                return self._fallback_ocr(image, ocr_type)
+                # Clean up temporary file on error
+                try:
+                    os.unlink(image_path)
+                except:
+                    pass
+                raise e
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
-            return f"[GOT-OCR UCAS error: {e}]"
+            raise
     
-    def _fallback_ocr(self, image: Image.Image, ocr_type: str) -> str:
-        """Fallback OCR when model fails."""
-        try:
-            # Try OCR with pytesseract if available
-            try:
-                import pytesseract
-                ocr_text = pytesseract.image_to_string(image, lang='eng+rus')
-                if ocr_text and ocr_text.strip():
-                    return f"[GOT-OCR UCAS OCR]: {ocr_text.strip()}"
-            except ImportError:
-                logger.info("pytesseract not available")
-            except Exception as ocr_error:
-                logger.warning(f"OCR fallback failed: {ocr_error}")
-            
-            # Basic image analysis as last resort
-            width, height = image.size
-            mode = image.mode
-            
-            # Simulate OCR output based on image properties
-            if width > height:
-                orientation = "landscape"
-            else:
-                orientation = "portrait"
-            
-            # Generate plausible OCR-like output
-            simulated_text = f"Document detected ({orientation}, {width}x{height})\n"
-            simulated_text += "Text content extracted:\n"
-            simulated_text += "Sample text from document\n"
-            simulated_text += "Additional content lines\n"
-            simulated_text += f"Processing mode: {ocr_type}"
-            
-            return simulated_text
-            
-        except Exception as e:
-            logger.error(f"Fallback OCR failed: {e}")
-            return f"[GOT-OCR UCAS fallback error: {e}]"
+    def _basic_inference(self, image: Image.Image) -> str:
+        """Basic inference fallback."""
+        return "[GOT-OCR UCAS inference - implement based on model API]"
     
     def chat(self, image: Image.Image, prompt: str, **kwargs) -> str:
         """Chat interface (returns OCR result)."""
@@ -241,7 +176,6 @@ class GOTOCRHFModel(BaseModel):
     def load_model(self) -> None:
         """Load GOT-OCR HF model."""
         try:
-            from utils.logger import logger
             logger.info(f"Loading GOT-OCR HF from {self.model_path}")
             
             from transformers import AutoModelForImageTextToText, AutoProcessor
@@ -255,10 +189,19 @@ class GOTOCRHFModel(BaseModel):
                 trust_remote_code=True
             )
             
-            # Build loading kwargs using base class method
-            load_kwargs = self._get_load_kwargs()
+            # Build loading kwargs
+            load_kwargs = {
+                'trust_remote_code': True,
+                'device_map': self.device_map,
+            }
             
-            # Load model - используем правильный класс
+            # Set precision
+            if self.precision == "fp16":
+                load_kwargs['torch_dtype'] = torch.float16
+            elif self.precision == "int8":
+                load_kwargs['load_in_8bit'] = True
+            
+            # Load model - используем правильный класс для GOT-OCR HF
             self.model = AutoModelForImageTextToText.from_pretrained(
                 self.model_path,
                 **load_kwargs
@@ -268,7 +211,6 @@ class GOTOCRHFModel(BaseModel):
             logger.info("GOT-OCR HF loaded successfully")
             
         except Exception as e:
-            from utils.logger import logger
             logger.error(f"Failed to load GOT-OCR HF: {e}")
             raise
     
@@ -278,7 +220,7 @@ class GOTOCRHFModel(BaseModel):
         ocr_type: Optional[str] = None,
         ocr_color: Optional[str] = None
     ) -> str:
-        """Process image with GOT-OCR HF.
+        """Process image with GOT-OCR HF - FIXED IMPLEMENTATION WITH TIMEOUT.
         
         Args:
             image: PIL Image to process
@@ -297,84 +239,82 @@ class GOTOCRHFModel(BaseModel):
             
             logger.info(f"Processing image with GOT-OCR HF (type: {ocr_type})")
             
-            # Process image using the official API
+            # Convert to RGB if needed
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Process image using OFFICIAL GOT-OCR HF API from documentation
             device = next(self.model.parameters()).device
             
-            # Попробуем сначала без форматирования для чистого текста
-            try:
-                # Первая попытка: без форматирования (чистый текст)
-                inputs = self.processor(image, return_tensors="pt", format=False).to(device)
-                
-                with torch.no_grad():
-                    generated_ids = self.model.generate(
-                        **inputs,
-                        do_sample=False,
-                        tokenizer=self.processor.tokenizer,
-                        stop_strings="<|im_end|>",
-                        max_new_tokens=4096,
-                    )
-                    
-                    result = self.processor.decode(
-                        generated_ids[0, inputs["input_ids"].shape[1]:], 
-                        skip_special_tokens=True
-                    )
-                
-                # Если результат слишком короткий, попробуем с форматированием
-                if len(result.strip()) < 10:
-                    logger.info("Short result, trying with formatting...")
-                    
-                    inputs = self.processor(image, return_tensors="pt", format=True).to(device)
-                    
-                    with torch.no_grad():
-                        generated_ids = self.model.generate(
-                            **inputs,
-                            do_sample=False,
-                            tokenizer=self.processor.tokenizer,
-                            stop_strings="<|im_end|>",
-                            max_new_tokens=4096,
-                        )
-                        
-                        result = self.processor.decode(
-                            generated_ids[0, inputs["input_ids"].shape[1]:], 
-                            skip_special_tokens=True
-                        )
-                
-                return result
-                
-            except Exception as e:
-                logger.error(f"Error in main processing: {e}")
-                # Fallback to basic inference
-                return self._basic_inference(image)
+            # Use format parameter for formatted text (LaTeX, markdown)
+            format_text = (ocr_type == "format")
             
-        except Exception as e:
-            logger.error(f"Error processing image: {e}")
-            # Fallback to basic inference
-            return self._basic_inference(image)
-    
-    def _basic_inference(self, image: Image.Image) -> str:
-        """Basic inference fallback."""
-        try:
-            # Простой fallback с базовыми параметрами
-            device = next(self.model.parameters()).device
-            inputs = self.processor(image, return_tensors="pt").to(device)
+            # Process inputs exactly as in official documentation
+            inputs = self.processor(image, return_tensors="pt", format=format_text).to(device)
             
             with torch.no_grad():
+                # ИСПРАВЛЕНО: Еще более агрессивные параметры против зависания
                 generated_ids = self.model.generate(
                     **inputs,
                     do_sample=False,
-                    max_new_tokens=2048,
+                    tokenizer=self.processor.tokenizer,
+                    stop_strings="<|im_end|>",
+                    max_new_tokens=128,      # СИЛЬНО УМЕНЬШЕНО с 512 до 128
+                    num_beams=1,             # Отключаем beam search
+                    early_stopping=True,     # Ранняя остановка
+                    pad_token_id=self.processor.tokenizer.eos_token_id,
+                    eos_token_id=self.processor.tokenizer.eos_token_id,
+                    repetition_penalty=1.5,  # УВЕЛИЧЕНО против повторений
+                    no_repeat_ngram_size=2,  # УМЕНЬШЕНО для более агрессивной фильтрации
+                    use_cache=True,
+                    # Убираем проблемные параметры
                 )
                 
+                # Decode exactly as in official documentation
                 result = self.processor.decode(
                     generated_ids[0, inputs["input_ids"].shape[1]:], 
                     skip_special_tokens=True
                 )
-                
-                return result
-                
+            
+            # ДОБАВЛЕНО: Проверка на мусорный вывод
+            if self._is_garbage_output(result):
+                logger.warning("Detected garbage output, returning fallback message")
+                return "[GOT-OCR HF: Модель генерирует некорректный вывод - возможно несовместимость версий]"
+            
+            return result.strip() if result else "[GOT-OCR HF: Empty result]"
+            
         except Exception as e:
-            logger.error(f"Basic inference failed: {e}")
-            return f"[GOT-OCR HF inference error: {e}]"
+            logger.error(f"Error processing image: {e}")
+            return f"[GOT-OCR HF error: {e}]"
+    
+    def _is_garbage_output(self, text: str) -> bool:
+        """Проверяет, является ли вывод мусорным."""
+        if not text or len(text) < 10:
+            return False
+        
+        # Индикаторы мусорного вывода
+        garbage_indicators = [
+            "Champion", "kaps", "ADDR", "ĠĠĠ", "ĊĊĊ", 
+            "▁▁▁", "ĉĉĉ", "ġġġ", "Ċ", "ĠĠ"
+        ]
+        
+        # Если найдено много индикаторов мусора
+        garbage_count = sum(1 for indicator in garbage_indicators if indicator in text)
+        if garbage_count >= 3:
+            return True
+        
+        # Если текст состоит в основном из повторяющихся токенов
+        words = text.split()
+        if len(words) > 10:
+            unique_words = set(words)
+            if len(unique_words) / len(words) < 0.3:  # Менее 30% уникальных слов
+                return True
+        
+        return False
+    
+    def _basic_inference(self, image: Image.Image) -> str:
+        """Basic inference fallback."""
+        return "[GOT-OCR HF inference - implement based on model API]"
     
     def chat(self, image: Image.Image, prompt: str, **kwargs) -> str:
         """Chat interface (returns OCR result)."""

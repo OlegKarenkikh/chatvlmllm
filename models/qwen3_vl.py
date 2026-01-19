@@ -60,12 +60,36 @@ class Qwen3VLModel(BaseModel):
             if self.config.get('use_flash_attention', False):
                 load_kwargs['attn_implementation'] = "flash_attention_2"
             
-            # Load model
+            # Load model with compatibility fixes
             logger.info("Loading model weights...")
-            self.model = Qwen3VLForConditionalGeneration.from_pretrained(
-                self.model_path,
-                **load_kwargs
-            )
+            try:
+                self.model = Qwen3VLForConditionalGeneration.from_pretrained(
+                    self.model_path,
+                    **load_kwargs
+                )
+            except AttributeError as attr_error:
+                if "pad_token_id" in str(attr_error):
+                    logger.warning("Fixing pad_token_id issue for Qwen3-VL...")
+                    # Try loading with trust_remote_code and custom config
+                    load_kwargs['trust_remote_code'] = True
+                    
+                    # Load config first and fix it
+                    from transformers import AutoConfig
+                    config = AutoConfig.from_pretrained(self.model_path, trust_remote_code=True)
+                    
+                    # Fix missing pad_token_id in text_config
+                    if hasattr(config, 'text_config') and not hasattr(config.text_config, 'pad_token_id'):
+                        config.text_config.pad_token_id = config.text_config.eos_token_id if hasattr(config.text_config, 'eos_token_id') else 0
+                        logger.info(f"Set pad_token_id to {config.text_config.pad_token_id}")
+                    
+                    # Try loading with fixed config
+                    self.model = Qwen3VLForConditionalGeneration.from_pretrained(
+                        self.model_path,
+                        config=config,
+                        **load_kwargs
+                    )
+                else:
+                    raise attr_error
             
             self.model.eval()
             logger.info("Qwen3-VL loaded successfully")

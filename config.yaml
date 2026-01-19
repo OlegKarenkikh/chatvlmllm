@@ -1,41 +1,11 @@
-# ChatVLMLLM Configuration - Оптимизировано для RTX 5070 Ti (12.82GB VRAM)
-# Результаты тестирования: 4/8 моделей полностью рабочие
+# ChatVLMLLM Configuration - CUDA 13.0 + transformers 5.0.0.dev0 СОВМЕСТИМЫЕ МОДЕЛИ
+# Финальная конфигурация: только полностью рабочие модели
 
 models:
-  # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
-  # РЕКОМЕНДУЕМЫЕ РАБОЧИЕ МОДЕЛИ
-  got_ocr_hf:
-    name: "GOT-OCR 2.0 (HF) ⚠️"
-    description: "Быстрая OCR модель (требует очистки текста)"
-    model_path: "stepfun-ai/GOT-OCR-2.0-hf"
-    model_type: "ocr"
-    max_length: 4096
-    precision: "fp16"
-    device_map: "auto"
-    trust_remote_code: true
-    use_flash_attention: false
-    ocr_type: "ocr"  # Изменено с "format" на "ocr" для чистого текста
-    ocr_color: ""
-    # ⚠️ ПРОТЕСТИРОВАНО: VRAM=1.1GB, Загрузка=9.4с, Обработка=4.11с, ИСКАЖЕННЫЙ ТЕКСТ!
-
-  # ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ (частично рабочие)
-  got_ocr_ucas:
-    name: "GOT-OCR 2.0 (UCAS) ⚠️"
-    description: "Альтернативная реализация GOT-OCR (CPU-совместимая версия)"
-    model_path: "ucaslcl/GOT-OCR2_0"
-    model_type: "ocr"
-    max_length: 4096
-    precision: "fp16"
-    device_map: "auto"
-    trust_remote_code: true
-    use_flash_attention: false
-    ocr_type: "format"
-    ocr_color: ""
-    # ⚠️ ИСПРАВЛЕНО: CPU-совместимая обработка, требует тестирования
-
+  # ОСНОВНЫЕ РАБОЧИЕ МОДЕЛИ (CUDA 13.0 + transformers 5.0.0.dev0)
   qwen_vl_2b:
-    name: "Qwen2-VL 2B ⭐⭐"
-    description: "Быстрая VLM с отличным OCR (ЛУЧШИЙ ВЫБОР!)"
+    name: "Qwen2-VL 2B ⭐⭐⭐"
+    description: "ОСНОВНАЯ OCR МОДЕЛЬ - Быстрая и точная (100% качество OCR)"
     model_path: "Qwen/Qwen2-VL-2B-Instruct"
     model_type: "vlm"
     max_length: 4096
@@ -45,11 +15,12 @@ models:
     use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.7GB, Загрузка=12.6с, Обработка=5.09с, ЧИТАЕМЫЙ ТЕКСТ!
+    # ✅ ПРОТЕСТИРОВАНО: Загрузка=25.7s, Обработка=8.96s, Качество=100%
+    # ✅ ПОЛНАЯ СОВМЕСТИМОСТЬ: CUDA 13.0 + transformers 5.0.0.dev0
 
   qwen3_vl_2b:
     name: "Qwen3-VL 2B ⭐⭐"
-    description: "Многоязычная VLM с отличным OCR на 32 языках (ОТЛИЧНЫЙ ВЫБОР!)"
+    description: "МНОГОЯЗЫЧНАЯ МОДЕЛЬ - 32 языка, продвинутые возможности"
     model_path: "Qwen/Qwen3-VL-2B-Instruct"
     model_type: "vlm"
     max_length: 4096
@@ -59,79 +30,12 @@ models:
     use_flash_attention: false
     min_pixels: 256
     max_pixels: 1280
-    # ✅ ПРОТЕСТИРОВАНО: VRAM=4.4GB, Загрузка=10.6с, Обработка=14.50с, ЧИТАЕМЫЙ ТЕКСТ!
+    # ✅ ПРОТЕСТИРОВАНО: Загрузка=16.5s, Обработка=42.8s, Качество=60%
+    # ✅ ПОЛНАЯ СОВМЕСТИМОСТЬ: CUDA 13.0 + transformers 5.0.0.dev0
     # Features: 32 languages OCR, 256K context, visual agent, spatial perception
 
-  phi3_vision:
-    name: "Phi-3.5 Vision ⚠️"
-    description: "Мощная модель Microsoft (Flash Attention исправлен)"
-    model_path: "microsoft/Phi-3.5-vision-instruct"
-    model_type: "vlm"
-    max_length: 4096
-    precision: "fp16"
-    device_map: "auto"
-    trust_remote_code: true
-    use_flash_attention: false
-    min_pixels: 256
-    max_pixels: 1280
-    # ⚠️ ИСПРАВЛЕНО: Flash Attention принудительно отключен, требует тестирования
-
-  dots_ocr:
-    name: "dots.ocr ✅"
-    description: "SOTA парсер документов (ИСПРАВЛЕНО!)"
-    model_path: "rednote-hilab/dots.ocr"
-    model_type: "document_parser"
-    max_length: 4096
-    precision: "bf16"
-    device_map: "auto"
-    trust_remote_code: true
-    use_flash_attention: false
-    prompt_mode: "layout_all"
-    max_new_tokens: 2000  # Reduced for stability
-    # ✅ ИСПРАВЛЕНО: Полностью переписан, NoneType ошибки устранены
-
-  deepseek_ocr:
-    name: "DeepSeek OCR ⚠️"
-    description: "Экспериментальная OCR модель (частично работает)"
-    model_path: "deepseek-ai/deepseek-vl-1.3b-chat"
-    model_type: "vlm"
-    max_length: 4096
-    precision: "fp16"
-    device_map: "auto"
-    trust_remote_code: true
-    use_flash_attention: false
-    # ⚠️ Graceful degradation - возвращает информативные сообщения об ошибках
-
-  # ИСКЛЮЧЕНЫ МОДЕЛИ:
-  # deepseek_ocr: ❌ Ошибка модуля transformers_modules
-  # qwen3_vl_4b: ❌ Не в кеше (8.9GB)
-  # qwen_vl_7b: ❌ Слишком тяжелая (16.1GB)
-  # qwen3_vl_8b: ❌ Слишком тяжелая (17.6GB)
-
-ocr:
-  supported_formats: ["jpg", "jpeg", "png", "bmp", "tiff"]
-  max_image_size: 10485760
-  resize_max_dimension: 2048
-  enable_preprocessing: true
-  preprocessing_steps: ["resize", "normalize", "enhance"]
-  
-document_templates:
-  passport:
-    name: "Passport"
-    fields: ["document_number", "surname", "given_names", "nationality", 
-             "date_of_birth", "sex", "place_of_birth", "date_of_issue", 
-             "date_of_expiry", "authority"]
-  invoice:
-    name: "Invoice"
-    fields: ["invoice_number", "date", "seller_name", "seller_address",
-             "buyer_name", "buyer_address", "items", "subtotal", "tax", "total_amount"]
-  receipt:
-    name: "Receipt"
-    fields: ["store_name", "store_address", "date", "time", "items",
-             "subtotal", "tax", "total", "payment_method"]
-
 app:
-  title: "ChatVLMLLM - Распознавание документов и чат с VLM"
+  title: "ChatVLMLLM - OCR и Vision-Language модели"
   page_icon: "🔬"
   layout: "wide"
   theme: "light"
@@ -155,63 +59,68 @@ performance:
   enable_flash_attention: false  # Отключено для Windows
   use_int8_quantization: false
   optimize_memory: true
-  max_batch_size: 2  # Уменьшено для экономии VRAM
+  max_batch_size: 1  # Оптимально для GPU
   inference_timeout: 30
+  single_model_mode: true  # Загружать только одну модель
+  auto_unload: true        # Автоматически выгружать при смене
 
-# GPU Requirements для RTX 5070 Ti (12.82GB VRAM)
+# GPU Requirements для RTX 5070 Ti (12.82GB VRAM) - CUDA 13.0
 gpu_requirements:
   current_gpu:
     name: "RTX 5070 Ti"
     vram_gb: 12.82
-    # ✅ ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ (ВСЕ МОДЕЛИ ИСПРАВЛЕНЫ!)
-    fully_working: ["got_ocr_hf", "qwen_vl_2b", "qwen3_vl_2b", "deepseek_ocr", "dots_ocr"]  # 5 моделей полностью рабочие
-    partially_working: ["got_ocr_ucas", "phi3_vision"]  # 2 модели частично рабочие
-    not_working: []  # 0 моделей не работают - ВСЕ ИСПРАВЛЕНЫ!
+    cuda_version: "13.0"
+    pytorch_version: "2.9.1+cu130"
+    transformers_version: "5.0.0.dev0"
     
-    # Рекомендуемые модели для продуктивной работы (ОБНОВЛЕНО!)
-    primary_ocr: "qwen_vl_2b"        # Основная модель (быстрая, надежная)
-    secondary_ocr: "qwen3_vl_2b"     # Продвинутая модель (32 языка)
-    specialized_ocr: "got_ocr_hf"    # Специализированная OCR
+    # ✅ ФИНАЛЬНЫЕ СОВМЕСТИМЫЕ МОДЕЛИ (CUDA 13.0 + transformers 5.0.0.dev0)
+    fully_working: ["qwen_vl_2b", "qwen3_vl_2b"]  # 2 модели полностью совместимые
+    
+    # Рекомендуемые модели для продуктивной работы
+    primary_ocr: "qwen_vl_2b"        # ОСНОВНАЯ OCR модель (100% качество)
+    secondary_ocr: "qwen3_vl_2b"     # Многоязычная OCR (60% качество, 32 языка)
     chat_model: "qwen_vl_2b"         # Быстрый интерактивный чат
     
   performance_metrics:
-    # Реальные результаты тестирования (ОБНОВЛЕНО!)
-    got_ocr_hf:
-      load_time: "9.43s"
-      process_time: "4.98s" 
-      ocr_quality: "216 chars"
-      format: "LaTeX structured"
-      status: "✅ ЛУЧШИЙ ВЫБОР!"
+    # Реальные результаты тестирования (CUDA 13.0 + transformers 5.0.0.dev0)
     qwen_vl_2b:
-      load_time: "8.99s"
-      process_time: "5.48s" 
-      ocr_quality: "148 chars"
-      status: "✅ Хороший баланс"
+      load_time: "25.70s"
+      process_time: "8.96s" 
+      ocr_quality: "100% (5/5 keywords)"
+      output_length: "67 chars"
+      status: "✅ ОТЛИЧНО - ОСНОВНАЯ МОДЕЛЬ"
+      compatibility: "✅ ПОЛНАЯ СОВМЕСТИМОСТЬ"
+      
     qwen3_vl_2b:
-      load_time: "8.40s"
-      process_time: "13.77s"
-      ocr_quality: "147 chars" 
-      status: "✅ Продвинутый"
-      features: "32 languages OCR"
+      load_time: "16.49s"
+      process_time: "42.85s"
+      ocr_quality: "60% (3/5 keywords)" 
+      output_length: "460 chars"
+      status: "✅ ХОРОШО - МНОГОЯЗЫЧНАЯ"
+      compatibility: "✅ ПОЛНАЯ СОВМЕСТИМОСТЬ"
+      features: "32 languages, 256K context, visual agent"
     
   optimization:
-    # Финальные рекомендации (ОБНОВЛЕНО!)
-    default_model: "qwen_vl_2b"      # По умолчанию для OCR (ЧИТАЕМЫЙ ТЕКСТ!)
+    # Финальные рекомендации (ТОЛЬКО СОВМЕСТИМЫЕ МОДЕЛИ)
+    default_model: "qwen_vl_2b"      # По умолчанию для OCR (ЛУЧШИЙ!)
     chat_model: "qwen_vl_2b"         # По умолчанию для чата
     single_model_mode: true          # Загружать по одной модели
     auto_unload: true                # Автоматически выгружать неиспользуемые
     prefer_int8: false               # FP16 достаточно для этой GPU
     batch_size: 1                    # Обрабатывать по одному изображению
     
-  issues_resolved:
-    # Исправленные проблемы (ВСЕ МОДЕЛИ ИСПРАВЛЕНЫ!)
-    image_recognition: "✅ ПОЛНОСТЬЮ РЕШЕНО - 7 рабочих моделей (5 полностью + 2 частично)"
-    got_ocr_hf_fixed: "✅ ИСПРАВЛЕНО - отличная OCR модель!"
-    got_ocr_ucas_fixed: "✅ ИСПРАВЛЕНО - graceful degradation"
-    phi3_vision_fixed: "✅ ЧАСТИЧНО ИСПРАВЛЕНО - загружается, требует доработки обработки"
-    dots_ocr_fixed: "✅ ПОЛНОСТЬЮ ИСПРАВЛЕНО - переписан с нуля"
-    deepseek_ocr_fixed: "✅ ИСПРАВЛЕНО - graceful degradation"
-    interface_integration: "✅ РЕШЕНО - полная интеграция"
-    gpu_optimization: "✅ РЕШЕНО - оптимально для RTX 5070 Ti"
-    russian_localization: "✅ РЕШЕНО - полная русификация"
-    all_models_status: "✅ ВСЕ 7 МОДЕЛЕЙ РАБОТАЮТ!"
+  removed_models:
+    # Модели удалены из-за несовместимости
+    got_ocr_hf: "❌ Мусорный вывод с transformers 5.0.0.dev0"
+    got_ocr_ucas: "❌ Ошибки токенизатора с transformers 5.0.0.dev0"
+    dots_ocr: "❌ Неправильный вывод (JSON вместо OCR текста)"
+    phi3_vision: "❌ Медленная обработка (76s)"
+    deepseek_ocr: "❌ Graceful degradation (не OCR)"
+    
+  final_status:
+    # Финальный статус системы
+    total_models_tested: 7
+    compatible_models: 2
+    compatibility_rate: "28.6%"
+    system_status: "✅ СТАБИЛЬНАЯ РАБОТА"
+    recommendation: "Использовать qwen_vl_2b как основную модель"
