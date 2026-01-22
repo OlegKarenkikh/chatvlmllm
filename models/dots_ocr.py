@@ -165,7 +165,9 @@ class DotsOCRModel(BaseModel):
                 return_tensors="pt"
             )
             
-            inputs = inputs.to("cuda")
+            # Move to model device (CPU or GPU)
+            device = next(self.model.parameters()).device
+            inputs = inputs.to(device)
             
             # Inference: Generation of the output (exact Modal implementation)
             generated_ids = self.model.generate(**inputs, max_new_tokens=24000)

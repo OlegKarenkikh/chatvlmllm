@@ -6,7 +6,7 @@ accelerate>=0.25.0
 
 # VLM specific
 qwen-vl-utils
-flash-attn>=2.3.0
+# flash-attn>=2.3.0
 bitsandbytes>=0.41.0
 
 # API

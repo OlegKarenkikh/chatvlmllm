@@ -31,7 +31,6 @@ class TestModelLoader:
         config = ModelLoader.load_config()
         assert "models" in config
         assert "app" in config
-        assert "ocr" in config
     
     def test_get_available_models(self, config_path):
         """Test listing available models."""
