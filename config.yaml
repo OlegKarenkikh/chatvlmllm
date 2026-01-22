@@ -34,6 +34,16 @@ models:
     # ✅ ПОЛНАЯ СОВМЕСТИМОСТЬ: CUDA 13.0 + transformers 5.0.0.dev0
     # Features: 32 languages OCR, 256K context, visual agent, spatial perception
 
+  dots_ocr:
+    name: "dots.ocr"
+    description: "SOTA document parser"
+    model_path: "rednote-hilab/dots.ocr"
+    model_type: "vlm"
+    precision: "bf16"
+    device_map: "auto"
+    trust_remote_code: true
+    prompt_mode: "layout_all"
+
 app:
   title: "ChatVLMLLM - OCR и Vision-Language модели"
   page_icon: "🔬"

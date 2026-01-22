@@ -11,7 +11,7 @@ import torch
 import traceback
 
 # Add project root to path
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent))
 
 from models.model_loader import ModelLoader
 from utils.logger import logger
@@ -112,15 +112,8 @@ def main():
     logger.info("🚀 Starting comprehensive model testing...")
     
     # All models to test
-    models_to_test = [
-        "got_ocr_hf",
-        "got_ocr_ucas", 
-        "qwen_vl_2b",
-        "qwen3_vl_2b",
-        "phi3_vision",
-        "dots_ocr",
-        "deepseek_ocr"
-    ]
+    config = ModelLoader.load_config()
+    models_to_test = list(config.get("models", {}).keys())
     
     results = []
     

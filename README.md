@@ -34,12 +34,11 @@ cd chatvlmllm
 
 # Установка зависимостей
 pip install -r requirements.txt
-
-# Установка последней версии transformers для Qwen3-VL
-pip install git+https://github.com/huggingface/transformers
 ```
 
-### Проверка совместимости GPU
+### Проверка оборудования (GPU/CPU)
+
+Проект автоматически определяет доступное оборудование. Если GPU (CUDA) недоступен, будет использоваться CPU (что может быть медленно для больших моделей).
 
 ```bash
 python scripts/check_gpu.py

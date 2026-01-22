@@ -3,9 +3,9 @@
 REST API для Vision-Language Models OCR и чата.
 
 Использование:
-    uvicorn api:app --host 0.0.0.0 --port 8001 --reload
+    uvicorn api:app --host 0.0.0.0 --port 8000 --reload
     
-Документация: http://localhost:8001/docs
+Документация: http://localhost:8000/docs
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, Query, Form
