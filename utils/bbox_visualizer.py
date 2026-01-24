@@ -97,11 +97,13 @@ class BBoxVisualizer:
                     
                     def fix_newlines(match):
                         text = match.group(1)
-                        # Заменяем \n на пробел
-                        text = text.replace('\n', ' ')
-                        return f'"text": "{text}"'
+                        # Заменяем \n и пробелы вокруг них на один пробел
+                        text = re.sub(r'\s*\n\s*', ' ', text)
+                        # Убираем множественные пробелы
+                        text = re.sub(r'\s+', ' ', text)
+                        return f'"text": "{text.strip()}"'
                     
-                    fixed_json = re.sub(r'"text"\s*:\s*"([^"]*)"', fix_newlines, json_text_stripped)
+                    fixed_json = re.sub(r'"text"\s*:\s*"([^"]*)"', fix_newlines, json_text_stripped, flags=re.DOTALL)
                     
                     try:
                         data = json.loads(fixed_json)
@@ -110,8 +112,8 @@ class BBoxVisualizer:
                             return data
                         elif isinstance(data, dict) and 'bbox' in data:
                             return [data]
-                    except:
-                        pass
+                    except Exception as e2:
+                        print(f"⚠️ Не удалось исправить JSON: {str(e2)[:100]}")
             
             # Если JSON не парсится, попробуем извлечь BBOX из текста
             return self.extract_bbox_from_text(json_text)
