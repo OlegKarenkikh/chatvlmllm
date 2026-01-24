@@ -414,8 +414,6 @@ class DotsOCRFinalModel(BaseModel):
         except Exception as e:
             logger.error(f"Export error: {e}")
             return False
-                "text": f"Error: {e}"
-            }
     
     def unload(self) -> None:
         """Выгружаем модель."""
