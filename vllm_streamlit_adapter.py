@@ -34,11 +34,24 @@ class VLLMStreamlitAdapter:
             response = requests.get(f"{self.base_url}/v1/models", timeout=5)
             if response.status_code == 200:
                 models_data = response.json()
-                self.available_models = [model["id"] for model in models_data.get("data", [])]
+                self.available_models = []
+                self.model_limits = {}
+                
+                for model in models_data.get("data", []):
+                    model_id = model["id"]
+                    max_tokens = model.get("max_model_len", 1024)
+                    
+                    self.available_models.append(model_id)
+                    self.model_limits[model_id] = max_tokens
+                
                 return self.available_models
         except Exception as e:
             st.error(f"❌ Ошибка получения моделей: {e}")
         return []
+    
+    def get_model_max_tokens(self, model_id: str) -> int:
+        """Получение максимального количества токенов для модели"""
+        return getattr(self, 'model_limits', {}).get(model_id, 1024)
     
     def chat_with_image(self, image: Image.Image, prompt: str, 
                        model: str = "rednote-hilab/dots.ocr") -> Optional[Dict[str, Any]]:
@@ -46,8 +59,14 @@ class VLLMStreamlitAdapter:
         return self.process_image(image, prompt, model)
     
     def process_image(self, image: Image.Image, prompt: str = "Extract all text from this image", 
-                     model: str = "rednote-hilab/dots.ocr") -> Optional[Dict[str, Any]]:
+                     model: str = "rednote-hilab/dots.ocr", max_tokens: int = 4096) -> Optional[Dict[str, Any]]:
         """Обработка изображения через vLLM API"""
+        
+        # Проверяем лимит токенов для модели
+        model_max_tokens = self.get_model_max_tokens(model)
+        if max_tokens > model_max_tokens:
+            st.warning(f"⚠️ Запрошено {max_tokens} токенов, но модель {model} поддерживает максимум {model_max_tokens}")
+            max_tokens = model_max_tokens
         
         # Конвертация изображения в base64
         if image.mode != 'RGB':
@@ -67,7 +86,7 @@ class VLLMStreamlitAdapter:
                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
                 ]
             }],
-            "max_tokens": 1000,
+            "max_tokens": max_tokens,  # Ограниченное количество токенов
             "temperature": 0.1
         }
         
@@ -75,7 +94,7 @@ class VLLMStreamlitAdapter:
             # Отправка запроса
             start_time = time.time()
             
-            with st.spinner("🔄 Обработка изображения через vLLM..."):
+            with st.spinner(f"🔄 Обработка изображения через vLLM (макс. {max_tokens} токенов)..."):
                 response = requests.post(
                     f"{self.base_url}/v1/chat/completions",
                     json=payload,
@@ -94,7 +113,8 @@ class VLLMStreamlitAdapter:
                     "processing_time": processing_time,
                     "model": model,
                     "mode": "vLLM",
-                    "tokens_used": result.get("usage", {}).get("total_tokens", 0)
+                    "tokens_used": result.get("usage", {}).get("total_tokens", 0),
+                    "max_tokens_limit": model_max_tokens
                 }
             else:
                 st.error(f"❌ API ошибка: {response.status_code}")
@@ -114,7 +134,8 @@ class VLLMStreamlitAdapter:
                     "status": "healthy",
                     "url": self.base_url,
                     "models": len(self.available_models),
-                    "available_models": self.available_models
+                    "available_models": self.available_models,
+                    "model_limits": getattr(self, 'model_limits', {})
                 }
         except Exception as e:
             return {

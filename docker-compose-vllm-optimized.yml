@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  dots-ocr-optimized:
+    image: vllm/vllm-openai:latest
+    container_name: dots-ocr-vllm-optimized
+    ports:
+      - "8000:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - VLLM_WORKER_MULTIPROC_METHOD=spawn
+    command: >
+      --model rednote-hilab/dots.ocr
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len 8192
+      --gpu-memory-utilization 0.85
+      --dtype float16
+      --trust-remote-code
+      --disable-log-requests
+      --served-model-name rednote-hilab/dots.ocr
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

@@ -164,13 +164,80 @@ with st.sidebar:
         help="vLLM - высокая производительность через Docker, Transformers - локальная загрузка моделей"
     )
     
-    selected_model = st.selectbox(
-        "Выберите модель",
-        list(config["models"].keys()),
-        format_func=lambda x: config["models"][x]["name"],
-        key="model_selector",
-        index=list(config["models"].keys()).index("qwen_vl_2b")  # По умолчанию лучшая модель
-    )
+    # Динамический выбор модели в зависимости от режима
+    if "vLLM" in execution_mode:
+        # vLLM режим - получаем модели из API
+        try:
+            from vllm_streamlit_adapter import VLLMStreamlitAdapter
+            
+            if "vllm_adapter" not in st.session_state:
+                st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+            
+            adapter = st.session_state.vllm_adapter
+            vllm_models = adapter.available_models
+            
+            if vllm_models:
+                selected_model = st.selectbox(
+                    "Выберите модель (vLLM)",
+                    vllm_models,
+                    format_func=lambda x: x.split("/")[-1] if "/" in x else x,
+                    key="vllm_model_selector",
+                    help="Модели, загруженные в vLLM сервере"
+                )
+                
+                # Получаем лимит токенов для выбранной модели
+                model_max_tokens = adapter.get_model_max_tokens(selected_model)
+                
+                # Показываем информацию о модели vLLM
+                st.info(
+                    f"**🚀 vLLM: {selected_model.split('/')[-1]}**\n\n"
+                    f"🟢 vLLM режим - высокая производительность\n"
+                    f"🎯 Max Tokens: {model_max_tokens}\n"
+                    f"📏 Модель: {selected_model}\n"
+                    f"⚡ Статус: Готов к использованию"
+                )
+                
+                # Предупреждение о лимитах токенов
+                if model_max_tokens < 2048:
+                    st.warning(
+                        f"⚠️ **Ограничение токенов**\n\n"
+                        f"Модель поддерживает максимум **{model_max_tokens} токенов**.\n"
+                        f"Увеличение лимита в настройках выше этого значения приведет к ошибкам."
+                    )
+                
+            else:
+                st.error("❌ Нет доступных моделей в vLLM")
+                st.info("💡 Убедитесь, что vLLM сервер запущен:\n`docker-compose -f docker-compose-vllm.yml up -d`")
+                selected_model = "dots_ocr"  # Fallback
+                model_max_tokens = 1024
+                
+        except Exception as e:
+            st.error(f"❌ Ошибка подключения к vLLM: {e}")
+            selected_model = "dots_ocr"  # Fallback
+            model_max_tokens = 1024
+    else:
+        # Transformers режим - используем модели из конфигурации
+        selected_model = st.selectbox(
+            "Выберите модель (Transformers)",
+            list(config["models"].keys()),
+            format_func=lambda x: config["models"][x]["name"],
+            key="transformers_model_selector",
+            index=list(config["models"].keys()).index("qwen3_vl_2b")  # По умолчанию лучшая модель
+        )
+        
+        # Display model info для Transformers
+        model_info = config["models"][selected_model]
+        model_max_tokens = model_info.get('max_new_tokens', 4096)
+        
+        st.info(
+            f"**{model_info['name']}**\n\n"
+            f"🟡 Transformers режим - локальная обработка\n"
+            f"🔧 Precision: {model_info.get('precision', 'auto')}\n"
+            f"⚡ Attention: {model_info.get('attn_implementation', 'auto')}\n"
+            f"🎯 Max Tokens: {model_info.get('max_new_tokens', 'auto')}\n"
+            f"📏 Context: {model_info.get('context_length', 'auto')}\n"
+            f"🚀 Optimized for RTX 5070 Ti Blackwell"
+        )
     
     # ДОБАВЛЕНО: Предупреждение для dots.ocr в режиме чата
     if "dots" in selected_model.lower() and "💬 Режим чата" in page:
@@ -184,31 +251,67 @@ with st.sidebar:
     elif "dots" in selected_model.lower():
         st.success("✅ **dots.ocr** - отлично подходит для OCR задач!")
     
-    # Display model info
-    model_info = config["models"][selected_model]
-    
-    # Информация о режиме
-    if "vLLM" in execution_mode:
-        mode_info = "🚀 vLLM режим - высокая производительность"
-        mode_color = "🟢"
-    else:
-        mode_info = "🔧 Transformers режим - локальная обработка"
-        mode_color = "🟡"
-    
-    st.info(
-        f"**{model_info['name']}**\n\n"
-        f"{mode_color} {mode_info}\n"
-        f"🔧 Precision: {model_info.get('precision', 'auto')}\n"
-        f"⚡ Attention: {model_info.get('attn_implementation', 'auto')}\n"
-        f"🎯 Optimized for RTX 5070 Ti Blackwell"
-    )
-    
     st.divider()
     
     with st.expander("🔧 Расширенные настройки"):
-        temperature = st.slider("Температура", 0.0, 1.0, 0.7, 0.1, help="Контролирует случайность генерации")
-        max_tokens = st.number_input("Макс. токенов", 100, 4096, 2048, 100, help="Максимальная длина генерируемого текста")
+        # Получаем настройки в зависимости от режима
+        if "vLLM" in execution_mode:
+            # vLLM режим - используем лимиты модели
+            default_temp = 0.1  # vLLM обычно использует низкую температуру
+            default_max_tokens = min(model_max_tokens, 1024)  # Безопасное значение
+            max_context = model_max_tokens
+            
+            st.caption(f"🚀 vLLM режим: Настройки оптимизированы для {selected_model}")
+        else:
+            # Transformers режим - используем конфигурацию
+            default_temp = config.get("performance", {}).get("generation_settings", {}).get("temperature", 0.7)
+            default_max_tokens = model_info.get('max_new_tokens', config.get("performance", {}).get("generation_settings", {}).get("default_max_tokens", 4096))
+            max_context = model_info.get('context_length', config.get("performance", {}).get("generation_settings", {}).get("max_context_length", 8192))
+        
+        temperature = st.slider("Температура", 0.0, 1.0, default_temp, 0.1, help="Контролирует случайность генерации")
+        
+        # Умные настройки токенов с предупреждениями
+        if "vLLM" in execution_mode and model_max_tokens < 2048:
+            st.warning(f"⚠️ Модель поддерживает максимум {model_max_tokens} токенов")
+            max_tokens = st.number_input(
+                "Макс. токенов", 
+                100, 
+                model_max_tokens,  # Ограничиваем реальным лимитом модели
+                default_max_tokens, 
+                100, 
+                help=f"⚠️ ВНИМАНИЕ: Модель {selected_model} поддерживает максимум {model_max_tokens} токенов. Превышение приведет к ошибкам!"
+            )
+        else:
+            max_tokens = st.number_input(
+                "Макс. токенов", 
+                100, 
+                max_context, 
+                default_max_tokens, 
+                100, 
+                help=f"Максимальная длина генерируемого текста (модель поддерживает до {max_context} токенов)"
+            )
+        
+        # Предупреждение при превышении лимита
+        if "vLLM" in execution_mode and max_tokens > model_max_tokens:
+            st.error(
+                f"🚨 **ОШИБКА НАСТРОЕК**\n\n"
+                f"Установлено: {max_tokens} токенов\n"
+                f"Лимит модели: {model_max_tokens} токенов\n\n"
+                f"Это приведет к ошибкам при обработке!"
+            )
+        
+        # Сохраняем в session_state для использования в других частях приложения
+        st.session_state.max_tokens = max_tokens
+        st.session_state.temperature = temperature
         use_gpu = st.checkbox("Использовать GPU", value=True, help="Включить ускорение GPU если доступно")
+        
+        # Показываем информацию о памяти
+        if "vLLM" in execution_mode:
+            st.caption(f"🚀 vLLM: Модель работает в Docker контейнере")
+        else:
+            vram_info = config.get("gpu_requirements", {}).get("rtx_5070_ti", {})
+            if vram_info:
+                st.caption(f"💾 VRAM: {vram_info.get('vram_total', '12GB')} общий, ~{vram_info.get('vram_available', '3GB')} доступно")
     
     st.divider()
     
@@ -529,7 +632,7 @@ elif "📄 Режим OCR" in page:
                                 
                                 # Используем DotsOCR модель для vLLM
                                 vllm_model = "rednote-hilab/dots.ocr"
-                                result = adapter.process_image(processed_image, prompt, vllm_model)
+                                result = adapter.process_image(processed_image, prompt, vllm_model, max_tokens)
                                 
                                 if result and result["success"]:
                                     text = result["text"]
@@ -859,15 +962,18 @@ elif "💬 Режим чата" in page:
                                     
                                     adapter = st.session_state.vllm_adapter
                                     
+                                    # Получаем настройки из session_state
+                                    max_tokens = st.session_state.get('max_tokens', 4096)
+                                    
                                     # Попытка обработки с dots.ocr
                                     try:
-                                        result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr")
+                                        result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr", max_tokens)
                                     except Exception as dots_error:
                                         st.warning(f"⚠️ Ошибка dots.ocr: {dots_error}")
                                         st.info("🔄 Переключаемся на Qwen3-VL для обработки...")
                                         # Fallback на Qwen3-VL
                                         try:
-                                            result = adapter.process_image(image, official_prompt, "Qwen/Qwen3-VL-2B-Instruct")
+                                            result = adapter.process_image(image, official_prompt, "Qwen/Qwen3-VL-2B-Instruct", max_tokens)
                                             if result and result["success"]:
                                                 result["text"] += "\n\n*⚠️ Обработано через Qwen3-VL (fallback)*"
                                         except Exception as fallback_error:
@@ -1033,6 +1139,10 @@ elif "💬 Режим чата" in page:
                         
                         # Обработка в зависимости от режима
                         if "vLLM" in execution_mode:
+                            # Получаем настройки из session_state
+                            max_tokens = st.session_state.get('max_tokens', 4096)
+                            temperature = st.session_state.get('temperature', 0.7)
+                            
                             # vLLM режим - используем API
                             try:
                                 from vllm_streamlit_adapter import VLLMStreamlitAdapter
@@ -1046,7 +1156,7 @@ elif "💬 Режим чата" in page:
                                 if "dots" in selected_model.lower():
                                     # dots.ocr специализирована на OCR, адаптируем ответ
                                     vllm_model = "rednote-hilab/dots.ocr"
-                                    result = adapter.process_image(image, prompt, vllm_model)
+                                    result = adapter.process_image(image, prompt, vllm_model, max_tokens)
                                     
                                     if result and result["success"]:
                                         ocr_text = result["text"]
@@ -1090,7 +1200,7 @@ elif "💬 Режим чата" in page:
                                         processing_time = 0
                                 else:
                                     # Другие модели - используем как есть
-                                    result = adapter.process_image(image, prompt, selected_model)
+                                    result = adapter.process_image(image, prompt, selected_model, max_tokens)
                                     
                                     if result and result["success"]:
                                         response = result["text"]
@@ -1142,6 +1252,10 @@ elif "💬 Режим чата" in page:
                                     except Exception as fallback_error:
                                         response = f"❌ Ошибка и в fallback режиме: {str(fallback_error)}"
                         else:
+                            # Получаем настройки из session_state
+                            max_tokens = st.session_state.get('max_tokens', 4096)
+                            temperature = st.session_state.get('temperature', 0.7)
+                            
                             # Transformers режим - локальная загрузка с улучшенной обработкой ошибок
                             try:
                                 from models.model_loader import ModelLoader
