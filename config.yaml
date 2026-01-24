@@ -49,6 +49,28 @@ models:
     torch_dtype: float16
     trust_remote_code: true
     use_flash_attention: false
+ocr:
+  supported_formats: ["jpg", "jpeg", "png", "bmp", "tiff"]
+  max_image_size: 10485760
+  resize_max_dimension: 2048
+  enable_preprocessing: true
+  preprocessing_steps: ["resize", "normalize", "enhance"]
+
+document_templates:
+  passport:
+    name: "Паспорт"
+    fields: ["document_number", "surname", "given_names", "nationality", 
+             "date_of_birth", "sex", "place_of_birth", "date_of_issue", 
+             "date_of_expiry", "authority"]
+  invoice:
+    name: "Счет"
+    fields: ["invoice_number", "date", "seller_name", "seller_address",
+             "buyer_name", "buyer_address", "items", "subtotal", "tax", "total_amount"]
+  receipt:
+    name: "Чек"
+    fields: ["store_name", "store_address", "date", "time", "items",
+             "subtotal", "tax", "total", "payment_method"]
+
 performance:
   blackwell_optimizations:
     enable_cudnn_benchmark: false
