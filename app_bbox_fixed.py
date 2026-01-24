@@ -265,9 +265,20 @@ with st.sidebar:
     st.subheader("⚙️ Настройки модели")
     
     # Выбор режима работы
+    # Режим выполнения с контролем памяти
+    from utils.mode_switcher import mode_switcher
+    
+    # Отображение переключателя режимов
+    with st.expander("🔧 Управление режимами и памятью", expanded=False):
+        mode_switcher.display_mode_switcher_ui()
+    
+    # Получение рекомендуемых настроек
+    recommendations = mode_switcher.get_recommended_settings()
+    
     execution_mode = st.selectbox(
         "🚀 Режим выполнения",
         ["vLLM (Рекомендуется)", "Transformers (Локально)"],
+        index=0 if recommendations["execution_mode"] == "vllm" else 1,
         help="vLLM - высокая производительность через Docker, Transformers - локальная загрузка моделей"
     )
     
@@ -1541,150 +1552,183 @@ Output as JSON array of detected layout elements.""",
 
 elif "📊 Сравнение моделей" in page:
     st.header("📊 Сравнение производительности моделей")
+    st.caption("Данные основаны на исторических результатах тестирования")
     
-    # Реальная таблица сравнения с актуальными данными
-    import pandas as pd
-    
-    comparison_data = pd.DataFrame({
-        "Модель": [
-            "GOT-OCR 2.0 (HF)", 
-            "GOT-OCR 2.0 (UCAS)",
-            "Qwen2-VL 2B", 
-            "Qwen3-VL 2B",
-            "Qwen3-VL 4B",
-            "Qwen3-VL 8B",
-            "Phi-3.5 Vision",
-            "dots.ocr",
-            "DeepSeek OCR"
-        ],
-        "Параметры": ["580M", "580M", "2B", "2B", "4B", "8B", "4.2B", "1.7B", "~1B"],
-        "VRAM (ГБ)": ["1.1", "2.7", "4.7", "4.4", "8.9", "17.6", "7.7", "8", "0.01"],
-        "Статус": ["✅", "✅", "✅", "✅", "⚠️", "❌", "⚠️", "✅", "⚠️"],
-        "Лучше для": [
-            "Быстрый OCR", 
-            "Сложные макеты",
-            "Общий OCR", 
-            "Многоязычный OCR (32 языка)",
-            "Продвинутый анализ",
-            "Максимальное качество",
-            "Визуальный анализ",
-            "Парсинг документов",
-            "Легкий OCR"
-        ]
-    })
-    
-    # Цветовое кодирование статуса
-    def color_status(val):
-        if val == "✅":
-            return 'background-color: #d4edda'
-        elif val == "⚠️":
-            return 'background-color: #fff3cd'
-        elif val == "❌":
-            return 'background-color: #f8d7da'
-        return ''
-    
-    styled_df = comparison_data.style.applymap(color_status, subset=['Статус'])
-    st.dataframe(styled_df, use_container_width=True, hide_index=True)
-    
-    # Легенда статусов
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.success("✅ Полностью рабочая")
-    with col2:
-        st.warning("⚠️ Частично рабочая")
-    with col3:
-        st.error("❌ Не кеширована")
-    
-    st.divider()
-    
-    # Реальная статистика загруженных моделей
-    st.subheader("📈 Статистика системы")
-    
+    # Загрузка исторических данных
     try:
-        from models.model_loader import ModelLoader
+        from utils.performance_analyzer import PerformanceAnalyzer
         
-        # Получение информации о кеше
-        config = ModelLoader.load_config()
-        total_models = len(config.get('models', {}))
+        with st.spinner("Загрузка исторических результатов..."):
+            analyzer = PerformanceAnalyzer()
+            comparison_df = analyzer.get_model_comparison_data()
+            stats = analyzer.get_summary_statistics()
         
-        # Проверка кешированных моделей
-        cached_count = 0
-        working_count = 0
-        
-        for model_key in config.get('models', {}).keys():
-            try:
-                is_cached, _ = ModelLoader.check_model_cache(model_key)
-                if is_cached:
-                    cached_count += 1
-                    # Проверка, работает ли модель
-                    if model_key in ModelLoader.MODEL_REGISTRY:
-                        working_count += 1
-            except:
-                pass
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Всего моделей", total_models)
-        col2.metric("Кешированных", cached_count)
-        col3.metric("Рабочих", working_count)
-        col4.metric("Загруженных", len(ModelLoader.get_loaded_models()))
-        
+        if comparison_df.empty:
+            st.warning("📋 Нет исторических данных для сравнения моделей")
+            st.info("Запустите тесты моделей для получения данных о производительности")
+        else:
+            # Общая статистика
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Всего моделей", stats['total_models'])
+            col2.metric("Рабочих моделей", stats['working_models'])
+            col3.metric("Проведено тестов", stats['total_tests_run'])
+            col4.metric("Средняя успешность", f"{stats['average_success_rate']}%")
+            
+            st.divider()
+            
+            # Таблица сравнения на основе исторических данных
+            st.subheader("📋 Сравнение на основе исторических результатов")
+            
+            # Цветовое кодирование статуса
+            def color_status(val):
+                if "✅" in str(val):
+                    return 'background-color: #d4edda'
+                elif "⚠️" in str(val):
+                    return 'background-color: #fff3cd'
+                elif "❌" in str(val):
+                    return 'background-color: #f8d7da'
+                return ''
+            
+            styled_df = comparison_df.style.applymap(color_status, subset=['Статус'])
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            
+            # Легенда статусов
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.success("✅ Отлично (>90% успешность)")
+            with col2:
+                st.warning("⚠️ Хорошо/Частично (>0% успешность)")
+            with col3:
+                st.error("❌ Не работает (0% успешность)")
+            
+            st.divider()
+            
+            # Детальный анализ выбранной модели
+            st.subheader("🔍 Детальный анализ модели")
+            
+            selected_model = st.selectbox(
+                "Выберите модель для детального анализа:",
+                comparison_df["Модель"].tolist()
+            )
+            
+            if selected_model:
+                details = analyzer.get_model_details(selected_model)
+                trends = analyzer.get_performance_trends(selected_model)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**📊 Статистика:**")
+                    st.write(f"• Проведено бенчмарков: {details['benchmarks_count']}")
+                    st.write(f"• Тестов в истории: {details['test_history_count']}")
+                    
+                    if details.get('status_info'):
+                        status_info = details['status_info']
+                        st.write(f"• Статус: {status_info.get('status', 'unknown')}")
+                        st.write(f"• Последнее тестирование: {status_info.get('last_tested', 'N/A')}")
+                
+                with col2:
+                    st.markdown("**⚡ Производительность:**")
+                    perf_metrics = details.get('performance_metrics', {})
+                    if perf_metrics:
+                        st.write(f"• Успешность: {perf_metrics.get('latest_success_rate', 0):.1f}%")
+                        st.write(f"• Среднее время: {perf_metrics.get('latest_avg_time', 0):.3f}с")
+                        st.write(f"• Всего тестов: {perf_metrics.get('total_tests_run', 0)}")
+                
+                # График трендов (если есть данные)
+                if trends.get('timestamps') and len(trends['timestamps']) > 1:
+                    st.markdown("**📈 Тренды производительности:**")
+                    
+                    import pandas as pd
+                    trend_df = pd.DataFrame({
+                        'Дата': trends['timestamps'],
+                        'Успешность (%)': trends['success_rates'],
+                        'Время обработки (с)': trends['processing_times']
+                    })
+                    
+                    st.line_chart(trend_df.set_index('Дата'))
+                
+                # Последние результаты
+                if details.get('recent_benchmarks'):
+                    st.markdown("**📋 Последние бенчмарки:**")
+                    recent_df = pd.DataFrame(details['recent_benchmarks'])
+                    if not recent_df.empty:
+                        st.dataframe(recent_df[['timestamp', 'success_rate', 'avg_processing_time', 'total_tests']], 
+                                   use_container_width=True, hide_index=True)
+    
+    except ImportError as e:
+        st.error(f"Ошибка импорта анализатора: {e}")
+        st.info("Убедитесь, что файл utils/performance_analyzer.py существует")
     except Exception as e:
-        st.error(f"Ошибка получения статистики: {e}")
+        st.error(f"Ошибка загрузки данных: {e}")
+        st.info("Проверьте наличие файлов с результатами тестирования")
     
     st.divider()
     
+    # Информация о метриках (статическая)
     st.subheader("📏 Метрики оценки")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("""
-        **Частота ошибок символов (CER)**
+        **Успешность тестов (%)**
         
-        Измеряет точность на уровне символов:
+        Процент успешно выполненных тестов:
         
         ```
-        CER = (S + D + I) / N
+        Успешность = (Успешные / Общие) × 100%
         ```
         
         Где:
-        - S = Замены
-        - D = Удаления
-        - I = Вставки
-        - N = Общее количество символов
+        - Успешные = Тесты без ошибок
+        - Общие = Всего проведенных тестов
         """)
     
     with col2:
         st.markdown("""
-        **Частота ошибок слов (WER)**
+        **Время обработки (с)**
         
-        Измеряет точность на уровне слов:
+        Среднее время выполнения запроса:
         
         ```
-        WER = (S + D + I) / N
+        Среднее время = Σ(время) / N
         ```
         
         Где:
-        - S = Замены
-        - D = Удаления
-        - I = Вставки
-        - N = Общее количество слов
+        - Σ(время) = Сумма времени всех тестов
+        - N = Количество успешных тестов
         """)
     
     with col3:
         st.markdown("""
-        **Точность полей**
+        **Статус модели**
         
-        Извлечение структурированных данных:
+        Определяется по результатам тестирования:
         
-        ```
-        Точность = Правильные / Общие
-        ```
-        
-        Где:
-        - Правильные = Правильно извлеченные поля
-        - Общие = Общее количество полей
+        - ✅ **Отлично**: >90% успешность
+        - ⚠️ **Хорошо**: 50-90% успешность  
+        - ⚠️ **Частично**: 1-50% успешность
+        - ❌ **Не работает**: 0% успешность
         """)
+    
+    # Кнопки для обновления данных
+    st.divider()
+    st.subheader("🔄 Обновление данных")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🧪 Запустить бенчмарк", help="Запустить тестирование производительности"):
+            st.info("Для запуска бенчмарка используйте: `python benchmark_dots_ocr.py`")
+    
+    with col2:
+        if st.button("🔍 Тест моделей", help="Проверить работоспособность моделей"):
+            st.info("Для тестирования моделей используйте: `python test_working_models_only.py`")
+    
+    with col3:
+        if st.button("🔄 Обновить данные", help="Перезагрузить исторические результаты"):
+            st.rerun()
 
 else:  # Документация
     st.header("📚 Документация")
