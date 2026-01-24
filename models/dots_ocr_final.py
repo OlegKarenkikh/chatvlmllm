@@ -7,6 +7,7 @@
 2. Корректные промпты для разных задач
 3. Правильная обработка результатов
 4. Устранение проблем с генерацией
+5. Интеграция с XML-парсером таблиц
 """
 
 import os
@@ -15,9 +16,18 @@ import torch
 from typing import Any, Dict, List, Optional, Union
 from PIL import Image
 import traceback
+import sys
 
 from models.base_model import BaseModel
 from utils.logger import logger
+
+# Импорт процессора XML-таблиц
+try:
+    from utils.ocr_output_processor import OCROutputProcessor
+    XML_PROCESSOR_AVAILABLE = True
+except ImportError:
+    XML_PROCESSOR_AVAILABLE = False
+    logger.warning("XML processor not available")
 
 
 class DotsOCRFinalModel(BaseModel):
@@ -28,6 +38,16 @@ class DotsOCRFinalModel(BaseModel):
         self.model = None
         self.processor = None
         self.max_new_tokens = config.get('max_new_tokens', 2048)  # Уменьшено для стабильности
+        
+        # Инициализация XML-процессора
+        if XML_PROCESSOR_AVAILABLE:
+            self.xml_processor = OCROutputProcessor()
+        else:
+            self.xml_processor = None
+        
+        # Настройки обработки XML
+        self.process_xml_tables = config.get('process_xml_tables', True)
+        self.extract_structured_fields = config.get('extract_structured_fields', True)
         
         # Отключаем параллелизм токенизатора
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -237,8 +257,8 @@ class DotsOCRFinalModel(BaseModel):
             return f"[Processing error: {e}]"
     
     def process_image(self, image: Image.Image, prompt: Optional[str] = None, 
-                     mode: str = "text_extraction") -> str:
-        """Основной метод обработки изображения."""
+                     mode: str = "text_extraction") -> Union[str, Dict[str, Any]]:
+        """Основной метод обработки изображения с поддержкой XML-таблиц."""
         if self.model is None:
             raise RuntimeError("Model not loaded")
         
@@ -262,6 +282,25 @@ class DotsOCRFinalModel(BaseModel):
                 # Пробуем минимальный промпт
                 result = self._process_with_prompt(image, self.prompts["minimal"], "minimal")
             
+            # Обработка XML-таблиц если включена
+            if (self.xml_processor and 
+                self.process_xml_tables and 
+                result and 
+                ('<table' in result.lower() or '<tr' in result.lower())):
+                
+                logger.info("Processing XML tables in output")
+                processed_data = self.xml_processor.process_ocr_output(
+                    text=result,
+                    model_name=self.model_name,
+                    extract_tables=True,
+                    extract_fields=self.extract_structured_fields,
+                    output_format='structured'
+                )
+                
+                # Возвращаем структурированные данные для режимов с XML
+                if mode in ['table_extraction', 'structured_simple', 'document_parsing']:
+                    return processed_data
+            
             logger.info("Processing completed successfully")
             
             return result if result else "[dots.ocr: No text detected]"
@@ -278,16 +317,25 @@ class DotsOCRFinalModel(BaseModel):
         """Чат с моделью."""
         return self.process_image(image, prompt=prompt, mode="custom")
     
-    def extract_table(self, image: Image.Image) -> str:
-        """Извлекаем содержимое таблицы."""
+    def extract_table(self, image: Image.Image) -> Union[str, Dict[str, Any]]:
+        """Извлекаем содержимое таблицы с XML-обработкой."""
         return self.process_image(image, mode="table_extraction")
     
     def parse_document(self, image: Image.Image) -> Dict[str, Any]:
-        """Парсим документ (упрощенная версия)."""
+        """Парсим документ с поддержкой XML-таблиц."""
         try:
             # Используем структурированное извлечение
             result = self.process_image(image, mode="structured_simple")
             
+            # Если результат уже структурирован (содержит XML-таблицы)
+            if isinstance(result, dict):
+                return {
+                    "success": True,
+                    "structured_data": result,
+                    "method": "xml_table_parsing"
+                }
+            
+            # Иначе возвращаем простой результат
             return {
                 "success": True,
                 "text": result,
@@ -298,6 +346,74 @@ class DotsOCRFinalModel(BaseModel):
             return {
                 "success": False,
                 "error": str(e),
+                "method": "error"
+            }
+    
+    def extract_payment_document(self, image: Image.Image) -> Dict[str, Any]:
+        """Специализированное извлечение данных платежного документа."""
+        try:
+            # Используем специальный промпт для платежных документов
+            payment_prompt = """Извлеки все данные из платежного документа в формате XML-таблицы. 
+            Включи все реквизиты: ИНН, КПП, БИК, номера счетов, название организации, банк получателя."""
+            
+            result = self.process_image(image, prompt=payment_prompt, mode="document_parsing")
+            
+            if isinstance(result, dict):
+                # Добавляем специфичную для платежей информацию
+                result['document_type'] = 'payment_document'
+                return result
+            
+            # Если XML не обнаружен, пытаемся извлечь поля вручную
+            if self.xml_processor:
+                processed = self.xml_processor.process_ocr_output(
+                    text=result,
+                    model_name=self.model_name,
+                    extract_tables=True,
+                    extract_fields=True,
+                    output_format='structured'
+                )
+                processed['document_type'] = 'payment_document'
+                return processed
+            
+            return {
+                "success": True,
+                "text": result,
+                "document_type": "payment_document",
+                "method": "text_extraction"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "document_type": "payment_document"
+            }
+    
+    def export_table_data(self, image: Image.Image, output_file: str) -> bool:
+        """Экспортирует табличные данные в файл."""
+        try:
+            result = self.extract_table(image)
+            
+            if isinstance(result, dict) and self.xml_processor:
+                # Экспорт в Excel
+                if output_file.endswith('.xlsx'):
+                    return self.xml_processor.export_tables_to_excel(result, output_file)
+                # Экспорт в JSON
+                elif output_file.endswith('.json'):
+                    return self.xml_processor.export_to_json(result, output_file)
+            
+            # Простой текстовый экспорт
+            with open(output_file, 'w', encoding='utf-8') as f:
+                if isinstance(result, dict):
+                    f.write(str(result))
+                else:
+                    f.write(result)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Export error: {e}")
+            return False
                 "text": f"Error: {e}"
             }
     
