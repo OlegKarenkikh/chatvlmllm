@@ -1,5 +1,54 @@
 # ОПТИМИЗИРОВАННАЯ КОНФИГУРАЦИЯ ДЛЯ RTX 5070 TI (BLACKWELL)
 
+# Настройки OCR
+ocr:
+  supported_formats: ["png", "jpg", "jpeg", "bmp", "tiff", "webp"]
+  max_image_size_mb: 10
+  preprocessing:
+    enable_enhancement: true
+    enable_denoising: true
+    enable_deskewing: false
+
+# Шаблоны документов
+document_templates:
+  passport:
+    name: "Паспорт"
+    fields:
+      - "Фамилия"
+      - "Имя"
+      - "Отчество"
+      - "Дата рождения"
+      - "Место рождения"
+      - "Серия и номер"
+      - "Дата выдачи"
+      - "Код подразделения"
+  
+  driver_license:
+    name: "Водительское удостоверение"
+    fields:
+      - "ФИО"
+      - "Дата рождения"
+      - "Место рождения"
+      - "Дата выдачи"
+      - "Действительно до"
+      - "Категории"
+      - "Серия и номер"
+  
+  invoice:
+    name: "Счет-фактура"
+    fields:
+      - "Номер документа"
+      - "Дата"
+      - "Поставщик"
+      - "Покупатель"
+      - "Сумма"
+      - "НДС"
+  
+  general:
+    name: "Общий документ"
+    fields:
+      - "Текст"
+
 models:
   qwen_vl_2b:
     name: "Qwen2-VL 2B (Blackwell Optimized)"
