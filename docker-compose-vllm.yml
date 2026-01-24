@@ -1,20 +1,20 @@
 version: '3.8'
 
 services:
-  # DotsOCR - основная OCR модель (протестирована)
+  # DotsOCR - основная OCR модель (протестирована и работает)
   dots-ocr:
     image: vllm/vllm-openai:latest
-    container_name: rednote-hilab-dots-ocr-vllm
+    container_name: dots-ocr-fixed
     restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       # КРИТИЧНО: Монтирование кеша HuggingFace с правами на чтение и запись
-      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub
+      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub:rw
       # Дополнительные кеши для совместимости
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface:rw
+      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface:rw
     environment:
       # Переменные окружения для кеша
       - HF_HOME=/root/.cache/huggingface
@@ -37,8 +37,8 @@ services:
       --host 0.0.0.0
       --port 8000
       --trust-remote-code
-      --max-model-len 2048
-      --gpu-memory-utilization 0.7
+      --max-model-len 1024
+      --gpu-memory-utilization 0.85
       --dtype bfloat16
       --enforce-eager
       --disable-log-requests
@@ -57,10 +57,10 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface
+      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface:rw
+      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface:rw
     environment:
       - HF_HOME=/root/.cache/huggingface
       - TRANSFORMERS_CACHE=/root/.cache/huggingface/hub
@@ -102,10 +102,10 @@ services:
     ports:
       - "8002:8000"
     volumes:
-      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface
+      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface:rw
+      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface:rw
     environment:
       - HF_HOME=/root/.cache/huggingface
       - TRANSFORMERS_CACHE=/root/.cache/huggingface/hub
@@ -149,10 +149,10 @@ services:
     ports:
       - "8003:8000"
     volumes:
-      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface
+      - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub:rw
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface:rw
+      - ${HOME}/.cache/huggingface:/home/vllm/.cache/huggingface:rw
     environment:
       - HF_HOME=/root/.cache/huggingface
       - TRANSFORMERS_CACHE=/root/.cache/huggingface/hub

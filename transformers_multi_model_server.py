@@ -389,7 +389,13 @@ def available_models():
 
 @app.route('/models/load', methods=['POST'])
 def load_model():
-    data = request.json
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "Invalid JSON data"}), 400
+    except Exception as e:
+        return jsonify({"error": f"JSON parsing error: {str(e)}"}), 400
+    
     model_name = data.get('model')
     
     if not model_name:
@@ -404,7 +410,13 @@ def load_model():
 
 @app.route('/models/unload', methods=['POST'])
 def unload_model():
-    data = request.json
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "Invalid JSON data"}), 400
+    except Exception as e:
+        return jsonify({"error": f"JSON parsing error: {str(e)}"}), 400
+    
     model_name = data.get('model')
     
     if not model_name:
