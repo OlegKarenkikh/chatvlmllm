@@ -99,13 +99,87 @@ class DotsOCRGenerationFixedModel(BaseModel):
             # КРИТИЧЕСКИ ВАЖНО: Исправляем dtype несоответствия
             self.model = self._fix_model_dtypes(self.model)
             
-            # Загружаем процессор
+            # Загружаем процессор с исправлением video_processor проблемы
             logger.info("Loading processor...")
-            self.processor = AutoProcessor.from_pretrained(
-                self.model_path, 
-                trust_remote_code=True,
-                use_fast=False
-            )
+            try:
+                # Сначала пробуем стандартную загрузку
+                self.processor = AutoProcessor.from_pretrained(
+                    self.model_path, 
+                    trust_remote_code=True,
+                    use_fast=False
+                )
+            except TypeError as e:
+                if "video_processor" in str(e):
+                    logger.warning("video_processor error detected, using manual processor loading...")
+                    # Загружаем компоненты процессора вручную
+                    from transformers import AutoImageProcessor, AutoTokenizer
+                    
+                    # Загружаем компоненты отдельно
+                    image_processor = AutoImageProcessor.from_pretrained(
+                        self.model_path, 
+                        trust_remote_code=True
+                    )
+                    tokenizer = AutoTokenizer.from_pretrained(
+                        self.model_path, 
+                        trust_remote_code=True,
+                        use_fast=False
+                    )
+                    
+                    # Создаем процессор вручную с пустым video_processor
+                    try:
+                        # Импортируем класс процессора dots.ocr
+                        from transformers.models.auto.processing_auto import AutoProcessor
+                        processor_class = AutoProcessor._get_processor_class_from_config(
+                            self.model_path, trust_remote_code=True
+                        )
+                        
+                        # Создаем процессор с video_processor=None (будет заменен на пустой)
+                        from transformers.models.qwen2_5_vl.processing_qwen2_5_vl import Qwen25VLProcessor
+                        
+                        # Создаем пустой video_processor
+                        class DummyVideoProcessor:
+                            def __init__(self):
+                                pass
+                        
+                        dummy_video_processor = DummyVideoProcessor()
+                        
+                        # Создаем процессор с правильными параметрами
+                        self.processor = processor_class(
+                            image_processor=image_processor,
+                            tokenizer=tokenizer,
+                            video_processor=dummy_video_processor
+                        )
+                        
+                        logger.info("✅ Processor loaded with manual video_processor fix")
+                        
+                    except Exception as manual_error:
+                        logger.error(f"Manual processor creation failed: {manual_error}")
+                        # Последняя попытка - создаем простой процессор
+                        class SimpleProcessor:
+                            def __init__(self, image_processor, tokenizer):
+                                self.image_processor = image_processor
+                                self.tokenizer = tokenizer
+                            
+                            def apply_chat_template(self, messages, **kwargs):
+                                return self.tokenizer.apply_chat_template(messages, **kwargs)
+                            
+                            def __call__(self, text=None, images=None, videos=None, **kwargs):
+                                # Простая обработка без видео
+                                if text and images:
+                                    image_inputs = self.image_processor(images, **kwargs)
+                                    text_inputs = self.tokenizer(text, **kwargs)
+                                    # Объединяем входы
+                                    return {**image_inputs, **text_inputs}
+                                elif text:
+                                    return self.tokenizer(text, **kwargs)
+                                elif images:
+                                    return self.image_processor(images, **kwargs)
+                                return {}
+                        
+                        self.processor = SimpleProcessor(image_processor, tokenizer)
+                        logger.info("✅ Using simple processor fallback")
+                else:
+                    raise e
             
             # Устанавливаем модель в режим eval
             self.model.eval()
@@ -262,11 +336,15 @@ class DotsOCRGenerationFixedModel(BaseModel):
             messages = self._create_messages(processed_image, prompt)
             
             # Применяем шаблон чата
-            text = self.processor.apply_chat_template(
-                messages, 
-                tokenize=False, 
-                add_generation_prompt=True
-            )
+            try:
+                text = self.processor.apply_chat_template(
+                    messages, 
+                    tokenize=False, 
+                    add_generation_prompt=True
+                )
+            except Exception as e:
+                logger.warning(f"Chat template failed: {e}, using simple text")
+                text = prompt
             
             # Обрабатываем визуальную информацию
             try:
@@ -276,15 +354,46 @@ class DotsOCRGenerationFixedModel(BaseModel):
                 logger.warning("qwen_vl_utils не найден, используем прямую обработку")
                 image_inputs = [processed_image]
                 video_inputs = None
+            except Exception as e:
+                logger.warning(f"process_vision_info failed: {e}, using direct processing")
+                image_inputs = [processed_image]
+                video_inputs = None
             
             # Подготавливаем входные данные
-            inputs = self.processor(
-                text=[text],
-                images=image_inputs,
-                videos=video_inputs,
-                padding=True,
-                return_tensors="pt"
-            )
+            try:
+                inputs = self.processor(
+                    text=[text],
+                    images=image_inputs,
+                    videos=video_inputs,
+                    padding=True,
+                    return_tensors="pt"
+                )
+            except Exception as e:
+                logger.warning(f"Processor call failed: {e}, trying simplified approach")
+                # Упрощенный подход для простого процессора
+                try:
+                    inputs = self.processor(
+                        text=[text],
+                        images=image_inputs,
+                        padding=True,
+                        return_tensors="pt"
+                    )
+                except Exception as e2:
+                    logger.error(f"Simplified processor call also failed: {e2}")
+                    # Последняя попытка - ручная обработка
+                    if hasattr(self.processor, 'tokenizer') and hasattr(self.processor, 'image_processor'):
+                        text_inputs = self.processor.tokenizer(
+                            [text], 
+                            padding=True, 
+                            return_tensors="pt"
+                        )
+                        image_inputs_processed = self.processor.image_processor(
+                            image_inputs, 
+                            return_tensors="pt"
+                        )
+                        inputs = {**text_inputs, **image_inputs_processed}
+                    else:
+                        raise e2
             
             # Генерируем ответ с улучшенными параметрами
             output_text = self._safe_generate_improved(inputs, prompt_type)

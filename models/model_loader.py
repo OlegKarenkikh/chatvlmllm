@@ -20,6 +20,8 @@ from models.dots_ocr import DotsOCRModel
 from models.dots_ocr_final import DotsOCRFinalModel
 from models.dots_ocr_dtype_fixed import DotsOCRDtypeFixedModel
 from models.dots_ocr_generation_fixed import DotsOCRGenerationFixedModel
+from models.dots_ocr_video_processor_fixed import DotsOCRVideoProcessorFixedModel
+from models.dots_ocr_ultimate_fix import DotsOCRUltimateFixModel
 from models.phi3_vision import Phi3VisionModel
 from models.got_ocr_variants import GOTOCRUCASModel, GOTOCRHFModel
 from models.deepseek_ocr import DeepSeekOCRModel
@@ -54,11 +56,12 @@ class EmergencyModelLoader:
         "qwen3_vl_2b": Qwen3VLModel,
         "qwen3_vl_4b": Qwen3VLModel,
         "qwen3_vl_8b": Qwen3VLModel,
-        "dots_ocr": DotsOCRModel,
+        # "dots_ocr": DotsOCRUltimateFixModel,  # Отключено - используется только в vLLM режиме
         "dots_ocr_corrected": DotsOCRCorrectedModel,
         "dots_ocr_final": DotsOCRFinalModel,
         "dots_ocr_dtype_fixed": DotsOCRDtypeFixedModel,
         "dots_ocr_generation_fixed": DotsOCRGenerationFixedModel,
+        "dots_ocr_video_processor_fixed": DotsOCRVideoProcessorFixedModel,
         "phi3_vision": Phi3VisionModel,
         "got_ocr_ucas": GOTOCRUCASModel,
         "got_ocr_hf": GOTOCRHFModel,
@@ -273,8 +276,9 @@ class EmergencyModelLoader:
         
         # Специальная логика для проблемных моделей
         if model_key == "dots_ocr":
-            logger.info("🔧 Using generation-fixed dots.ocr implementation")
-            model_class = cls.MODEL_REGISTRY["dots_ocr_generation_fixed"]
+            logger.info("🔧 Using video-processor-fixed dots.ocr implementation")
+            # Используем исправленную версию с video_processor fix
+            model_class = cls.MODEL_REGISTRY["dots_ocr_video_processor_fixed"]
         
         # Merge config with kwargs
         init_kwargs = {**model_config, **kwargs}

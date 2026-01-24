@@ -1351,10 +1351,217 @@ Output as JSON array of detected layout elements.""",
             if st.button("✅ Использовать этот вопрос", key="use_example"):
                 prompt = st.session_state.example_prompt
                 del st.session_state.example_prompt
-                # Обрабатываем как обычный промпт
+                
+                # Добавляем пример в чат и обрабатываем его
                 st.session_state.messages.append({"role": "user", "content": prompt})
-                # Здесь будет обработка...
+                
+                # Обрабатываем промпт через модель
+                with st.spinner("🤔 Думаю..."):
+                    try:
+                        import time
+                        import torch
+                        import gc
+                        
+                        # Принудительная очистка GPU памяти перед обработкой
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            torch.cuda.synchronize()
+                        
+                        # Сборка мусора
+                        gc.collect()
+                        
+                        start_time = time.time()
+                        
+                        # Обработка в зависимости от режима
+                        if "vLLM" in execution_mode:
+                            # Получаем настройки из session_state
+                            max_tokens = st.session_state.get('max_tokens', 4096)
+                            temperature = st.session_state.get('temperature', 0.7)
+                            
+                            # vLLM режим - используем API
+                            try:
+                                from vllm_streamlit_adapter import VLLMStreamlitAdapter
+                                
+                                if "vllm_adapter" not in st.session_state:
+                                    st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                                
+                                adapter = st.session_state.vllm_adapter
+                                
+                                # ИСПРАВЛЕНИЕ: Проверяем тип модели для правильной обработки
+                                if "dots" in selected_model.lower():
+                                    # dots.ocr специализирована на OCR, адаптируем ответ
+                                    vllm_model = "rednote-hilab/dots.ocr"
+                                    
+                                    # Используем безопасный лимит токенов для dots.ocr
+                                    model_max_tokens = adapter.get_model_max_tokens(vllm_model)
+                                    safe_max_tokens = min(max_tokens, model_max_tokens - 500)  # Резерв для входных токенов
+                                    
+                                    if safe_max_tokens < 100:
+                                        safe_max_tokens = model_max_tokens // 2
+                                    
+                                    result = adapter.process_image(image, prompt, vllm_model, safe_max_tokens)
+                                    
+                                    if result and result["success"]:
+                                        ocr_text = result["text"]
+                                        processing_time = result["processing_time"]
+                                        
+                                        # Анализируем тип вопроса и адаптируем ответ
+                                        if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки', 'распознай', 'text', 'extract', 'read']):
+                                            # OCR вопрос - возвращаем как есть
+                                            response = ocr_text
+                                        elif any(word in prompt.lower() for word in ['что', 'какой', 'сколько', 'есть ли', 'найди', 'what', 'how', 'is there', 'find']):
+                                            # Аналитический вопрос - адаптируем ответ
+                                            if 'число' in prompt.lower() or 'number' in prompt.lower():
+                                                # Ищем числа в тексте
+                                                import re
+                                                numbers = re.findall(r'\d+', ocr_text)
+                                                if numbers:
+                                                    response = f"В изображении найдены числа: {', '.join(numbers)}"
+                                                else:
+                                                    response = "В изображении не найдено чисел."
+                                            elif 'цвет' in prompt.lower() or 'color' in prompt.lower():
+                                                response = "dots.ocr специализирована на распознавании текста, а не анализе цветов. Для анализа изображений используйте Qwen3-VL."
+                                            elif 'сколько' in prompt.lower() or 'how many' in prompt.lower():
+                                                words = len(ocr_text.split())
+                                                response = f"В тексте примерно {words} слов."
+                                            elif 'есть ли' in prompt.lower() or 'is there' in prompt.lower():
+                                                if 'текст' in prompt.lower() or 'text' in prompt.lower():
+                                                    response = f"Да, в изображении есть текст:\n\n{ocr_text}"
+                                                else:
+                                                    response = f"dots.ocr может определить только наличие текста. Найденный текст:\n\n{ocr_text}"
+                                            else:
+                                                # Общий аналитический вопрос
+                                                response = f"dots.ocr специализирована на OCR. Вот распознанный текст, который может помочь ответить на ваш вопрос:\n\n{ocr_text}\n\n💡 Для детального анализа изображений используйте Qwen3-VL в настройках модели."
+                                        else:
+                                            # Неопределенный вопрос
+                                            response = f"dots.ocr специализирована на распознавании текста. Извлеченный текст:\n\n{ocr_text}\n\n💡 Для чата об изображениях выберите Qwen3-VL в настройках модели."
+                                        
+                                        # Добавление информации о времени обработки
+                                        response += f"\n\n*🚀 Обработано через vLLM за {processing_time:.2f}с*"
+                                    else:
+                                        response = "❌ Ошибка обработки через vLLM"
+                                        processing_time = 0
+                                else:
+                                    # Другие модели - используем безопасный лимит токенов
+                                    model_max_tokens = adapter.get_model_max_tokens(selected_model)
+                                    safe_max_tokens = min(max_tokens, model_max_tokens - 500)  # Резерв для входных токенов
+                                    
+                                    if safe_max_tokens < 100:
+                                        safe_max_tokens = model_max_tokens // 2
+                                    
+                                    result = adapter.process_image(image, prompt, selected_model, safe_max_tokens)
+                                    
+                                    if result and result["success"]:
+                                        response = result["text"]
+                                        processing_time = result["processing_time"]
+                                        response += f"\n\n*🚀 Обработано через vLLM за {processing_time:.2f}с*"
+                                    else:
+                                        response = "❌ Ошибка обработки через vLLM"
+                                        processing_time = 0
+                                        
+                            except Exception as e:
+                                error_msg = str(e)
+                                
+                                # Специальная обработка CUDA ошибок
+                                if "CUDA error" in error_msg or "device-side assert" in error_msg:
+                                    st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                                    st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
+                                    response = "❌ Критическая ошибка GPU. Перезагрузите страницу и попробуйте vLLM режим."
+                                elif "video_processor" in error_msg or "NoneType" in error_msg:
+                                    st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                                    response = "❌ Ошибка загрузки модели dots.ocr. Используйте Qwen3-VL для аналогичных задач."
+                                else:
+                                    st.error(f"❌ Ошибка vLLM режима: {e}")
+                                    st.info("💡 Переключаемся на Transformers режим...")
+                                
+                                # Fallback на Transformers только если не критическая ошибка
+                                if "CUDA error" not in error_msg and "device-side assert" not in error_msg:
+                                    try:
+                                        from models.model_loader import ModelLoader
+                                        model = ModelLoader.load_model(selected_model)
+                                        
+                                        if hasattr(model, 'chat'):
+                                            response = model.chat(
+                                                image=image,
+                                                prompt=prompt,
+                                                temperature=temperature,
+                                                max_new_tokens=max_tokens
+                                            )
+                                        elif hasattr(model, 'process_image'):
+                                            if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
+                                                response = model.process_image(image)
+                                            else:
+                                                response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
+                                        else:
+                                            response = "Модель не поддерживает чат. Попробуйте режим OCR."
+                                        
+                                        processing_time = time.time() - start_time
+                                        response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
+                                        
+                                    except Exception as fallback_error:
+                                        response = f"❌ Ошибка и в fallback режиме: {str(fallback_error)}"
+                        else:
+                            # Получаем настройки из session_state
+                            max_tokens = st.session_state.get('max_tokens', 4096)
+                            temperature = st.session_state.get('temperature', 0.7)
+                            
+                            # Transformers режим - локальная загрузка с улучшенной обработкой ошибок
+                            try:
+                                from models.model_loader import ModelLoader
+                                model = ModelLoader.load_model(selected_model)
+                                
+                                # Получение ответа от модели
+                                if hasattr(model, 'chat'):
+                                    response = model.chat(
+                                        image=image,
+                                        prompt=prompt,
+                                        temperature=temperature,
+                                        max_new_tokens=max_tokens
+                                    )
+                                elif hasattr(model, 'process_image'):
+                                    # Для OCR моделей адаптируем промпт
+                                    if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
+                                        response = model.process_image(image)
+                                    else:
+                                        response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
+                                else:
+                                    response = "Модель не поддерживает чат. Попробуйте режим OCR."
+                                
+                                processing_time = time.time() - start_time
+                                response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
+                                
+                            except RuntimeError as cuda_error:
+                                if "CUDA error" in str(cuda_error) or "device-side assert" in str(cuda_error):
+                                    response = "❌ Критическая ошибка GPU. Перезагрузите страницу и попробуйте vLLM режим."
+                                    st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                                    st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
+                                else:
+                                    response = f"❌ Ошибка выполнения: {str(cuda_error)}"
+                            
+                            except Exception as model_error:
+                                if "video_processor" in str(model_error) or "NoneType" in str(model_error):
+                                    response = "❌ Ошибка загрузки модели dots.ocr. Используйте Qwen3-VL для аналогичных задач."
+                                    st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                                else:
+                                    response = f"❌ Ошибка модели: {str(model_error)}"
+                        
+                        # Добавляем ответ в чат
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                        
+                    except Exception as e:
+                        error_msg = str(e)
+                        
+                        if "video_processor" in error_msg or "NoneType" in error_msg:
+                            response = "❌ Ошибка загрузки модели dots.ocr. Используйте Qwen3-VL для аналогичных задач."
+                            st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                        else:
+                            response = f"❌ Ошибка при обработке: {error_msg}\n\n💡 Попробуйте выбрать другую модель или проверьте, что модель загружена корректно."
+                        
+                        # Добавляем ошибку в чат
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                
                 st.rerun()
+                
             if st.button("❌ Отменить", key="cancel_example"):
                 del st.session_state.example_prompt
                 st.rerun()
