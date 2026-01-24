@@ -24,6 +24,7 @@ from utils.logger import logger
 # Импорт процессора XML-таблиц
 try:
     from utils.ocr_output_processor import OCROutputProcessor
+    from utils.xml_formatter import format_ocr_result
     XML_PROCESSOR_AVAILABLE = True
 except ImportError:
     XML_PROCESSOR_AVAILABLE = False
@@ -257,7 +258,8 @@ class DotsOCRFinalModel(BaseModel):
             return f"[Processing error: {e}]"
     
     def process_image(self, image: Image.Image, prompt: Optional[str] = None, 
-                     mode: str = "text_extraction") -> Union[str, Dict[str, Any]]:
+                     mode: str = "text_extraction", 
+                     process_xml: bool = None) -> Union[str, Dict[str, Any]]:
         """Основной метод обработки изображения с поддержкой XML-таблиц."""
         if self.model is None:
             raise RuntimeError("Model not loaded")
@@ -282,9 +284,13 @@ class DotsOCRFinalModel(BaseModel):
                 # Пробуем минимальный промпт
                 result = self._process_with_prompt(image, self.prompts["minimal"], "minimal")
             
+            # Определяем, нужно ли обрабатывать XML
+            if process_xml is None:
+                process_xml = self.process_xml_tables
+            
             # Обработка XML-таблиц если включена
             if (self.xml_processor and 
-                self.process_xml_tables and 
+                process_xml and 
                 result and 
                 ('<table' in result.lower() or '<tr' in result.lower())):
                 
@@ -310,8 +316,16 @@ class DotsOCRFinalModel(BaseModel):
             return f"[dots.ocr error: {e}]"
     
     def extract_text(self, image: Image.Image) -> str:
-        """Извлекаем только текст."""
-        return self.process_image(image, mode="text_extraction")
+        """Извлекаем только текст без XML-обработки."""
+        return self.process_image(image, mode="text_extraction", process_xml=False)
+    
+    def extract_text_with_xml(self, image: Image.Image) -> Union[str, Dict[str, Any]]:
+        """Извлекаем текст с XML-обработкой."""
+        return self.process_image(image, mode="text_extraction", process_xml=True)
+    
+    def get_raw_text(self, image: Image.Image) -> str:
+        """Получить сырой текст без какой-либо обработки."""
+        return self.process_image(image, mode="text_extraction", process_xml=False)
     
     def chat(self, image: Image.Image, prompt: str, **kwargs) -> str:
         """Чат с моделью."""
@@ -389,7 +403,34 @@ class DotsOCRFinalModel(BaseModel):
                 "document_type": "payment_document"
             }
     
-    def export_table_data(self, image: Image.Image, output_file: str) -> bool:
+    def get_formatted_result(self, image: Image.Image, 
+                           format_type: str = "mixed") -> str:
+        """
+        Получить отформатированный результат
+        
+        Args:
+            image: Изображение для обработки
+            format_type: Тип форматирования ('mixed', 'clean', 'markdown', 'payment')
+        
+        Returns:
+            Отформатированный текст
+        """
+        # Получаем сырой результат
+        raw_result = self.process_image(image, process_xml=False)
+        
+        # Форматируем если доступен форматировщик
+        if XML_PROCESSOR_AVAILABLE:
+            return format_ocr_result(raw_result, format_type)
+        else:
+            return raw_result
+    
+    def get_copyable_text(self, image: Image.Image) -> str:
+        """Получить текст, удобный для копирования (без XML)"""
+        return self.get_formatted_result(image, "clean")
+    
+    def get_structured_result(self, image: Image.Image) -> Dict[str, Any]:
+        """Получить структурированный результат с XML-обработкой"""
+        return self.process_image(image, mode="structured_simple", process_xml=True)
         """Экспортирует табличные данные в файл."""
         try:
             result = self.extract_table(image)
