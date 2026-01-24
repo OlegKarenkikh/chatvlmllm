@@ -86,19 +86,6 @@ models:
     torch_dtype: float16
     trust_remote_code: true
     use_flash_attention: false
-  qwen_vl_2b:
-    attn_implementation: eager
-    context_length: 4096
-    device_map: auto
-    load_in_4bit: false
-    load_in_8bit: false
-    max_new_tokens: 2048
-    model_path: Qwen/Qwen2-VL-2B-Instruct
-    name: Qwen2-VL 2B (Emergency Mode)
-    precision: fp16
-    torch_dtype: float16
-    trust_remote_code: true
-    use_flash_attention: false
 ocr:
   supported_formats: ["jpg", "jpeg", "png", "bmp", "tiff"]
   max_image_size: 10485760

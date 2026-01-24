@@ -51,7 +51,6 @@ class EmergencyModelLoader:
     # Registry of available models
     MODEL_REGISTRY: Dict[str, type] = {
         "got_ocr": GOTOCRModel,
-        "qwen_vl_2b": QwenVLModel,
         "qwen_vl_7b": QwenVLModel,
         "qwen3_vl_2b": Qwen3VLModel,
         "qwen3_vl_4b": Qwen3VLModel,
