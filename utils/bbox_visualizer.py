@@ -53,30 +53,71 @@ class BBoxVisualizer:
     def parse_bbox_from_json(self, json_text: str) -> List[Dict[str, Any]]:
         """Парсинг BBOX координат из JSON ответа dots.ocr"""
         try:
+            json_text_stripped = json_text.strip()
+            
+            # Удаление markdown code blocks если есть
+            if json_text_stripped.startswith('```json'):
+                lines = json_text_stripped.split('\n')
+                json_text_stripped = '\n'.join(lines[1:-1]) if len(lines) > 2 else json_text_stripped
+            elif json_text_stripped.startswith('```'):
+                lines = json_text_stripped.split('\n')
+                json_text_stripped = '\n'.join(lines[1:-1]) if len(lines) > 2 else json_text_stripped
+            
             # Попытка парсинга как JSON
-            if json_text.strip().startswith('{') or json_text.strip().startswith('['):
-                data = json.loads(json_text)
-                
-                # Если это список элементов
-                if isinstance(data, list):
-                    return data
-                
-                # Если это объект с элементами
-                if isinstance(data, dict):
-                    if 'elements' in data:
-                        return data['elements']
-                    elif 'layout' in data:
-                        return data['layout']
-                    elif 'items' in data:
-                        return data['items']
-                    else:
-                        # Возможно, это единственный элемент
-                        return [data]
+            if json_text_stripped.startswith('{') or json_text_stripped.startswith('['):
+                try:
+                    data = json.loads(json_text_stripped)
+                    
+                    # Если это список элементов
+                    if isinstance(data, list):
+                        return data
+                    
+                    # Если это объект с элементами
+                    if isinstance(data, dict):
+                        if 'elements' in data:
+                            return data['elements']
+                        elif 'layout' in data:
+                            return data['layout']
+                        elif 'items' in data:
+                            return data['items']
+                        elif 'data' in data:
+                            return data['data']
+                        elif 'bbox' in data:
+                            # Возможно, это единственный элемент
+                            return [data]
+                    
+                    return []
+                    
+                except json.JSONDecodeError as e:
+                    # Если ошибка из-за управляющих символов (например \n в тексте)
+                    print(f"⚠️ Ошибка JSON парсинга (пытаемся исправить): {str(e)[:100]}")
+                    
+                    # Попытка исправления: заменяем неэкранированные \n на пробелы
+                    import re
+                    
+                    def fix_newlines(match):
+                        text = match.group(1)
+                        # Заменяем \n на пробел
+                        text = text.replace('\n', ' ')
+                        return f'"text": "{text}"'
+                    
+                    fixed_json = re.sub(r'"text"\s*:\s*"([^"]*)"', fix_newlines, json_text_stripped)
+                    
+                    try:
+                        data = json.loads(fixed_json)
+                        if isinstance(data, list):
+                            print(f"✅ JSON исправлен, найдено {len(data)} элементов")
+                            return data
+                        elif isinstance(data, dict) and 'bbox' in data:
+                            return [data]
+                    except:
+                        pass
             
             # Если JSON не парсится, попробуем извлечь BBOX из текста
             return self.extract_bbox_from_text(json_text)
             
-        except json.JSONDecodeError:
+        except Exception as e:
+            print(f"⚠️ Ошибка парсинга BBOX: {e}")
             # Попытка извлечения BBOX из текста
             return self.extract_bbox_from_text(json_text)
     
