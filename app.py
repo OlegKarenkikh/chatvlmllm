@@ -831,6 +831,24 @@ elif "💬 Режим чата" in page:
                         with st.spinner("🔄 Обрабатываем официальный промпт..."):
                             try:
                                 import time
+                                import torch
+                                import gc
+                                
+                                # Принудительная очистка GPU памяти перед обработкой
+                                if torch.cuda.is_available():
+                                    torch.cuda.empty_cache()
+                                    torch.cuda.synchronize()
+                                
+                                # Сборка мусора
+                                gc.collect()
+                                
+                                # Принудительная выгрузка предыдущих моделей
+                                try:
+                                    from models.model_loader import ModelLoader
+                                    ModelLoader.unload_all_models()
+                                except:
+                                    pass
+                                
                                 start_time = time.time()
                                 
                                 if "vLLM" in execution_mode:
@@ -840,7 +858,21 @@ elif "💬 Режим чата" in page:
                                         st.session_state.vllm_adapter = VLLMStreamlitAdapter()
                                     
                                     adapter = st.session_state.vllm_adapter
-                                    result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr")
+                                    
+                                    # Попытка обработки с dots.ocr
+                                    try:
+                                        result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr")
+                                    except Exception as dots_error:
+                                        st.warning(f"⚠️ Ошибка dots.ocr: {dots_error}")
+                                        st.info("🔄 Переключаемся на Qwen3-VL для обработки...")
+                                        # Fallback на Qwen3-VL
+                                        try:
+                                            result = adapter.process_image(image, official_prompt, "Qwen/Qwen3-VL-2B-Instruct")
+                                            if result and result["success"]:
+                                                result["text"] += "\n\n*⚠️ Обработано через Qwen3-VL (fallback)*"
+                                        except Exception as fallback_error:
+                                            st.error(f"❌ Ошибка fallback модели: {fallback_error}")
+                                            result = {"success": False, "text": "Ошибка обработки"}
                                     
                                     if result and result["success"]:
                                         response = result["text"]
@@ -849,27 +881,62 @@ elif "💬 Режим чата" in page:
                                     else:
                                         response = "❌ Ошибка обработки официального промпта"
                                 else:
-                                    # Transformers режим
+                                    # Transformers режим с улучшенной обработкой ошибок
                                     from models.model_loader import ModelLoader
-                                    model = ModelLoader.load_model(selected_model)
                                     
-                                    if hasattr(model, 'process_image'):
-                                        response = model.process_image(image, prompt=official_prompt)
-                                    else:
-                                        response = model.process_image(image)
+                                    try:
+                                        model = ModelLoader.load_model(selected_model)
+                                        
+                                        if hasattr(model, 'process_image'):
+                                            response = model.process_image(image, prompt=official_prompt)
+                                        else:
+                                            response = model.process_image(image)
+                                        
+                                        processing_time = time.time() - start_time
+                                        response += f"\n\n*🔧 Официальный промпт обработан локально за {processing_time:.2f}с*"
+                                        
+                                    except RuntimeError as cuda_error:
+                                        if "CUDA error" in str(cuda_error) or "device-side assert" in str(cuda_error):
+                                            st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                                            st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
+                                            response = f"❌ Ошибка GPU: {str(cuda_error)}"
+                                        else:
+                                            response = f"❌ Ошибка выполнения: {str(cuda_error)}"
                                     
-                                    processing_time = time.time() - start_time
-                                    response += f"\n\n*🔧 Официальный промпт обработан локально за {processing_time:.2f}с*"
+                                    except Exception as model_error:
+                                        if "video_processor" in str(model_error) or "NoneType" in str(model_error):
+                                            st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                                            response = "❌ Ошибка загрузки модели dots.ocr"
+                                        else:
+                                            response = f"❌ Ошибка модели: {str(model_error)}"
                                 
                                 # Добавляем ответ в чат
                                 st.session_state.messages.append({"role": "assistant", "content": response})
-                                st.success(f"✅ Официальный промпт '{button_text}' выполнен!")
+                                
+                                if "❌" not in response:
+                                    st.success(f"✅ Официальный промпт '{button_text}' выполнен!")
+                                else:
+                                    st.warning(f"⚠️ Официальный промпт '{button_text}' выполнен с ошибками")
+                                
+                                st.rerun()
+                                
+                            except RuntimeError as e:
+                                if "CUDA error" in str(e) or "device-side assert" in str(e):
+                                    error_response = "❌ Критическая ошибка GPU. Перезагрузите страницу и попробуйте vLLM режим."
+                                    st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                                    st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
+                                else:
+                                    error_response = f"❌ Ошибка выполнения: {str(e)}"
+                                    st.error(f"❌ Ошибка выполнения: {str(e)}")
+                                
+                                st.session_state.messages.append({"role": "assistant", "content": error_response})
                                 st.rerun()
                                 
                             except Exception as e:
-                                error_response = f"❌ Ошибка при выполнении официального промпта: {str(e)}"
+                                error_response = f"❌ Неожиданная ошибка при выполнении официального промпта: {str(e)}"
                                 st.session_state.messages.append({"role": "assistant", "content": error_response})
-                                st.error(f"Ошибка: {e}")
+                                st.error(f"❌ Неожиданная ошибка: {str(e)}")
+                                st.info("💡 Попробуйте обновить страницу или выбрать другую модель.")
                                 st.rerun()
                 
                 st.divider()
@@ -951,6 +1018,17 @@ elif "💬 Режим чата" in page:
                 with st.spinner("🤔 Думаю..."):
                     try:
                         import time
+                        import torch
+                        import gc
+                        
+                        # Принудительная очистка GPU памяти перед обработкой
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            torch.cuda.synchronize()
+                        
+                        # Сборка мусора
+                        gc.collect()
+                        
                         start_time = time.time()
                         
                         # Обработка в зависимости от режима
@@ -1023,12 +1101,53 @@ elif "💬 Режим чата" in page:
                                         processing_time = 0
                                     
                             except Exception as e:
-                                st.error(f"❌ Ошибка vLLM режима: {e}")
-                                st.info("💡 Переключаемся на Transformers режим...")
-                                # Fallback на Transformers
+                                error_msg = str(e)
+                                
+                                # Специальная обработка CUDA ошибок
+                                if "CUDA error" in error_msg or "device-side assert" in error_msg:
+                                    st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                                    st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
+                                    response = "❌ Критическая ошибка GPU. Перезагрузите страницу и попробуйте vLLM режим."
+                                elif "video_processor" in error_msg or "NoneType" in error_msg:
+                                    st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                                    response = "❌ Ошибка загрузки модели dots.ocr. Используйте Qwen3-VL для аналогичных задач."
+                                else:
+                                    st.error(f"❌ Ошибка vLLM режима: {e}")
+                                    st.info("💡 Переключаемся на Transformers режим...")
+                                
+                                # Fallback на Transformers только если не критическая ошибка
+                                if "CUDA error" not in error_msg and "device-side assert" not in error_msg:
+                                    try:
+                                        from models.model_loader import ModelLoader
+                                        model = ModelLoader.load_model(selected_model)
+                                        
+                                        if hasattr(model, 'chat'):
+                                            response = model.chat(
+                                                image=image,
+                                                prompt=prompt,
+                                                temperature=temperature,
+                                                max_new_tokens=max_tokens
+                                            )
+                                        elif hasattr(model, 'process_image'):
+                                            if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
+                                                response = model.process_image(image)
+                                            else:
+                                                response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
+                                        else:
+                                            response = "Модель не поддерживает чат. Попробуйте режим OCR."
+                                        
+                                        processing_time = time.time() - start_time
+                                        response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
+                                        
+                                    except Exception as fallback_error:
+                                        response = f"❌ Ошибка и в fallback режиме: {str(fallback_error)}"
+                        else:
+                            # Transformers режим - локальная загрузка с улучшенной обработкой ошибок
+                            try:
                                 from models.model_loader import ModelLoader
                                 model = ModelLoader.load_model(selected_model)
                                 
+                                # Получение ответа от модели
                                 if hasattr(model, 'chat'):
                                     response = model.chat(
                                         image=image,
@@ -1037,6 +1156,7 @@ elif "💬 Режим чата" in page:
                                         max_new_tokens=max_tokens
                                     )
                                 elif hasattr(model, 'process_image'):
+                                    # Для OCR моделей адаптируем промпт
                                     if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
                                         response = model.process_image(image)
                                     else:
@@ -1046,35 +1166,42 @@ elif "💬 Режим чата" in page:
                                 
                                 processing_time = time.time() - start_time
                                 response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
-                        else:
-                            # Transformers режим - локальная загрузка
-                            from models.model_loader import ModelLoader
-                            model = ModelLoader.load_model(selected_model)
-                            
-                            # Получение ответа от модели
-                            if hasattr(model, 'chat'):
-                                response = model.chat(
-                                    image=image,
-                                    prompt=prompt,
-                                    temperature=temperature,
-                                    max_new_tokens=max_tokens
-                                )
-                            elif hasattr(model, 'process_image'):
-                                # Для OCR моделей адаптируем промпт
-                                if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
-                                    response = model.process_image(image)
+                                
+                            except RuntimeError as cuda_error:
+                                if "CUDA error" in str(cuda_error) or "device-side assert" in str(cuda_error):
+                                    response = "❌ Критическая ошибка GPU. Перезагрузите страницу и попробуйте vLLM режим."
+                                    st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                                    st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
                                 else:
-                                    response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
-                            else:
-                                response = "Модель не поддерживает чат. Попробуйте режим OCR."
+                                    response = f"❌ Ошибка выполнения: {str(cuda_error)}"
                             
-                            processing_time = time.time() - start_time
-                            response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
+                            except Exception as model_error:
+                                if "video_processor" in str(model_error) or "NoneType" in str(model_error):
+                                    response = "❌ Ошибка загрузки модели dots.ocr. Используйте Qwen3-VL для аналогичных задач."
+                                    st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                                else:
+                                    response = f"❌ Ошибка модели: {str(model_error)}"
                         
                         st.markdown(response)
                         
+                    except RuntimeError as e:
+                        if "CUDA error" in str(e) or "device-side assert" in str(e):
+                            response = "❌ Критическая ошибка GPU. Перезагрузите страницу и попробуйте vLLM режим."
+                            st.error("❌ Ошибка GPU. Попробуйте перезагрузить страницу или выбрать другую модель.")
+                            st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
+                        else:
+                            response = f"❌ Ошибка выполнения: {str(e)}"
+                        st.markdown(response)
+                        
                     except Exception as e:
-                        response = f"❌ Ошибка при обработке: {str(e)}\n\nПопробуйте выбрать другую модель или проверьте, что модель загружена корректно."
+                        error_msg = str(e)
+                        
+                        if "video_processor" in error_msg or "NoneType" in error_msg:
+                            response = "❌ Ошибка загрузки модели dots.ocr. Используйте Qwen3-VL для аналогичных задач."
+                            st.error("❌ Ошибка загрузки dots.ocr. Попробуйте использовать Qwen3-VL.")
+                        else:
+                            response = f"❌ Ошибка при обработке: {error_msg}\n\n💡 Попробуйте выбрать другую модель или проверьте, что модель загружена корректно."
+                        
                         st.markdown(response)
             
             # Add assistant response
