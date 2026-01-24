@@ -107,6 +107,12 @@ def display_bbox_visualization_improved(ocr_result):
         return
     
     try:
+        # Принудительная перезагрузка модуля для получения последних изменений
+        import importlib
+        import sys
+        if 'utils.bbox_visualizer' in sys.modules:
+            importlib.reload(sys.modules['utils.bbox_visualizer'])
+        
         from utils.bbox_visualizer import BBoxVisualizer
         
         # Получаем данные
@@ -124,6 +130,11 @@ def display_bbox_visualization_improved(ocr_result):
         # Инициализируем визуализатор
         visualizer = BBoxVisualizer()
         
+        # Отладка: показываем начало ответа
+        st.info(f"📄 Длина ответа модели: {len(response_text)} символов")
+        with st.expander("🔧 Начало ответа модели (для отладки)"):
+            st.code(response_text[:500] + "..." if len(response_text) > 500 else response_text)
+        
         # Обрабатываем ответ
         image_with_boxes, legend_img, elements = visualizer.process_dots_ocr_response(
             image, 
@@ -131,6 +142,9 @@ def display_bbox_visualization_improved(ocr_result):
             show_labels=True,
             create_legend_img=True
         )
+        
+        # Отладка: показываем количество найденных элементов
+        st.info(f"🔍 Парсер нашел: {len(elements)} элементов")
         
         if not elements:
             st.warning("⚠️ BBOX элементы не найдены в ответе модели")
