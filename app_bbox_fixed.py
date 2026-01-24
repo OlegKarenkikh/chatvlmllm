@@ -1279,59 +1279,20 @@ Output as JSON array of detected layout elements.""",
                             ocr_result = st.session_state.last_ocr_result
                             prompt_info = ocr_result.get("prompt_info", {})
                             
-                            # Отображаем основной текст
-                            st.markdown(message["content"])
+                            # Умное отображение контента с автоматической обработкой HTML
+                            from utils.smart_content_renderer import SmartContentRenderer
+                            SmartContentRenderer.render_content_smart(message["content"])
                             
                             # Обработка BBOX если включена
                             display_bbox_visualization_improved(ocr_result)
-                            
-                            # Обработка таблиц если включена
-                            if prompt_info.get("table_processing", False):
-                                try:
-                                    from utils.html_table_renderer import HTMLTableRenderer
-                                    
-                                    renderer = HTMLTableRenderer()
-                                    renderer.render_all_tables_in_streamlit(ocr_result["text"])
-                                
-                                except Exception as e:
-                                    st.error(f"Ошибка обработки таблиц: {e}")
-                            
-                            # Автоматическое обнаружение HTML таблиц в любом ответе
-                            elif "<table" in message["content"].lower():
-                                try:
-                                    from utils.html_table_renderer import HTMLTableRenderer
-                                    
-                                    renderer = HTMLTableRenderer()
-                                    result = renderer.process_dots_ocr_response(message["content"])
-                                    
-                                    if result["has_tables"]:
-                                        st.divider()
-                                        st.subheader("📊 Обнаруженные таблицы")
-                                        renderer.render_all_tables_in_streamlit(message["content"])
-                                
-                                except Exception as e:
-                                    st.error(f"Ошибка автоматической обработки таблиц: {e}")
                         else:
-                            # Обычное отображение сообщения
-                            st.markdown(message["content"])
-                            
-                            # Автоматическое обнаружение HTML таблиц в любом ответе
-                            if "<table" in message["content"].lower():
-                                try:
-                                    from utils.html_table_renderer import HTMLTableRenderer
-                                    
-                                    renderer = HTMLTableRenderer()
-                                    result = renderer.process_dots_ocr_response(message["content"])
-                                    
-                                    if result["has_tables"]:
-                                        st.divider()
-                                        renderer.render_all_tables_in_streamlit(message["content"])
-                                
-                                except Exception as e:
-                                    st.error(f"Ошибка автоматической обработки таблиц: {e}")
+                            # Умное отображение сообщения с автоматической обработкой HTML
+                            from utils.smart_content_renderer import SmartContentRenderer
+                            SmartContentRenderer.render_content_smart(message["content"])
                     else:
-                        # Пользовательские сообщения
-                        st.markdown(message["content"])
+                        # Умное отображение пользовательских сообщений
+                        from utils.smart_content_renderer import SmartContentRenderer
+                        SmartContentRenderer.render_content_smart(message["content"])
         
         # Chat input с подсказкой в зависимости от модели
         if "dots" in selected_model.lower():
