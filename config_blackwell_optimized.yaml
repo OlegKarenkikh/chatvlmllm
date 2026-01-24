@@ -9,6 +9,7 @@ models:
     use_flash_attention: false  # НЕ поддерживается на Blackwell
     device_map: "auto"
     trust_remote_code: true
+    status: "production"  # Готово к продакшену
     
   qwen3_vl_2b:
     name: "Qwen3-VL 2B (Blackwell Optimized)"
@@ -18,15 +19,18 @@ models:
     use_flash_attention: false
     device_map: "auto"
     trust_remote_code: true
+    status: "production"  # Готово к продакшену
     
   dots_ocr:
-    name: "dots.ocr (Blackwell Compatible)"
+    name: "dots.ocr (Blackwell Compatible - Experimental)"
     model_path: "rednote-hilab/dots.ocr"
     precision: "bf16"
     attn_implementation: "eager"
     use_flash_attention: false
     device_map: "auto"
     trust_remote_code: true
+    status: "experimental"  # Частично работает
+    notes: "Загружается стабильно, но проблемы с генерацией текста"
 
 performance:
   blackwell_optimizations:

@@ -168,8 +168,9 @@ with st.sidebar:
     model_info = config["models"][selected_model]
     st.info(
         f"**{model_info['name']}**\n\n"
-        f"{model_info['description']}\n\n"
-        f"📊 Макс. токенов: {model_info['max_length']}"
+        f"🔧 Precision: {model_info.get('precision', 'auto')}\n"
+        f"⚡ Attention: {model_info.get('attn_implementation', 'auto')}\n"
+        f"🎯 Optimized for RTX 5070 Ti Blackwell"
     )
     
     st.divider()

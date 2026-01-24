@@ -8,7 +8,11 @@ from models.base_model import BaseModel
 from models.got_ocr import GOTOCRModel
 from models.qwen_vl import QwenVLModel
 from models.qwen3_vl import Qwen3VLModel
+from models.dots_ocr_corrected import DotsOCRCorrectedModel
 from models.dots_ocr import DotsOCRModel
+from models.dots_ocr_final import DotsOCRFinalModel
+from models.dots_ocr_dtype_fixed import DotsOCRDtypeFixedModel
+from models.dots_ocr_generation_fixed import DotsOCRGenerationFixedModel
 from models.phi3_vision import Phi3VisionModel
 from models.got_ocr_variants import GOTOCRUCASModel, GOTOCRHFModel
 from models.deepseek_ocr import DeepSeekOCRModel
@@ -35,6 +39,10 @@ class ModelLoader:
         "qwen3_vl_4b": Qwen3VLModel,
         "qwen3_vl_8b": Qwen3VLModel,
         "dots_ocr": DotsOCRModel,
+        "dots_ocr_corrected": DotsOCRCorrectedModel,
+        "dots_ocr_final": DotsOCRFinalModel,
+        "dots_ocr_dtype_fixed": DotsOCRDtypeFixedModel,
+        "dots_ocr_generation_fixed": DotsOCRGenerationFixedModel,
         "phi3_vision": Phi3VisionModel,
         "got_ocr_ucas": GOTOCRUCASModel,
         "got_ocr_hf": GOTOCRHFModel,
@@ -208,11 +216,11 @@ class ModelLoader:
         
         model_config = config["models"][model_key]
         
-        # Auto-select precision if requested
+        # ОТКЛЮЧАЕМ автоматический выбор precision - используем только из конфигурации
         if precision == "auto":
-            precision = cls.auto_select_precision(model_key, config)
-            # Override config precision with auto-selected
-            model_config["precision"] = precision
+            # Используем precision из конфигурации модели, НЕ переопределяем
+            config_precision = model_config.get("precision", "fp16")
+            logger.info(f"Using config precision: {config_precision} (auto-selection disabled)")
         elif precision != "auto":
             # Override config precision with specified value
             model_config["precision"] = precision
@@ -228,6 +236,14 @@ class ModelLoader:
         
         # Get model class
         model_class = cls.MODEL_REGISTRY[model_key]
+        
+        # Специальная логика для dots_ocr - используем generation-fixed реализацию
+        if model_key == "dots_ocr":
+            logger.info("Using generation-fixed dots.ocr implementation")
+            model_class = cls.MODEL_REGISTRY["dots_ocr_generation_fixed"]
+        elif model_key == "dots_ocr" and model_config.get("use_corrected_implementation", False):
+            logger.info("Using final corrected dots.ocr implementation")
+            model_class = cls.MODEL_REGISTRY["dots_ocr_final"]
         
         # Merge config with kwargs
         init_kwargs = {**model_config, **kwargs}

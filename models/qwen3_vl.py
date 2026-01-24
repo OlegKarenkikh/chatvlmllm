@@ -56,9 +56,12 @@ class Qwen3VLModel(BaseModel):
             if not torch.cuda.is_available():
                 load_kwargs['torch_dtype'] = torch.float32
             
-            # Enable Flash Attention 2
-            if self.config.get('use_flash_attention', False):
-                load_kwargs['attn_implementation'] = "flash_attention_2"
+            # ПРИНУДИТЕЛЬНО ОТКЛЮЧАЕМ Flash Attention для совместимости
+            load_kwargs['attn_implementation'] = "eager"  # Принудительно eager attention
+            
+            # Убираем любые упоминания Flash Attention
+            if 'use_flash_attention' in load_kwargs:
+                del load_kwargs['use_flash_attention']
             
             # Load model with compatibility fixes
             logger.info("Loading model weights...")
