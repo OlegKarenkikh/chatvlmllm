@@ -159,6 +159,21 @@ def display_bbox_visualization_improved(ocr_result):
         st.divider()
         st.subheader("🔍 Визуализация обнаруженных элементов")
         
+        # HTML таблица с результатами
+        try:
+            from utils.bbox_table_renderer import BBoxTableRenderer
+            
+            table_renderer = BBoxTableRenderer()
+            
+            # Статистика
+            st.markdown(table_renderer.render_statistics(elements), unsafe_allow_html=True)
+            
+            # Легенда
+            st.markdown(table_renderer.render_legend(elements), unsafe_allow_html=True)
+            
+        except Exception as e:
+            st.warning(f"⚠️ Не удалось отобразить HTML таблицу: {e}")
+        
         # Основное отображение
         col1, col2 = st.columns([2, 1])
         
@@ -169,12 +184,17 @@ def display_bbox_visualization_improved(ocr_result):
             if legend_img:
                 st.image(legend_img, caption="Легенда", use_container_width=True)
             
-            # Статистика
+            # Статистика (дублируем для удобства)
             stats = visualizer.get_statistics(elements)
             st.metric("Всего элементов", stats.get('total_elements', 0))
             st.metric("Категорий", stats.get('unique_categories', 0))
-            
-            # Детали по категориям
+        
+        # HTML таблица с детальной информацией
+        try:
+            st.markdown("### 📋 Детальная информация")
+            st.markdown(table_renderer.render_elements_table(elements), unsafe_allow_html=True)
+        except:
+            # Fallback на обычное отображение
             with st.expander("📊 Детали по категориям"):
                 for category, count in stats.get('categories', {}).items():
                     st.write(f"**{category}:** {count}")
