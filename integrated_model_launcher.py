@@ -19,49 +19,81 @@ class IntegratedModelLauncher:
         self.running_processes = []
         self.running_containers = []
         
-        # Конфигурация моделей
+        # Конфигурация моделей (проверенная совместимость)
         self.models_config = {
             "transformers": {
                 "rednote-hilab/dots.ocr": {
                     "name": "DotsOCR",
                     "memory_8bit_gb": 3.5,
                     "port": 8000,
-                    "category": "ocr"
+                    "category": "ocr",
+                    "tested": True
                 },
                 "stepfun-ai/GOT-OCR-2.0-hf": {
                     "name": "GOT-OCR 2.0", 
                     "memory_8bit_gb": 0.8,
                     "port": 8001,
-                    "category": "ocr"
+                    "category": "ocr",
+                    "tested": False,
+                    "issues": ["Requires specific prompt format"]
                 },
                 "Qwen/Qwen2-VL-2B-Instruct": {
                     "name": "Qwen2-VL 2B",
                     "memory_8bit_gb": 2.5,
                     "port": 8002,
-                    "category": "vlm"
+                    "category": "vlm",
+                    "tested": False
+                },
+                "microsoft/Phi-3.5-vision-instruct": {
+                    "name": "Phi-3.5 Vision",
+                    "memory_8bit_gb": 4.5,
+                    "port": 8003,
+                    "category": "vlm",
+                    "tested": False
+                },
+                "vikhyatk/moondream2": {
+                    "name": "Moondream2",
+                    "memory_8bit_gb": 2.0,
+                    "port": 8004,
+                    "category": "vlm",
+                    "tested": False,
+                    "issues": ["Custom architecture - may need special handling"]
                 }
             },
             "vllm": {
                 "rednote-hilab/dots.ocr": {
                     "name": "DotsOCR",
-                    "container_name": "dots-ocr-vllm",
+                    "container_name": "rednote-hilab-dots-ocr-vllm",
                     "memory_required_gb": 8.0,
                     "port": 8000,
-                    "category": "ocr"
+                    "category": "ocr",
+                    "tested": True
                 },
                 "Qwen/Qwen2-VL-2B-Instruct": {
                     "name": "Qwen2-VL 2B",
-                    "container_name": "qwen2-vl-2b-vllm", 
+                    "container_name": "qwen-qwen2-vl-2b-instruct-vllm", 
                     "memory_required_gb": 6.0,
                     "port": 8001,
-                    "category": "vlm"
+                    "category": "vlm",
+                    "tested": False
                 },
-                "stepfun-ai/GOT-OCR-2.0-hf": {
-                    "name": "GOT-OCR 2.0",
-                    "container_name": "got-ocr-vllm",
-                    "memory_required_gb": 3.0,
+                "microsoft/Phi-3.5-vision-instruct": {
+                    "name": "Phi-3.5 Vision",
+                    "container_name": "microsoft-phi-3-5-vision-instruct-vllm",
+                    "memory_required_gb": 10.0,
                     "port": 8002,
-                    "category": "ocr"
+                    "category": "vlm",
+                    "tested": False,
+                    "issues": ["May require specific vLLM version"]
+                },
+                "Qwen/Qwen2-VL-7B-Instruct": {
+                    "name": "Qwen2-VL 7B",
+                    "container_name": "qwen-qwen2-vl-7b-instruct-vllm",
+                    "memory_required_gb": 12.0,
+                    "port": 8003,
+                    "category": "vlm",
+                    "tested": False,
+                    "issues": ["Requires high-end GPU"]
                 }
             }
         }

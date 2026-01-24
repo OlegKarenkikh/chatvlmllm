@@ -21,19 +21,35 @@ class VLLMDockerManager:
                 "name": "DotsOCR",
                 "port": 8000,
                 "model": "rednote-hilab/dots.ocr",
-                "priority": 1
+                "priority": 1,
+                "tested": True,
+                "memory_gb": 8.0
             },
             "qwen2-vl-2b": {
                 "name": "Qwen2-VL 2B",
                 "port": 8001,
                 "model": "Qwen/Qwen2-VL-2B-Instruct",
-                "priority": 2
+                "priority": 2,
+                "tested": False,
+                "memory_gb": 6.0
             },
-            "got-ocr": {
-                "name": "GOT-OCR 2.0",
+            "phi35-vision": {
+                "name": "Phi-3.5 Vision",
                 "port": 8002,
-                "model": "stepfun-ai/GOT-OCR-2.0-hf",
-                "priority": 3
+                "model": "microsoft/Phi-3.5-vision-instruct",
+                "priority": 3,
+                "tested": False,
+                "memory_gb": 10.0,
+                "issues": ["May require specific vLLM version"]
+            },
+            "qwen2-vl-7b": {
+                "name": "Qwen2-VL 7B",
+                "port": 8003,
+                "model": "Qwen/Qwen2-VL-7B-Instruct",
+                "priority": 4,
+                "tested": False,
+                "memory_gb": 12.0,
+                "issues": ["Requires high-end GPU"]
             }
         }
     

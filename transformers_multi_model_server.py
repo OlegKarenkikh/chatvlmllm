@@ -23,35 +23,64 @@ class MultiModelTransformersServer:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
         
-        # Конфигурация поддерживаемых моделей
+        # Конфигурация поддерживаемых моделей (только совместимые с Transformers)
         self.supported_models = {
             "rednote-hilab/dots.ocr": {
                 "name": "DotsOCR",
                 "type": "ocr",
+                "architecture": "DotsOCRForCausalLM",
                 "memory_8bit_gb": 3.5,
                 "max_memory_gb": 6.0,
-                "default_prompt": "Extract all text from this image"
+                "default_prompt": "Extract all text from this image",
+                "tested": True
             },
             "stepfun-ai/GOT-OCR-2.0-hf": {
                 "name": "GOT-OCR 2.0",
                 "type": "ocr", 
+                "architecture": "GOTQwenForCausalLM",
                 "memory_8bit_gb": 0.8,
                 "max_memory_gb": 2.0,
-                "default_prompt": "OCR:"
+                "default_prompt": "OCR:",
+                "tested": False,
+                "issues": ["Requires specific prompt format"]
             },
             "Qwen/Qwen2-VL-2B-Instruct": {
                 "name": "Qwen2-VL 2B",
                 "type": "vlm",
+                "architecture": "Qwen2VLForConditionalGeneration",
                 "memory_8bit_gb": 2.5,
                 "max_memory_gb": 4.0,
-                "default_prompt": "Describe what you see in this image"
+                "default_prompt": "Describe what you see in this image",
+                "tested": False
             },
             "microsoft/Phi-3.5-vision-instruct": {
                 "name": "Phi-3.5 Vision",
                 "type": "vlm",
+                "architecture": "Phi3VForCausalLM",
                 "memory_8bit_gb": 4.5,
                 "max_memory_gb": 8.0,
-                "default_prompt": "What is in this image?"
+                "default_prompt": "What is in this image?",
+                "tested": False
+            },
+            "vikhyatk/moondream2": {
+                "name": "Moondream2",
+                "type": "vlm",
+                "architecture": "MoondreamForConditionalGeneration",
+                "memory_8bit_gb": 2.0,
+                "max_memory_gb": 4.0,
+                "default_prompt": "Describe this image",
+                "tested": False,
+                "issues": ["Custom architecture - may need special handling"]
+            },
+            "Qwen/Qwen2-VL-7B-Instruct": {
+                "name": "Qwen2-VL 7B",
+                "type": "vlm",
+                "architecture": "Qwen2VLForConditionalGeneration",
+                "memory_8bit_gb": 4.5,
+                "max_memory_gb": 8.0,
+                "default_prompt": "Describe what you see in this image",
+                "tested": False,
+                "issues": ["Large model - slow on limited hardware"]
             }
         }
         
