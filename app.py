@@ -156,6 +156,14 @@ with st.sidebar:
     st.divider()
     
     st.subheader("⚙️ Настройки модели")
+    
+    # Выбор режима работы
+    execution_mode = st.selectbox(
+        "🚀 Режим выполнения",
+        ["vLLM (Рекомендуется)", "Transformers (Локально)"],
+        help="vLLM - высокая производительность через Docker, Transformers - локальная загрузка моделей"
+    )
+    
     selected_model = st.selectbox(
         "Выберите модель",
         list(config["models"].keys()),
@@ -166,8 +174,18 @@ with st.sidebar:
     
     # Display model info
     model_info = config["models"][selected_model]
+    
+    # Информация о режиме
+    if "vLLM" in execution_mode:
+        mode_info = "🚀 vLLM режим - высокая производительность"
+        mode_color = "🟢"
+    else:
+        mode_info = "🔧 Transformers режим - локальная обработка"
+        mode_color = "🟡"
+    
     st.info(
         f"**{model_info['name']}**\n\n"
+        f"{mode_color} {mode_info}\n"
         f"🔧 Precision: {model_info.get('precision', 'auto')}\n"
         f"⚡ Attention: {model_info.get('attn_implementation', 'auto')}\n"
         f"🎯 Optimized for RTX 5070 Ti Blackwell"
@@ -476,24 +494,71 @@ elif "📄 Режим OCR" in page:
                                 new_size = tuple(int(dim * ratio) for dim in processed_image.size)
                                 processed_image = processed_image.resize(new_size, Image.Resampling.LANCZOS)
                         
-                        # Загрузка выбранной модели
-                        model = ModelLoader.load_model(selected_model)
-                        
-                        # Обработка изображения
-                        if hasattr(model, 'extract_text'):
-                            # Для моделей с методом extract_text (Qwen3-VL)
-                            text = model.extract_text(processed_image)
-                        elif hasattr(model, 'process_image'):
-                            # Для OCR моделей (GOT-OCR, dots.ocr)
-                            text = model.process_image(processed_image)
+                        # Обработка изображения в зависимости от режима
+                        if "vLLM" in execution_mode:
+                            # vLLM режим - используем API
+                            try:
+                                from vllm_streamlit_adapter import VLLMStreamlitAdapter
+                                
+                                if "vllm_adapter" not in st.session_state:
+                                    st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                                
+                                adapter = st.session_state.vllm_adapter
+                                
+                                # Определяем промпт в зависимости от типа документа
+                                if document_type == "passport":
+                                    prompt = "Extract all text from this passport document, preserving structure and formatting"
+                                elif document_type == "driver_license":
+                                    prompt = "Extract all text from this driver's license, preserving structure and formatting"
+                                elif document_type == "invoice":
+                                    prompt = "Extract all text and structured data from this invoice"
+                                else:
+                                    prompt = "Extract all text from this image, preserving structure and formatting"
+                                
+                                # Используем DotsOCR модель для vLLM
+                                vllm_model = "rednote-hilab/dots.ocr"
+                                result = adapter.process_image(processed_image, prompt, vllm_model)
+                                
+                                if result and result["success"]:
+                                    text = result["text"]
+                                    processing_time = result["processing_time"]
+                                    st.success(f"✅ Обработано через vLLM за {processing_time:.1f} сек")
+                                else:
+                                    st.error("❌ Ошибка обработки через vLLM")
+                                    text = "Ошибка обработки"
+                                    processing_time = 0
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Ошибка vLLM режима: {e}")
+                                st.info("💡 Переключаемся на Transformers режим...")
+                                # Fallback на Transformers
+                                model = ModelLoader.load_model(selected_model)
+                                if hasattr(model, 'extract_text'):
+                                    text = model.extract_text(processed_image)
+                                elif hasattr(model, 'process_image'):
+                                    text = model.process_image(processed_image)
+                                else:
+                                    text = model.chat(processed_image, "Извлеките весь текст из этого документа, сохраняя структуру и форматирование.")
                         else:
-                            # Для общих VLM моделей
-                            text = model.chat(processed_image, "Извлеките весь текст из этого документа, сохраняя структуру и форматирование.")
+                            # Transformers режим - локальная загрузка
+                            model = ModelLoader.load_model(selected_model)
+                            
+                            # Обработка изображения
+                            if hasattr(model, 'extract_text'):
+                                # Для моделей с методом extract_text (Qwen3-VL)
+                                text = model.extract_text(processed_image)
+                            elif hasattr(model, 'process_image'):
+                                # Для OCR моделей (GOT-OCR, dots.ocr)
+                                text = model.process_image(processed_image)
+                            else:
+                                # Для общих VLM моделей
+                                text = model.chat(processed_image, "Извлеките весь текст из этого документа, сохраняя структуру и форматирование.")
                         
                         # Очистка и улучшение результата
                         text = clean_ocr_result(text)
                         
-                        processing_time = time.time() - start_time
+                        if "vLLM" not in execution_mode:
+                            processing_time = time.time() - start_time
                         
                         # Проверка качества результата
                         quality_score = 0.7  # Базовая оценка
@@ -514,6 +579,7 @@ elif "📄 Режим OCR" in page:
                             "confidence": quality_score,
                             "processing_time": processing_time,
                             "model_used": selected_model,
+                            "execution_mode": execution_mode,
                             "preprocessing_applied": enhance_image or denoise or deskew
                         }
                         
@@ -533,10 +599,17 @@ elif "📄 Режим OCR" in page:
             result = get_session_state('ocr_result')
             
             # Metrics
-            metric_col1, metric_col2, metric_col3 = st.columns(3)
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
             metric_col1.metric("Уверенность", f"{result['confidence']:.1%}")
             metric_col2.metric("Время обработки", f"{result['processing_time']:.2f}с")
             metric_col3.metric("Модель", result.get('model_used', 'Неизвестно'))
+            
+            # Отображение режима выполнения
+            execution_mode_display = result.get('execution_mode', 'Неизвестно')
+            if "vLLM" in execution_mode_display:
+                metric_col4.metric("Режим", "🚀 vLLM")
+            else:
+                metric_col4.metric("Режим", "🔧 Local")
             
             st.divider()
             
@@ -732,35 +805,82 @@ elif "💬 Режим чата" in page:
             with st.chat_message("assistant"):
                 with st.spinner("🤔 Думаю..."):
                     try:
-                        from models.model_loader import ModelLoader
                         import time
-                        
                         start_time = time.time()
                         
-                        # Загрузка выбранной модели
-                        model = ModelLoader.load_model(selected_model)
-                        
-                        # Получение ответа от модели
-                        if hasattr(model, 'chat'):
-                            response = model.chat(
-                                image=image,
-                                prompt=prompt,
-                                temperature=temperature,
-                                max_new_tokens=max_tokens
-                            )
-                        elif hasattr(model, 'process_image'):
-                            # Для OCR моделей адаптируем промпт
-                            if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
-                                response = model.process_image(image)
-                            else:
-                                response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
+                        # Обработка в зависимости от режима
+                        if "vLLM" in execution_mode:
+                            # vLLM режим - используем API
+                            try:
+                                from vllm_streamlit_adapter import VLLMStreamlitAdapter
+                                
+                                if "vllm_adapter" not in st.session_state:
+                                    st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                                
+                                adapter = st.session_state.vllm_adapter
+                                
+                                # Используем DotsOCR модель для vLLM
+                                vllm_model = "rednote-hilab/dots.ocr"
+                                result = adapter.process_image(image, prompt, vllm_model)
+                                
+                                if result and result["success"]:
+                                    response = result["text"]
+                                    processing_time = result["processing_time"]
+                                    
+                                    # Добавление информации о времени обработки
+                                    response += f"\n\n*🚀 Обработано через vLLM за {processing_time:.2f}с*"
+                                else:
+                                    response = "❌ Ошибка обработки через vLLM"
+                                    processing_time = 0
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Ошибка vLLM режима: {e}")
+                                st.info("💡 Переключаемся на Transformers режим...")
+                                # Fallback на Transformers
+                                from models.model_loader import ModelLoader
+                                model = ModelLoader.load_model(selected_model)
+                                
+                                if hasattr(model, 'chat'):
+                                    response = model.chat(
+                                        image=image,
+                                        prompt=prompt,
+                                        temperature=temperature,
+                                        max_new_tokens=max_tokens
+                                    )
+                                elif hasattr(model, 'process_image'):
+                                    if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
+                                        response = model.process_image(image)
+                                    else:
+                                        response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
+                                else:
+                                    response = "Модель не поддерживает чат. Попробуйте режим OCR."
+                                
+                                processing_time = time.time() - start_time
+                                response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
                         else:
-                            response = "Модель не поддерживает чат. Попробуйте режим OCR."
-                        
-                        processing_time = time.time() - start_time
-                        
-                        # Добавление информации о времени обработки
-                        response += f"\n\n*Обработано за {processing_time:.2f}с с помощью {selected_model}*"
+                            # Transformers режим - локальная загрузка
+                            from models.model_loader import ModelLoader
+                            model = ModelLoader.load_model(selected_model)
+                            
+                            # Получение ответа от модели
+                            if hasattr(model, 'chat'):
+                                response = model.chat(
+                                    image=image,
+                                    prompt=prompt,
+                                    temperature=temperature,
+                                    max_new_tokens=max_tokens
+                                )
+                            elif hasattr(model, 'process_image'):
+                                # Для OCR моделей адаптируем промпт
+                                if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки']):
+                                    response = model.process_image(image)
+                                else:
+                                    response = f"Это OCR модель. Извлеченный текст:\n\n{model.process_image(image)}"
+                            else:
+                                response = "Модель не поддерживает чат. Попробуйте режим OCR."
+                            
+                            processing_time = time.time() - start_time
+                            response += f"\n\n*🔧 Обработано локально за {processing_time:.2f}с с помощью {selected_model}*"
                         
                         st.markdown(response)
                         
