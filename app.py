@@ -894,27 +894,73 @@ elif "💬 Режим чата" in page:
                 st.subheader("🎯 Официальные промпты dots.ocr")
                 st.caption("Используйте эти промпты для лучших результатов с dots.ocr")
                 
-                # Официальные промпты из тестирования
+                # Новые официальные промпты с BBOX возможностями
                 official_prompts = {
+                    "🔍 Полный анализ с BBOX": {
+                        "prompt": """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+
+1. Bbox format: [x1, y1, x2, y2]
+
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
+
+3. Text Extraction & Formatting Rules:
+    - Picture: For the 'Picture' category, the text field should be omitted.
+    - Formula: Format its text as LaTeX.
+    - Table: Format its text as HTML.
+    - All Others (Text, Title, etc.): Format their text as Markdown.
+
+4. Constraints:
+    - The output text must be the original text from the image, with no translation.
+    - All layout elements must be sorted according to human reading order.
+
+5. Final Output: The entire output must be a single JSON object.""",
+                        "description": "Полный анализ документа с BBOX координатами всех элементов",
+                        "bbox_enabled": True
+                    },
+                    "🖼️ Обнаружение изображений": {
+                        "prompt": """Analyze this document image and detect all visual elements including pictures, logos, stamps, signatures, and other graphical content. For each detected element, provide:
+
+1. Bbox coordinates in format [x1, y1, x2, y2]
+2. Category (Picture, Logo, Stamp, Signature, Barcode, QR-code, etc.)
+3. Brief description of the visual element
+
+Output as JSON array with detected visual elements.""",
+                        "description": "Специализированное обнаружение графических элементов (печати, подписи, фото)",
+                        "bbox_enabled": True
+                    },
+                    "📊 Структурированные таблицы": {
+                        "prompt": """Extract and format all table content from this document as structured HTML tables with proper formatting. Include:
+
+1. All table data with correct row and column structure
+2. Preserve headers and data relationships
+3. Format as clean HTML tables
+4. Include bbox coordinates for each table: [x1, y1, x2, y2]
+
+Output format: JSON with tables array containing bbox and html_content for each table.""",
+                        "description": "Извлечение таблиц с HTML форматированием и BBOX",
+                        "bbox_enabled": True,
+                        "table_processing": True
+                    },
+                    "📐 Только обнаружение (BBOX)": {
+                        "prompt": """Perform layout detection only. Identify and locate all layout elements in the document without text recognition. For each element provide:
+
+1. Bbox coordinates: [x1, y1, x2, y2]
+2. Category from: ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title']
+3. Confidence score if available
+
+Output as JSON array of detected layout elements.""",
+                        "description": "Только обнаружение элементов без распознавания текста",
+                        "bbox_enabled": True
+                    },
                     "🔤 Простое OCR": {
                         "prompt": "Extract all text from this image.",
-                        "description": "Извлекает весь текст включая таблицы в HTML"
+                        "description": "Быстрое извлечение всего текста",
+                        "bbox_enabled": False
                     },
-                    "📋 Детальное OCR": {
+                    "📋 Чтение по порядку": {
                         "prompt": "Extract all text content from this image while maintaining reading order. Exclude headers and footers.",
-                        "description": "Детальное извлечение с порядком чтения"
-                    },
-                    "🏗️ Анализ структуры": {
-                        "prompt": "Extract text, layout, and structure from this document image. Include bounding boxes, categories, and format tables as HTML, formulas as LaTeX, and text as Markdown.",
-                        "description": "Полный анализ макета и структуры"
-                    },
-                    "📊 Извлечение таблиц": {
-                        "prompt": "Extract and format the table content from this document as structured data.",
-                        "description": "Специально для табличных данных"
-                    },
-                    "📄 Структурированное извлечение": {
-                        "prompt": "Analyze this document and extract structured information including text, tables, and layout elements.",
-                        "description": "Комбинированный анализ документа"
+                        "description": "Извлечение текста с сохранением порядка чтения",
+                        "bbox_enabled": False
                     }
                 }
                 
@@ -929,6 +975,9 @@ elif "💬 Режим чата" in page:
                         # Добавляем официальный промпт в чат
                         official_prompt = prompt_info["prompt"]
                         st.session_state.messages.append({"role": "user", "content": official_prompt})
+                        
+                        # Сохраняем информацию о промпте для обработки
+                        st.session_state.current_prompt_info = prompt_info
                         
                         # Обрабатываем промпт
                         with st.spinner("🔄 Обрабатываем официальный промпт..."):
@@ -965,9 +1014,19 @@ elif "💬 Режим чата" in page:
                                     # Получаем настройки из session_state
                                     max_tokens = st.session_state.get('max_tokens', 4096)
                                     
+                                    # ИСПРАВЛЕНИЕ: Для официальных промптов используем безопасный лимит токенов
+                                    # Учитываем, что промпт + изображение занимают ~100-500 токенов
+                                    model_max_tokens = adapter.get_model_max_tokens("rednote-hilab/dots.ocr")
+                                    safe_max_tokens = min(max_tokens, model_max_tokens - 500)  # Резерв для входных токенов
+                                    
+                                    if safe_max_tokens < 100:
+                                        safe_max_tokens = model_max_tokens // 2  # Используем половину как безопасное значение
+                                    
+                                    st.info(f"🎯 Используем {safe_max_tokens} токенов для официального промпта (лимит модели: {model_max_tokens})")
+                                    
                                     # Попытка обработки с dots.ocr
                                     try:
-                                        result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr", max_tokens)
+                                        result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr", safe_max_tokens)
                                     except Exception as dots_error:
                                         st.warning(f"⚠️ Ошибка dots.ocr: {dots_error}")
                                         st.info("🔄 Переключаемся на Qwen3-VL для обработки...")
@@ -1016,6 +1075,15 @@ elif "💬 Режим чата" in page:
                                         else:
                                             response = f"❌ Ошибка модели: {str(model_error)}"
                                 
+                                # Сохраняем результат для дальнейшей обработки BBOX и таблиц
+                                if "❌" not in response and hasattr(st.session_state, 'current_prompt_info'):
+                                    st.session_state.last_ocr_result = {
+                                        "text": response,
+                                        "prompt_info": st.session_state.current_prompt_info,
+                                        "image": image,
+                                        "processing_time": processing_time if 'processing_time' in locals() else 0
+                                    }
+                                
                                 # Добавляем ответ в чат
                                 st.session_state.messages.append({"role": "assistant", "content": response})
                                 
@@ -1046,7 +1114,14 @@ elif "💬 Режим чата" in page:
                                 st.rerun()
                 
                 st.divider()
-                st.info("💡 **Совет:** Официальные промпты дают лучшие результаты с dots.ocr чем произвольные вопросы")
+                st.info("💡 **Новые возможности dots.ocr:**")
+                st.markdown("""
+                - 🔍 **BBOX визуализация** - автоматическое выделение обнаруженных элементов
+                - 🖼️ **Обнаружение графики** - поиск печатей, подписей, фото, логотипов
+                - 📊 **HTML таблицы** - автоматический рендеринг таблиц из ответов
+                - 📐 **Layout detection** - обнаружение структуры документа
+                - 🎯 **JSON структуры** - структурированный вывод с координатами
+                """)
             
             else:
                 # Для других моделей показываем примеры чат-вопросов
@@ -1087,9 +1162,105 @@ elif "💬 Режим чата" in page:
                 st.info("👋 Загрузите изображение и начните задавать вопросы о нем!")
             
             # Display chat messages
-            for message in st.session_state.messages:
+            for i, message in enumerate(st.session_state.messages):
                 with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+                    if message["role"] == "assistant":
+                        # Проверяем, есть ли результат OCR для обработки
+                        if (hasattr(st.session_state, 'last_ocr_result') and 
+                            i == len(st.session_state.messages) - 1):  # Последнее сообщение
+                            
+                            ocr_result = st.session_state.last_ocr_result
+                            prompt_info = ocr_result.get("prompt_info", {})
+                            
+                            # Отображаем основной текст
+                            st.markdown(message["content"])
+                            
+                            # Обработка BBOX если включена
+                            if prompt_info.get("bbox_enabled", False):
+                                try:
+                                    from utils.bbox_visualizer import BBoxVisualizer
+                                    
+                                    visualizer = BBoxVisualizer()
+                                    image_with_boxes, legend_img, elements = visualizer.process_dots_ocr_response(
+                                        ocr_result["image"], 
+                                        ocr_result["text"],
+                                        show_labels=True,
+                                        create_legend_img=True
+                                    )
+                                    
+                                    if elements:
+                                        st.divider()
+                                        st.subheader("🔍 Визуализация обнаруженных элементов")
+                                        
+                                        col1, col2 = st.columns([2, 1])
+                                        
+                                        with col1:
+                                            st.image(image_with_boxes, caption="Изображение с BBOX", use_container_width=True)
+                                        
+                                        with col2:
+                                            if legend_img:
+                                                st.image(legend_img, caption="Легенда", use_container_width=True)
+                                            
+                                            # Статистика
+                                            stats = visualizer.get_statistics(elements)
+                                            st.metric("Всего элементов", stats.get('total_elements', 0))
+                                            st.metric("Категорий", stats.get('unique_categories', 0))
+                                            
+                                            # Детали по категориям
+                                            with st.expander("📊 Детали по категориям"):
+                                                for category, count in stats.get('categories', {}).items():
+                                                    st.write(f"**{category}:** {count}")
+                                
+                                except Exception as e:
+                                    st.error(f"Ошибка визуализации BBOX: {e}")
+                            
+                            # Обработка таблиц если включена
+                            if prompt_info.get("table_processing", False):
+                                try:
+                                    from utils.html_table_renderer import HTMLTableRenderer
+                                    
+                                    renderer = HTMLTableRenderer()
+                                    renderer.render_all_tables_in_streamlit(ocr_result["text"])
+                                
+                                except Exception as e:
+                                    st.error(f"Ошибка обработки таблиц: {e}")
+                            
+                            # Автоматическое обнаружение HTML таблиц в любом ответе
+                            elif "<table" in message["content"].lower():
+                                try:
+                                    from utils.html_table_renderer import HTMLTableRenderer
+                                    
+                                    renderer = HTMLTableRenderer()
+                                    result = renderer.process_dots_ocr_response(message["content"])
+                                    
+                                    if result["has_tables"]:
+                                        st.divider()
+                                        st.subheader("📊 Обнаруженные таблицы")
+                                        renderer.render_all_tables_in_streamlit(message["content"])
+                                
+                                except Exception as e:
+                                    st.error(f"Ошибка автоматической обработки таблиц: {e}")
+                        else:
+                            # Обычное отображение сообщения
+                            st.markdown(message["content"])
+                            
+                            # Автоматическое обнаружение HTML таблиц в любом ответе
+                            if "<table" in message["content"].lower():
+                                try:
+                                    from utils.html_table_renderer import HTMLTableRenderer
+                                    
+                                    renderer = HTMLTableRenderer()
+                                    result = renderer.process_dots_ocr_response(message["content"])
+                                    
+                                    if result["has_tables"]:
+                                        st.divider()
+                                        renderer.render_all_tables_in_streamlit(message["content"])
+                                
+                                except Exception as e:
+                                    st.error(f"Ошибка автоматической обработки таблиц: {e}")
+                    else:
+                        # Пользовательские сообщения
+                        st.markdown(message["content"])
         
         # Chat input с подсказкой в зависимости от модели
         if "dots" in selected_model.lower():
@@ -1156,7 +1327,15 @@ elif "💬 Режим чата" in page:
                                 if "dots" in selected_model.lower():
                                     # dots.ocr специализирована на OCR, адаптируем ответ
                                     vllm_model = "rednote-hilab/dots.ocr"
-                                    result = adapter.process_image(image, prompt, vllm_model, max_tokens)
+                                    
+                                    # Используем безопасный лимит токенов для dots.ocr
+                                    model_max_tokens = adapter.get_model_max_tokens(vllm_model)
+                                    safe_max_tokens = min(max_tokens, model_max_tokens - 500)  # Резерв для входных токенов
+                                    
+                                    if safe_max_tokens < 100:
+                                        safe_max_tokens = model_max_tokens // 2
+                                    
+                                    result = adapter.process_image(image, prompt, vllm_model, safe_max_tokens)
                                     
                                     if result and result["success"]:
                                         ocr_text = result["text"]
@@ -1199,8 +1378,14 @@ elif "💬 Режим чата" in page:
                                         response = "❌ Ошибка обработки через vLLM"
                                         processing_time = 0
                                 else:
-                                    # Другие модели - используем как есть
-                                    result = adapter.process_image(image, prompt, selected_model, max_tokens)
+                                    # Другие модели - используем безопасный лимит токенов
+                                    model_max_tokens = adapter.get_model_max_tokens(selected_model)
+                                    safe_max_tokens = min(max_tokens, model_max_tokens - 500)  # Резерв для входных токенов
+                                    
+                                    if safe_max_tokens < 100:
+                                        safe_max_tokens = model_max_tokens // 2
+                                    
+                                    result = adapter.process_image(image, prompt, selected_model, safe_max_tokens)
                                     
                                     if result and result["success"]:
                                         response = result["text"]

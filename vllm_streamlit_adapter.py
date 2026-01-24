@@ -64,9 +64,18 @@ class VLLMStreamlitAdapter:
         
         # Проверяем лимит токенов для модели
         model_max_tokens = self.get_model_max_tokens(model)
+        
+        # УЛУЧШЕНИЕ: Более детальная проверка токенов
         if max_tokens > model_max_tokens:
             st.warning(f"⚠️ Запрошено {max_tokens} токенов, но модель {model} поддерживает максимум {model_max_tokens}")
             max_tokens = model_max_tokens
+        
+        # Дополнительная проверка: оставляем место для входных токенов
+        estimated_input_tokens = len(prompt.split()) * 1.3 + 200  # Примерная оценка: промпт + изображение
+        if max_tokens + estimated_input_tokens > model_max_tokens:
+            adjusted_tokens = max(100, model_max_tokens - int(estimated_input_tokens))
+            st.info(f"🔧 Автоматически скорректированы токены: {max_tokens} → {adjusted_tokens} (резерв для входных токенов)")
+            max_tokens = adjusted_tokens
         
         # Конвертация изображения в base64
         if image.mode != 'RGB':
@@ -114,11 +123,21 @@ class VLLMStreamlitAdapter:
                     "model": model,
                     "mode": "vLLM",
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
-                    "max_tokens_limit": model_max_tokens
+                    "max_tokens_limit": model_max_tokens,
+                    "actual_max_tokens": max_tokens
                 }
             else:
+                error_text = response.text
                 st.error(f"❌ API ошибка: {response.status_code}")
-                st.error(f"Ответ: {response.text}")
+                
+                # Специальная обработка ошибок валидации токенов
+                if "max_tokens" in error_text and "exceeds" in error_text:
+                    st.error("🚨 **ОШИБКА ЛИМИТА ТОКЕНОВ**")
+                    st.error(f"Запрошено токенов: {max_tokens}")
+                    st.error(f"Лимит модели: {model_max_tokens}")
+                    st.info("💡 **Решение:** Уменьшите количество токенов в настройках или используйте автоматическую коррекцию")
+                
+                st.error(f"Ответ сервера: {error_text}")
                 return None
                 
         except Exception as e:
