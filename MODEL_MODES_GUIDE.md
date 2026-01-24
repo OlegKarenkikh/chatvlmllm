@@ -1,0 +1,342 @@
+# 🎯 РУКОВОДСТВО ПО РЕЖИМАМ РАБОТЫ МОДЕЛЕЙ
+
+Комплексная система для выбора и управления режимами работы OCR/VLM моделей с оптимизацией памяти и правильным кешированием.
+
+## 🚀 БЫСТРЫЙ СТАРТ
+
+### 1. Автоматический выбор режима
+```bash
+# Запуск интегрированного селектора
+python integrated_model_launcher.py
+```
+
+### 2. Ручной выбор режима
+
+**Transformers режим (экономия памяти):**
+```bash
+python transformers_multi_model_server.py
+```
+
+**vLLM режим (высокая производительность):**
+```bash
+python vllm_docker_manager.py
+```
+
+## 📊 СРАВНЕНИЕ РЕЖИМОВ
+
+| Характеристика | Transformers | vLLM |
+|----------------|--------------|------|
+| **GPU память** | 3-6 GB | 6-12 GB |
+| **Скорость** | Медленно (2-5 мин) | Быстро (30-60 сек) |
+| **Стабильность** | Высокая | Средняя |
+| **Многомодельность** | Да (переключение) | Да (параллельно) |
+| **Кеширование** | Общий кеш | Общий кеш |
+| **API совместимость** | OpenAI | OpenAI |
+
+## 🔧 РЕЖИМЫ РАБОТЫ
+
+### 🤖 Transformers режим
+
+**Преимущества:**
+- Низкое потребление GPU памяти (8-bit квантизация)
+- Высокая стабильность
+- Работает на слабых GPU
+- Динамическая загрузка/выгрузка моделей
+
+**Недостатки:**
+- Медленная обработка
+- Последовательная обработка запросов
+
+**Использование:**
+```bash
+# Запуск сервера
+python transformers_multi_model_server.py
+
+# Загрузка модели через API
+curl -X POST http://localhost:8000/models/load \
+  -H "Content-Type: application/json" \
+  -d '{"model": "rednote-hilab/dots.ocr"}'
+
+# OCR запрос
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "rednote-hilab/dots.ocr",
+    "messages": [{"role": "user", "content": [
+      {"type": "text", "text": "Extract text"},
+      {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+    ]}]
+  }'
+```
+
+### 🚀 vLLM режим
+
+**Преимущества:**
+- Высокая производительность
+- Параллельная обработка запросов
+- Batch processing
+- Оптимизированное использование GPU
+
+**Недостатки:**
+- Высокое потребление памяти
+- Требует мощную GPU
+- Сложнее в настройке
+
+**Использование:**
+```bash
+# Запуск через Docker Compose
+docker compose -f docker-compose-vllm.yml up -d
+
+# Или через менеджер
+python vllm_docker_manager.py
+
+# OCR запрос (тот же API)
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "rednote-hilab/dots.ocr",
+    "messages": [{"role": "user", "content": [
+      {"type": "text", "text": "Extract text"},
+      {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+    ]}]
+  }'
+```
+
+## 📁 УПРАВЛЕНИЕ КЕШЕМ МОДЕЛЕЙ
+
+### Структура кеша
+```
+~/.cache/huggingface/hub/
+├── models--rednote-hilab--dots.ocr/
+├── models--stepfun-ai--GOT-OCR-2.0-hf/
+├── models--Qwen--Qwen2-VL-2B-Instruct/
+└── models--microsoft--Phi-3.5-vision-instruct/
+```
+
+### Монтирование в Docker
+```yaml
+volumes:
+  # Основное монтирование
+  - ${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub
+  # Дополнительные пути для совместимости
+  - ${HOME}/.cache/huggingface/hub:/home/vllm/.cache/huggingface/hub
+  - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+
+environment:
+  - HF_HOME=/root/.cache/huggingface
+  - TRANSFORMERS_CACHE=/root/.cache/huggingface/hub
+  - HF_HUB_CACHE=/root/.cache/huggingface/hub
+```
+
+### Проверка кеша
+```bash
+# Через интегрированный лаунчер
+python integrated_model_launcher.py
+# Выберите опцию "8. Управление кешем"
+
+# Или напрямую
+python -c "
+from pathlib import Path
+cache_dir = Path.home() / '.cache' / 'huggingface' / 'hub'
+for item in cache_dir.iterdir():
+    if item.is_dir() and item.name.startswith('models--'):
+        size = sum(f.stat().st_size for f in item.rglob('*') if f.is_file())
+        print(f'{item.name}: {size / (1024**3):.2f} GB')
+"
+```
+
+## 🎯 ПОДДЕРЖИВАЕМЫЕ МОДЕЛИ
+
+### OCR модели
+1. **rednote-hilab/dots.ocr** (5.67 GB)
+   - Лучшая точность OCR
+   - Поддержка сложных документов
+   - Многоязычность
+
+2. **stepfun-ai/GOT-OCR-2.0-hf** (1.06 GB)
+   - Легкая модель
+   - Быстрая обработка
+   - Хорошая точность
+
+### VLM модели
+1. **Qwen/Qwen2-VL-2B-Instruct** (4.13 GB)
+   - Универсальная VLM
+   - Описание изображений
+   - Вопросы по изображениям
+
+2. **microsoft/Phi-3.5-vision-instruct** (7.73 GB)
+   - Продвинутая VLM
+   - Высокая точность
+   - Сложные задачи
+
+## 🔧 КОНФИГУРАЦИЯ
+
+### Переменные окружения
+```bash
+# HuggingFace токен (опционально)
+export HF_TOKEN=your_token_here
+
+# Кастомная директория кеша
+export HF_HOME=/custom/cache/path
+
+# CUDA настройки
+export CUDA_VISIBLE_DEVICES=0
+```
+
+### Docker Compose профили
+```bash
+# Только основная модель
+docker compose -f docker-compose-vllm.yml up -d
+
+# Многомодельный режим
+docker compose -f docker-compose-vllm.yml --profile multi-model up -d
+
+# С прокси балансировщиком
+docker compose -f docker-compose-vllm.yml --profile proxy up -d
+```
+
+## 🧪 ТЕСТИРОВАНИЕ
+
+### Автоматическое тестирование
+```bash
+# Тест текущего режима
+python test_memory_optimized_ocr.py
+
+# Тест конкретного endpoint
+curl http://localhost:8000/health
+curl http://localhost:8000/v1/models
+```
+
+### Ручное тестирование
+```python
+import requests
+import base64
+
+# Загрузка изображения
+with open("test_image.png", "rb") as f:
+    image_base64 = base64.b64encode(f.read()).decode()
+
+# OCR запрос
+response = requests.post("http://localhost:8000/v1/chat/completions", json={
+    "model": "rednote-hilab/dots.ocr",
+    "messages": [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Extract all text"},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+        ]
+    }]
+})
+
+print(response.json()["choices"][0]["message"]["content"])
+```
+
+## 🛠️ УПРАВЛЯЮЩИЕ СКРИПТЫ
+
+### 1. `integrated_model_launcher.py`
+**Главный скрипт** - автоматический выбор режима, управление всеми сервисами
+
+### 2. `transformers_multi_model_server.py`
+**Transformers сервер** - многомодельный сервер с 8-bit квантизацией
+
+### 3. `vllm_docker_manager.py`
+**vLLM менеджер** - управление Docker контейнерами
+
+### 4. `model_mode_selector.py`
+**Селектор режимов** - выбор оптимального режима
+
+### 5. `gpu_memory_manager.py`
+**Менеджер памяти** - диагностика и очистка GPU памяти
+
+## 🚨 РЕШЕНИЕ ПРОБЛЕМ
+
+### Недостаточно GPU памяти
+```bash
+# Очистка памяти
+python gpu_memory_manager.py
+
+# Принудительный Transformers режим
+python transformers_multi_model_server.py
+```
+
+### Модель не загружается
+```bash
+# Проверка кеша
+ls -la ~/.cache/huggingface/hub/
+
+# Очистка кеша
+rm -rf ~/.cache/huggingface/hub/models--*
+
+# Проверка прав доступа
+chmod -R 755 ~/.cache/huggingface/
+```
+
+### Docker контейнер не запускается
+```bash
+# Проверка логов
+docker logs dots-ocr-vllm
+
+# Проверка GPU в Docker
+docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 nvidia-smi
+
+# Перезапуск Docker
+sudo systemctl restart docker
+```
+
+### WSL проблемы
+```bash
+# Перезапуск WSL (из Windows PowerShell)
+wsl --shutdown
+wsl
+
+# Проверка монтирования
+ls -la /mnt/c/Users/$USER/.cache/huggingface/
+```
+
+## 📈 МОНИТОРИНГ
+
+### GPU память
+```bash
+# Постоянный мониторинг
+watch -n 1 nvidia-smi
+
+# Через Python
+python -c "
+import torch
+if torch.cuda.is_available():
+    print(f'Total: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB')
+    print(f'Allocated: {torch.cuda.memory_allocated(0) / 1024**3:.1f} GB')
+    print(f'Cached: {torch.cuda.memory_reserved(0) / 1024**3:.1f} GB')
+"
+```
+
+### API статус
+```bash
+# Health check всех сервисов
+for port in 8000 8001 8002; do
+  echo "Port $port:"
+  curl -s http://localhost:$port/health | jq .
+done
+```
+
+### Производительность
+```bash
+# Время ответа
+time curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "rednote-hilab/dots.ocr", "messages": [...]}'
+```
+
+## 🎉 ЗАКЛЮЧЕНИЕ
+
+Система предоставляет гибкий выбор между:
+
+1. **Transformers режим** - для ограниченных ресурсов
+2. **vLLM режим** - для максимальной производительности
+
+Оба режима используют **общий кеш моделей** и предоставляют **OpenAI-совместимый API**.
+
+Выбирайте режим в зависимости от ваших потребностей в производительности и доступных ресурсов!
+
+---
+*Создано для эффективного управления OCR/VLM моделями*
