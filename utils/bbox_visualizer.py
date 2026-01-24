@@ -66,6 +66,41 @@ class BBoxVisualizer:
             # Попытка парсинга как JSON
             if json_text_stripped.startswith('{') or json_text_stripped.startswith('['):
                 try:
+                    # Пытаемся найти конец JSON массива/объекта
+                    import re
+                    
+                    # Ищем JSON массив или объект
+                    if json_text_stripped.startswith('['):
+                        # Ищем закрывающую скобку массива на верхнем уровне
+                        bracket_count = 0
+                        in_string = False
+                        escape_next = False
+                        json_end = -1
+                        
+                        for i, char in enumerate(json_text_stripped):
+                            if escape_next:
+                                escape_next = False
+                                continue
+                            
+                            if char == '\\':
+                                escape_next = True
+                                continue
+                            
+                            if char == '"' and not escape_next:
+                                in_string = not in_string
+                            
+                            if not in_string:
+                                if char == '[':
+                                    bracket_count += 1
+                                elif char == ']':
+                                    bracket_count -= 1
+                                    if bracket_count == 0:
+                                        json_end = i + 1
+                                        break
+                        
+                        if json_end > 0:
+                            json_text_stripped = json_text_stripped[:json_end]
+                    
                     data = json.loads(json_text_stripped)
                     
                     # Если это список элементов
@@ -102,6 +137,37 @@ class BBoxVisualizer:
                         # Убираем множественные пробелы
                         text = re.sub(r'\s+', ' ', text)
                         return f'"text": "{text.strip()}"'
+                    
+                    # Сначала пытаемся извлечь только JSON часть
+                    if json_text_stripped.startswith('['):
+                        bracket_count = 0
+                        in_string = False
+                        escape_next = False
+                        json_end = -1
+                        
+                        for i, char in enumerate(json_text_stripped):
+                            if escape_next:
+                                escape_next = False
+                                continue
+                            
+                            if char == '\\':
+                                escape_next = True
+                                continue
+                            
+                            if char == '"' and not escape_next:
+                                in_string = not in_string
+                            
+                            if not in_string:
+                                if char == '[':
+                                    bracket_count += 1
+                                elif char == ']':
+                                    bracket_count -= 1
+                                    if bracket_count == 0:
+                                        json_end = i + 1
+                                        break
+                        
+                        if json_end > 0:
+                            json_text_stripped = json_text_stripped[:json_end]
                     
                     fixed_json = re.sub(r'"text"\s*:\s*"([^"]*)"', fix_newlines, json_text_stripped, flags=re.DOTALL)
                     
