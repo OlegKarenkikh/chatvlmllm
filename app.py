@@ -241,6 +241,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state variables
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "current_execution_mode" not in st.session_state:
+    st.session_state.current_execution_mode = "vLLM (Рекомендуется)"
+
+if "max_tokens" not in st.session_state:
+    st.session_state.max_tokens = 4096
+
+if "temperature" not in st.session_state:
+    st.session_state.temperature = 0.7
+
 # Apply custom CSS
 st.markdown(get_custom_css(), unsafe_allow_html=True)
 
@@ -260,9 +273,7 @@ if st.button("🔄 Перезагрузить конфигурацию", help="�
 # Load config without cache to ensure fresh load
 config = load_config()
 
-# Initialize session state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Initialize additional session state variables
 if "uploaded_image" not in st.session_state:
     st.session_state.uploaded_image = None
 if "ocr_result" not in st.session_state:
