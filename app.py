@@ -785,6 +785,120 @@ elif "💬 Режим чата" in page:
             st.session_state.uploaded_image = image
             st.image(image, caption="Контекстное изображение", use_container_width=True)
             
+            # ДОБАВЛЕНО: Официальные промпты dots.ocr
+            if "dots" in selected_model.lower():
+                st.divider()
+                st.subheader("🎯 Официальные промпты dots.ocr")
+                st.caption("Используйте эти промпты для лучших результатов с dots.ocr")
+                
+                # Официальные промпты из тестирования
+                official_prompts = {
+                    "🔤 Простое OCR": {
+                        "prompt": "Extract all text from this image.",
+                        "description": "Извлекает весь текст включая таблицы в HTML"
+                    },
+                    "📋 Детальное OCR": {
+                        "prompt": "Extract all text content from this image while maintaining reading order. Exclude headers and footers.",
+                        "description": "Детальное извлечение с порядком чтения"
+                    },
+                    "🏗️ Анализ структуры": {
+                        "prompt": "Extract text, layout, and structure from this document image. Include bounding boxes, categories, and format tables as HTML, formulas as LaTeX, and text as Markdown.",
+                        "description": "Полный анализ макета и структуры"
+                    },
+                    "📊 Извлечение таблиц": {
+                        "prompt": "Extract and format the table content from this document as structured data.",
+                        "description": "Специально для табличных данных"
+                    },
+                    "📄 Структурированное извлечение": {
+                        "prompt": "Analyze this document and extract structured information including text, tables, and layout elements.",
+                        "description": "Комбинированный анализ документа"
+                    }
+                }
+                
+                # Создаем кнопки для официальных промптов
+                for button_text, prompt_info in official_prompts.items():
+                    if st.button(
+                        button_text,
+                        help=prompt_info["description"],
+                        use_container_width=True,
+                        key=f"official_prompt_{button_text}"
+                    ):
+                        # Добавляем официальный промпт в чат
+                        official_prompt = prompt_info["prompt"]
+                        st.session_state.messages.append({"role": "user", "content": official_prompt})
+                        
+                        # Обрабатываем промпт
+                        with st.spinner("🔄 Обрабатываем официальный промпт..."):
+                            try:
+                                import time
+                                start_time = time.time()
+                                
+                                if "vLLM" in execution_mode:
+                                    from vllm_streamlit_adapter import VLLMStreamlitAdapter
+                                    
+                                    if "vllm_adapter" not in st.session_state:
+                                        st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                                    
+                                    adapter = st.session_state.vllm_adapter
+                                    result = adapter.process_image(image, official_prompt, "rednote-hilab/dots.ocr")
+                                    
+                                    if result and result["success"]:
+                                        response = result["text"]
+                                        processing_time = result["processing_time"]
+                                        response += f"\n\n*🎯 Официальный промпт dots.ocr обработан за {processing_time:.2f}с*"
+                                    else:
+                                        response = "❌ Ошибка обработки официального промпта"
+                                else:
+                                    # Transformers режим
+                                    from models.model_loader import ModelLoader
+                                    model = ModelLoader.load_model(selected_model)
+                                    
+                                    if hasattr(model, 'process_image'):
+                                        response = model.process_image(image, prompt=official_prompt)
+                                    else:
+                                        response = model.process_image(image)
+                                    
+                                    processing_time = time.time() - start_time
+                                    response += f"\n\n*🔧 Официальный промпт обработан локально за {processing_time:.2f}с*"
+                                
+                                # Добавляем ответ в чат
+                                st.session_state.messages.append({"role": "assistant", "content": response})
+                                st.success(f"✅ Официальный промпт '{button_text}' выполнен!")
+                                st.rerun()
+                                
+                            except Exception as e:
+                                error_response = f"❌ Ошибка при выполнении официального промпта: {str(e)}"
+                                st.session_state.messages.append({"role": "assistant", "content": error_response})
+                                st.error(f"Ошибка: {e}")
+                                st.rerun()
+                
+                st.divider()
+                st.info("💡 **Совет:** Официальные промпты дают лучшие результаты с dots.ocr чем произвольные вопросы")
+            
+            else:
+                # Для других моделей показываем примеры чат-вопросов
+                st.divider()
+                st.subheader("💬 Примеры вопросов")
+                st.caption("Попробуйте эти вопросы для интерактивного чата")
+                
+                chat_examples = [
+                    "🔍 Что изображено на картинке?",
+                    "📝 Опиши содержимое документа",
+                    "🔢 Найди все числа в изображении",
+                    "📊 Есть ли таблицы в документе?",
+                    "🏗️ Опиши структуру документа"
+                ]
+                
+                for example in chat_examples:
+                    if st.button(
+                        example,
+                        use_container_width=True,
+                        key=f"chat_example_{example}"
+                    ):
+                        # Добавляем пример в поле ввода (через session state)
+                        st.session_state.example_prompt = example.split(" ", 1)[1]  # Убираем эмодзи
+                        st.rerun()
+            
             if st.button("🗑️ Очистить историю чата", use_container_width=True):
                 st.session_state.messages = []
                 st.rerun()
@@ -804,8 +918,27 @@ elif "💬 Режим чата" in page:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
         
-        # Chat input
-        if prompt := st.chat_input("Спросите об изображении...", disabled=not chat_image):
+        # Chat input с подсказкой в зависимости от модели
+        if "dots" in selected_model.lower():
+            placeholder = "Введите вопрос или используйте официальные промпты выше..."
+        else:
+            placeholder = "Спросите об изображении..."
+        
+        # Показываем подсказку если есть пример
+        if hasattr(st.session_state, 'example_prompt'):
+            st.info(f"💡 Предлагаемый вопрос: {st.session_state.example_prompt}")
+            if st.button("✅ Использовать этот вопрос", key="use_example"):
+                prompt = st.session_state.example_prompt
+                del st.session_state.example_prompt
+                # Обрабатываем как обычный промпт
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                # Здесь будет обработка...
+                st.rerun()
+            if st.button("❌ Отменить", key="cancel_example"):
+                del st.session_state.example_prompt
+                st.rerun()
+        
+        if prompt := st.chat_input(placeholder, disabled=not chat_image):
             # Add user message
             st.session_state.messages.append({"role": "user", "content": prompt})
             
