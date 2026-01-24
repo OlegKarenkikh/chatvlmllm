@@ -172,6 +172,18 @@ with st.sidebar:
         index=list(config["models"].keys()).index("qwen_vl_2b")  # По умолчанию лучшая модель
     )
     
+    # ДОБАВЛЕНО: Предупреждение для dots.ocr в режиме чата
+    if "dots" in selected_model.lower() and "💬 Режим чата" in page:
+        st.warning(
+            "⚠️ **dots.ocr специализирована на OCR**\n\n"
+            "Для полноценного чата об изображениях рекомендуется использовать:\n"
+            "• **Qwen3-VL 2B** - лучший выбор для чата\n"
+            "• **Qwen2-VL 2B** - альтернатива\n\n"
+            "dots.ocr будет адаптировать ответы, но может не отвечать на все вопросы."
+        )
+    elif "dots" in selected_model.lower():
+        st.success("✅ **dots.ocr** - отлично подходит для OCR задач!")
+    
     # Display model info
     model_info = config["models"][selected_model]
     
@@ -819,19 +831,63 @@ elif "💬 Режим чата" in page:
                                 
                                 adapter = st.session_state.vllm_adapter
                                 
-                                # Используем DotsOCR модель для vLLM
-                                vllm_model = "rednote-hilab/dots.ocr"
-                                result = adapter.process_image(image, prompt, vllm_model)
-                                
-                                if result and result["success"]:
-                                    response = result["text"]
-                                    processing_time = result["processing_time"]
+                                # ИСПРАВЛЕНИЕ: Проверяем тип модели для правильной обработки
+                                if "dots" in selected_model.lower():
+                                    # dots.ocr специализирована на OCR, адаптируем ответ
+                                    vllm_model = "rednote-hilab/dots.ocr"
+                                    result = adapter.process_image(image, prompt, vllm_model)
                                     
-                                    # Добавление информации о времени обработки
-                                    response += f"\n\n*🚀 Обработано через vLLM за {processing_time:.2f}с*"
+                                    if result and result["success"]:
+                                        ocr_text = result["text"]
+                                        processing_time = result["processing_time"]
+                                        
+                                        # Анализируем тип вопроса и адаптируем ответ
+                                        if any(word in prompt.lower() for word in ['текст', 'прочитай', 'извлеки', 'распознай', 'text', 'extract', 'read']):
+                                            # OCR вопрос - возвращаем как есть
+                                            response = ocr_text
+                                        elif any(word in prompt.lower() for word in ['что', 'какой', 'сколько', 'есть ли', 'найди', 'what', 'how', 'is there', 'find']):
+                                            # Аналитический вопрос - адаптируем ответ
+                                            if 'число' in prompt.lower() or 'number' in prompt.lower():
+                                                # Ищем числа в тексте
+                                                import re
+                                                numbers = re.findall(r'\d+', ocr_text)
+                                                if numbers:
+                                                    response = f"В изображении найдены числа: {', '.join(numbers)}"
+                                                else:
+                                                    response = "В изображении не найдено чисел."
+                                            elif 'цвет' in prompt.lower() or 'color' in prompt.lower():
+                                                response = "dots.ocr специализирована на распознавании текста, а не анализе цветов. Для анализа изображений используйте Qwen3-VL."
+                                            elif 'сколько' in prompt.lower() or 'how many' in prompt.lower():
+                                                words = len(ocr_text.split())
+                                                response = f"В тексте примерно {words} слов."
+                                            elif 'есть ли' in prompt.lower() or 'is there' in prompt.lower():
+                                                if 'текст' in prompt.lower() or 'text' in prompt.lower():
+                                                    response = f"Да, в изображении есть текст:\n\n{ocr_text}"
+                                                else:
+                                                    response = f"dots.ocr может определить только наличие текста. Найденный текст:\n\n{ocr_text}"
+                                            else:
+                                                # Общий аналитический вопрос
+                                                response = f"dots.ocr специализирована на OCR. Вот распознанный текст, который может помочь ответить на ваш вопрос:\n\n{ocr_text}\n\n💡 Для детального анализа изображений используйте Qwen3-VL в настройках модели."
+                                        else:
+                                            # Неопределенный вопрос
+                                            response = f"dots.ocr специализирована на распознавании текста. Извлеченный текст:\n\n{ocr_text}\n\n💡 Для чата об изображениях выберите Qwen3-VL в настройках модели."
+                                        
+                                        # Добавление информации о времени обработки
+                                        response += f"\n\n*🚀 Обработано через vLLM за {processing_time:.2f}с*"
+                                    else:
+                                        response = "❌ Ошибка обработки через vLLM"
+                                        processing_time = 0
                                 else:
-                                    response = "❌ Ошибка обработки через vLLM"
-                                    processing_time = 0
+                                    # Другие модели - используем как есть
+                                    result = adapter.process_image(image, prompt, selected_model)
+                                    
+                                    if result and result["success"]:
+                                        response = result["text"]
+                                        processing_time = result["processing_time"]
+                                        response += f"\n\n*🚀 Обработано через vLLM за {processing_time:.2f}с*"
+                                    else:
+                                        response = "❌ Ошибка обработки через vLLM"
+                                        processing_time = 0
                                     
                             except Exception as e:
                                 st.error(f"❌ Ошибка vLLM режима: {e}")
