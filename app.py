@@ -7,6 +7,7 @@ import re
 import sys
 import importlib
 import html
+import time
 
 
 
@@ -639,67 +640,140 @@ with st.sidebar:
     
     # Динамический выбор модели в зависимости от режима
     if "vLLM" in execution_mode:
-        # vLLM режим - получаем модели из API
+        # vLLM режим с интегрированным управлением контейнерами
         try:
             from vllm_streamlit_adapter import VLLMStreamlitAdapter
+            from single_container_manager import SingleContainerManager
             
             if "vllm_adapter" not in st.session_state:
                 st.session_state.vllm_adapter = VLLMStreamlitAdapter()
             
-            adapter = st.session_state.vllm_adapter
-            vllm_models = adapter.available_models
+            if "single_container_manager" not in st.session_state:
+                st.session_state.single_container_manager = SingleContainerManager()
             
-            if vllm_models:
-                selected_model = st.selectbox(
-                    "Выберите модель (vLLM)",
-                    vllm_models,
-                    format_func=lambda x: x.split("/")[-1] if "/" in x else x,
-                    key="vllm_model_selector",
-                    help="Модели, загруженные в vLLM сервере"
-                )
+            adapter = st.session_state.vllm_adapter
+            container_manager = st.session_state.single_container_manager
+            
+            # Получаем статус системы
+            system_status = container_manager.get_system_status()
+            
+            # Отображаем статус активной модели
+            if system_status["active_model"]:
+                st.success(f"🟢 **Активная модель:** {system_status['active_model_name']}")
+                st.caption(f"💾 Использование памяти: {system_status['total_memory_usage']} ГБ")
                 
-                # Получаем лимит токенов для выбранной модели
+                # Получаем активную модель для селектора
+                active_config = container_manager.models_config[system_status["active_model"]]
+                selected_model = active_config["model_path"]
                 model_max_tokens = adapter.get_model_max_tokens(selected_model)
                 
-                # Показываем информацию о модели vLLM
+                # Показываем информацию об активной модели
                 st.info(
                     f"**🚀 vLLM: {selected_model.split('/')[-1]}**\n\n"
-                    f"🟢 vLLM режим - высокая производительность\n"
+                    f"🟢 Активна и готова к работе\n"
                     f"🎯 Max Tokens: {model_max_tokens}\n"
                     f"📏 Модель: {selected_model}\n"
-                    f"⚡ Статус: Готов к использованию"
+                    f"⚡ Принцип: Один активный контейнер"
                 )
                 
-                # Предупреждение о лимитах токенов
-                if model_max_tokens < 2048:
-                    st.warning(
-                        f"⚠️ **Ограничение токенов**\n\n"
-                        f"Модель поддерживает максимум **{model_max_tokens} токенов**.\n"
-                        f"Увеличение лимита в настройках выше этого значения приведет к ошибкам."
-                    )
-                
             else:
-                st.error("❌ Нет доступных моделей в vLLM")
-                st.info("💡 Убедитесь, что vLLM сервер запущен:\n`docker-compose -f docker-compose-vllm.yml up -d`")
-                selected_model = "dots_ocr"  # Fallback
+                st.warning("🟡 **Нет активной модели**")
+                st.info("💡 Выберите модель для активации ниже")
+                selected_model = "rednote-hilab/dots.ocr"  # Fallback
                 model_max_tokens = 1024
+            
+            # Интерфейс выбора модели с автоматическим переключением
+            st.markdown("### 🎯 Управление моделями vLLM")
+            
+            # Создаем список доступных моделей
+            model_options = []
+            model_keys = []
+            
+            for model_key, config in container_manager.models_config.items():
+                status_icon = "🟢" if model_key == system_status["active_model"] else "⚪"
+                option_text = f"{status_icon} {config['display_name']} ({config['memory_gb']} ГБ)"
+                model_options.append(option_text)
+                model_keys.append(model_key)
+            
+            # Находим индекс активной модели
+            current_index = 0
+            if system_status["active_model"]:
+                try:
+                    current_index = model_keys.index(system_status["active_model"])
+                except ValueError:
+                    current_index = 0
+            
+            selected_model_index = st.selectbox(
+                "Выберите модель:",
+                range(len(model_options)),
+                format_func=lambda x: model_options[x],
+                index=current_index,
+                help="Выбранная модель будет запущена, все остальные остановлены",
+                key="vllm_model_selector"
+            )
+            
+            selected_model_key = model_keys[selected_model_index]
+            selected_config = container_manager.models_config[selected_model_key]
+            selected_model = selected_config["model_path"]
+            
+            # Информация о выбранной модели
+            with st.expander(f"ℹ️ Информация о {selected_config['display_name']}"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write(f"**Модель:** {selected_config['model_path']}")
+                    st.write(f"**Порт:** {selected_config['port']}")
+                    st.write(f"**Память:** {selected_config['memory_gb']} ГБ")
+                
+                with col2:
+                    st.write(f"**Время запуска:** ~{selected_config['startup_time']} сек")
+                    st.write(f"**Контейнер:** {selected_config['container_name']}")
+                
+                st.write(f"**Описание:** {selected_config['description']}")
+            
+            # Кнопка переключения модели
+            if selected_model_key != system_status["active_model"]:
+                if st.button(f"🔄 Переключиться на {selected_config['display_name']}", type="primary"):
+                    with st.spinner("Переключение модели..."):
+                        success, message = container_manager.start_single_container(selected_model_key)
+                        
+                        if success:
+                            st.success(message)
+                            st.balloons()
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(message)
+            else:
+                st.success("✅ Выбранная модель уже активна")
+            
+            # Получаем лимит токенов для выбранной модели
+            model_max_tokens = adapter.get_model_max_tokens(selected_model)
+            
+            # Предупреждение о лимитах токенов
+            if model_max_tokens < 2048:
+                st.warning(
+                    f"⚠️ **Ограничение токенов**\n\n"
+                    f"Модель поддерживает максимум **{model_max_tokens} токенов**.\n"
+                    f"Увеличение лимита в настройках выше этого значения приведет к ошибкам."
+                )
                 
         except Exception as e:
             st.error(f"❌ Ошибка подключения к vLLM: {e}")
-            selected_model = "dots_ocr"  # Fallback
+            selected_model = "rednote-hilab/dots.ocr"  # Fallback
             model_max_tokens = 1024
     else:
         # Transformers режим - используем модели из конфигурации
         selected_model = st.selectbox(
             "Выберите модель (Transformers)",
-            list(config["models"].keys()),
-            format_func=lambda x: config["models"][x]["name"],
+            list(config.get("models", {}).keys()),
+            format_func=lambda x: config.get("models", {}).get(x, {}).get("name", x),
             key="transformers_model_selector",
-            index=list(config["models"].keys()).index("qwen3_vl_2b")  # По умолчанию лучшая модель
+            index=0 if "qwen3_vl_2b" not in config.get("models", {}) else list(config.get("models", {}).keys()).index("qwen3_vl_2b")  # По умолчанию лучшая модель
         )
         
         # Display model info для Transformers
-        model_info = config["models"][selected_model]
+        model_info = config.get("models", {}).get(selected_model, {})
         model_max_tokens = model_info.get('max_new_tokens', 4096)
         
         st.info(
@@ -1010,7 +1084,7 @@ elif "📄 Режим OCR" in page:
         
         uploaded_file = st.file_uploader(
             "Выберите изображение",
-            type=config["ocr"]["supported_formats"],
+            type=config.get("ocr", {}).get("supported_formats", ["jpg", "jpeg", "png", "bmp", "tiff"]),
             help="Поддерживаемые форматы: JPG, PNG, BMP, TIFF",
             key="ocr_upload"
         )
@@ -1029,7 +1103,7 @@ elif "📄 Режим OCR" in page:
         # Document type selection
         document_type = st.selectbox(
             "📋 Тип документа",
-            list(config["document_templates"].keys()),
+            list(config.get("document_templates", {}).keys()),
             format_func=lambda x: x.capitalize(),
             help="Выберите тип документа для оптимизированного извлечения полей"
         )
@@ -1041,6 +1115,31 @@ elif "📄 Режим OCR" in page:
             deskew = st.checkbox("Автоматическое выравнивание", value=False)
         
         st.divider()
+        
+        # Информация о выборе модели для OCR
+        if "vLLM" in execution_mode:
+            try:
+                from vllm_streamlit_adapter import VLLMStreamlitAdapter
+                
+                if "vllm_adapter" not in st.session_state:
+                    st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                
+                adapter = st.session_state.vllm_adapter
+                active_model = adapter.container_manager.get_active_model()
+                
+                if active_model:
+                    active_config = adapter.container_manager.models_config[active_model]
+                    st.success(f"🎯 **Для OCR будет использована активная модель:** {active_config['display_name']}")
+                    
+                    if "dots" in active_config["model_path"].lower():
+                        st.info("✅ Специализированная OCR модель - отличный выбор для извлечения текста!")
+                    else:
+                        st.info("💡 Универсальная VLM модель - подходит для OCR с пониманием контекста")
+                else:
+                    st.warning("⚠️ Нет активной модели. Будет активирована специализированная dots.ocr")
+                    
+            except Exception as e:
+                st.warning(f"⚠️ Не удалось проверить статус моделей: {e}")
         
         # Process button
         if st.button("🚀 Извлечь текст", type="primary", use_container_width=True):
@@ -1113,8 +1212,30 @@ elif "📄 Режим OCR" in page:
                                 else:
                                     prompt = "Extract all text from this image, preserving structure and formatting"
                                 
-                                # Используем DotsOCR модель для vLLM
-                                vllm_model = "rednote-hilab/dots.ocr"
+                                # ИСПРАВЛЕНИЕ: Используем уже активную модель или dots.ocr
+                                # Проверяем, какая модель уже активна
+                                active_model = adapter.container_manager.get_active_model()
+                                
+                                if active_model:
+                                    active_config = adapter.container_manager.models_config[active_model]
+                                    vllm_model = active_config["model_path"]
+                                    st.info(f"🎯 Используем уже активную модель: {active_config['display_name']}")
+                                    
+                                    # Адаптируем промпт для универсальных моделей
+                                    if "qwen" in vllm_model.lower():
+                                        if document_type == "passport":
+                                            prompt = "Analyze this passport document and extract all visible text, preserving the original structure and formatting. Include all fields, numbers, and text elements."
+                                        elif document_type == "driver_license":
+                                            prompt = "Analyze this driver's license and extract all visible text, preserving the original structure and formatting. Include all fields, numbers, and text elements."
+                                        elif document_type == "invoice":
+                                            prompt = "Analyze this invoice document and extract all text and structured data, preserving formatting and layout."
+                                        else:
+                                            prompt = "Analyze this document and extract all visible text, preserving the original structure and formatting."
+                                else:
+                                    # Если нет активной модели, используем dots.ocr (специализированная для OCR)
+                                    vllm_model = "rednote-hilab/dots.ocr"
+                                    st.info("🔄 Активируем специализированную OCR модель: dots.ocr")
+                                
                                 result = adapter.process_image(processed_image, prompt, vllm_model, max_tokens)
                                 
                                 if result and result["success"]:
@@ -1221,7 +1342,7 @@ elif "📄 Режим OCR" in page:
             st.markdown("**📋 Извлеченные поля:**")
             
             if document_type and result.get('text'):
-                fields = config["document_templates"][document_type]["fields"]
+                fields = config.get("document_templates", {}).get(document_type, {}).get("fields", [])
                 
                 # Улучшенное извлечение полей из текста
                 extracted_fields = {}
@@ -1362,7 +1483,7 @@ elif "💬 Режим чата" in page:
         
         chat_image = st.file_uploader(
             "Изображение для контекста чата",
-            type=config["ocr"]["supported_formats"],
+            type=config.get("ocr", {}).get("supported_formats", ["jpg", "jpeg", "png", "bmp", "tiff"]),
             key="chat_upload"
         )
         

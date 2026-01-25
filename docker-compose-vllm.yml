@@ -5,7 +5,7 @@ services:
   dots-ocr:
     image: vllm/vllm-openai:latest
     container_name: dots-ocr-fixed
-    restart: unless-stopped
+    restart: "no"  # ИСПРАВЛЕНО: Отключен автоперезапуск для соблюдения принципа одного контейнера
     ports:
       - "8000:8000"
     volumes:
@@ -53,7 +53,7 @@ services:
   qwen2-vl-2b:
     image: vllm/vllm-openai:latest
     container_name: qwen-qwen2-vl-2b-instruct-vllm
-    restart: unless-stopped
+    restart: "no"  # ИСПРАВЛЕНО: Отключен автоперезапуск для соблюдения принципа одного контейнера
     ports:
       - "8001:8000"
     volumes:
@@ -98,7 +98,7 @@ services:
   qwen3-vl-2b:
     image: vllm/vllm-openai:latest
     container_name: qwen-qwen3-vl-2b-instruct-vllm
-    restart: unless-stopped
+    restart: "no"  # ИСПРАВЛЕНО: Отключен автоперезапуск для соблюдения принципа одного контейнера
     ports:
       - "8004:8000"
     volumes:
@@ -143,7 +143,7 @@ services:
   phi35-vision:
     image: vllm/vllm-openai:latest
     container_name: microsoft-phi-3-5-vision-instruct-vllm
-    restart: unless-stopped
+    restart: "no"  # ИСПРАВЛЕНО: Отключен автоперезапуск для соблюдения принципа одного контейнера
     ports:
       - "8002:8000"
     volumes:
@@ -190,7 +190,7 @@ services:
   qwen2-vl-7b:
     image: vllm/vllm-openai:latest
     container_name: qwen-qwen2-vl-7b-instruct-vllm
-    restart: unless-stopped
+    restart: "no"  # ИСПРАВЛЕНО: Отключен автоперезапуск для соблюдения принципа одного контейнера
     ports:
       - "8003:8000"
     volumes:
@@ -235,7 +235,7 @@ services:
   nginx-proxy:
     image: nginx:alpine
     container_name: vllm-proxy
-    restart: unless-stopped
+    restart: "no"  # ИСПРАВЛЕНО: Отключен автоперезапуск
     ports:
       - "8080:80"
     volumes:

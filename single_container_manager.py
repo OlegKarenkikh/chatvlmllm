@@ -128,8 +128,10 @@ class SingleContainerManager:
         for model_key, config in self.models_config.items():
             container_status = self.get_container_status(config["container_name"])
             
-            if container_status["running"] and container_status["health"] == "healthy":
-                api_healthy, _ = self.check_api_health(config["port"])
+            # Проверяем, что контейнер запущен
+            if container_status["running"]:
+                # Проверяем API доступность (это более надежный индикатор)
+                api_healthy, api_message = self.check_api_health(config["port"])
                 if api_healthy:
                     self.current_active_model = model_key
                     return model_key
@@ -170,7 +172,15 @@ class SingleContainerManager:
         
         config = self.models_config[model_key]
         
-        # Шаг 1: Останавливаем все контейнеры
+        # ИСПРАВЛЕНИЕ: Проверяем, не активна ли уже эта модель
+        current_active = self.get_active_model()
+        if current_active == model_key:
+            # Дополнительная проверка API
+            api_healthy, api_message = self.check_api_health(config["port"])
+            if api_healthy:
+                return True, f"Модель {config['display_name']} уже активна и готова к работе"
+        
+        # Шаг 1: Останавливаем все контейнеры (включая неактивные)
         st.info("🛑 Остановка всех активных контейнеров...")
         stopped, failed = self.stop_all_containers()
         
