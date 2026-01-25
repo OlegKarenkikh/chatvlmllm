@@ -249,6 +249,8 @@ def convert_html_table_to_text(content: str) -> str:
 
 # All HTML rendering has been replaced with native Streamlit elements
 
+from ui.styles import get_custom_css
+
 
 def clean_ocr_result(text: str) -> str:
     """Очистка результата OCR от лишних символов и повторений."""
@@ -516,49 +518,6 @@ def display_bbox_visualization_improved(ocr_result):
                 # Разделитель между элементами
                 if i < len(elements):
                     st.markdown("---")
-            
-            # Fallback - красивое текстовое отображение
-            st.markdown("**Элементы (текстовый формат):**")
-            
-            for i, element in enumerate(elements, 1):
-                bbox = element.get('bbox', [0, 0, 0, 0])
-                category = element.get('category', 'Unknown')
-                text = element.get('text', '')
-                
-                # Цвет для категории (используем эмодзи как fallback)
-                category_emoji = {
-                    'Picture': '🖼️',
-                    'Section-header': '📋',
-                    'Text': '📝',
-                    'List-item': '📌',
-                    'Table': '📊',
-                    'Title': '🏷️'
-                }.get(category, '📄')
-                
-                # Форматирование BBOX
-                bbox_str = f"[{bbox[0]}, {bbox[1]}, {bbox[2]}, {bbox[3]}]"
-                
-                # Ограничение длины текста
-                display_text = text[:100] + "..." if len(text) > 100 else text
-                
-                # Отображение элемента
-                with st.container():
-                    col_num, col_cat, col_bbox, col_text = st.columns([0.5, 1.5, 2, 4])
-                    
-                    with col_num:
-                        st.markdown(f"**{i}**")
-                    
-                    with col_cat:
-                        st.markdown(f"{category_emoji} {category}")
-                    
-                    with col_bbox:
-                        st.code(bbox_str)
-                    
-                    with col_text:
-                        if display_text:
-                            st.caption(display_text)
-                        else:
-                            st.caption("_Нет текста_")
         
         # Дополнительная информация об элементах
         with st.expander("🔍 Подробная информация об элементах"):
