@@ -6,6 +6,7 @@ import io
 import re
 import sys
 import importlib
+import html
 
 # Принудительная перезагрузка модулей HTML рендеринга при каждом запуске
 if 'utils.smart_content_renderer' in sys.modules:
@@ -15,6 +16,78 @@ if 'utils.html_table_renderer' in sys.modules:
 
 # Import UI components
 from ui.styles import get_custom_css
+
+def render_html_tables_simple(content: str) -> str:
+    """Простая замена HTML таблиц на markdown"""
+    
+    # Поиск HTML таблиц
+    table_pattern = r'<table[^>]*>.*?</table>'
+    tables = re.findall(table_pattern, content, re.DOTALL | re.IGNORECASE)
+    
+    if not tables:
+        return content
+    
+    result_content = content
+    
+    for table_html in tables:
+        try:
+            # Конвертируем HTML таблицу в markdown
+            markdown_table = html_table_to_markdown(table_html)
+            
+            # Заменяем HTML таблицу на markdown
+            result_content = result_content.replace(table_html, f"\n\n**📊 Таблица:**\n\n{markdown_table}\n\n")
+            
+        except Exception as e:
+            # Fallback - просто убираем HTML теги
+            clean_table = re.sub(r'<[^>]+>', '', table_html)
+            result_content = result_content.replace(table_html, f"\n\n**📊 Таблица:**\n{clean_table}\n\n")
+    
+    return result_content
+
+def html_table_to_markdown(table_html: str) -> str:
+    """Конвертация HTML таблицы в Markdown"""
+    
+    try:
+        # Извлечение строк таблицы
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL | re.IGNORECASE)
+        
+        if not rows:
+            return "Не удалось извлечь строки таблицы"
+        
+        markdown_rows = []
+        is_header = True
+        
+        for row in rows:
+            # Извлечение ячеек
+            cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, re.DOTALL | re.IGNORECASE)
+            
+            if not cells:
+                continue
+            
+            # Очистка содержимого ячеек от HTML тегов
+            clean_cells = []
+            for cell in cells:
+                clean_cell = re.sub(r'<[^>]+>', '', cell)
+                clean_cell = html.unescape(clean_cell).strip()
+                # Ограничиваем длину ячейки
+                if len(clean_cell) > 50:
+                    clean_cell = clean_cell[:47] + "..."
+                clean_cells.append(clean_cell)
+            
+            # Формирование строки Markdown
+            markdown_row = "| " + " | ".join(clean_cells) + " |"
+            markdown_rows.append(markdown_row)
+            
+            # Добавление разделителя после заголовка
+            if is_header and len(clean_cells) > 0:
+                separator = "| " + " | ".join(["---"] * len(clean_cells)) + " |"
+                markdown_rows.append(separator)
+                is_header = False
+        
+        return "\n".join(markdown_rows)
+        
+    except Exception as e:
+        return f"Ошибка конвертации таблицы: {str(e)}"
 
 
 def clean_ocr_result(text: str) -> str:
@@ -318,20 +391,10 @@ with st.sidebar:
     st.subheader("⚙️ Настройки модели")
     
     # Выбор режима работы
-    # Режим выполнения с контролем памяти
-    from utils.mode_switcher import mode_switcher
-    
-    # Отображение переключателя режимов
-    with st.expander("🔧 Управление режимами и памятью", expanded=False):
-        mode_switcher.display_mode_switcher_ui()
-    
-    # Получение рекомендуемых настроек
-    recommendations = mode_switcher.get_recommended_settings()
-    
     execution_mode = st.selectbox(
         "🚀 Режим выполнения",
         ["vLLM (Рекомендуется)", "Transformers (Локально)"],
-        index=0 if recommendations["execution_mode"] == "vllm" else 1,
+        index=0,
         help="vLLM - высокая производительность через Docker, Transformers - локальная загрузка моделей"
     )
     
@@ -1328,20 +1391,20 @@ Output as JSON array of detected layout elements.""",
                             ocr_result = st.session_state.last_ocr_result
                             prompt_info = ocr_result.get("prompt_info", {})
                             
-                            # Умное отображение контента с автоматической обработкой HTML
-                            from utils.smart_content_renderer import SmartContentRenderer
-                            SmartContentRenderer.render_content_smart(message["content"])
+                            # Простое отображение контента с обработкой HTML таблиц
+                            processed_content = render_html_tables_simple(message["content"])
+                            st.markdown(processed_content)
                             
                             # Обработка BBOX если включена
                             display_bbox_visualization_improved(ocr_result)
                         else:
-                            # Умное отображение сообщения с автоматической обработкой HTML
-                            from utils.smart_content_renderer import SmartContentRenderer
-                            SmartContentRenderer.render_content_smart(message["content"])
+                            # Простое отображение сообщения с обработкой HTML таблиц
+                            processed_content = render_html_tables_simple(message["content"])
+                            st.markdown(processed_content)
                     else:
-                        # Умное отображение пользовательских сообщений
-                        from utils.smart_content_renderer import SmartContentRenderer
-                        SmartContentRenderer.render_content_smart(message["content"])
+                        # Простое отображение пользовательских сообщений
+                        processed_content = render_html_tables_simple(message["content"])
+                        st.markdown(processed_content)
         
         # Chat input с подсказкой в зависимости от модели
         if "dots" in selected_model.lower():
