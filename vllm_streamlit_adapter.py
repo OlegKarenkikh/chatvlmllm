@@ -2,6 +2,7 @@
 """
 Адаптер для интеграции vLLM API с Streamlit интерфейсом
 Включает управление памятью и автоматическое переключение контейнеров
+ПРИНЦИП: Только один активный контейнер одновременно
 """
 
 import requests
@@ -11,15 +12,15 @@ import streamlit as st
 from PIL import Image
 import io
 from typing import Optional, Dict, Any, List
-from vllm_memory_manager import VLLMMemoryManager
+from single_container_manager import SingleContainerManager
 
 class VLLMStreamlitAdapter:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
         self.available_models = []
         
-        # Инициализация менеджера памяти
-        self.memory_manager = VLLMMemoryManager()
+        # Инициализация менеджера одиночных контейнеров
+        self.container_manager = SingleContainerManager()
         
         # Маппинг моделей на порты для множественных контейнеров
         self.model_endpoints = {
@@ -42,38 +43,52 @@ class VLLMStreamlitAdapter:
         self.check_all_connections()
     
     def check_all_connections(self) -> bool:
-        """Проверка подключения ко всем vLLM серверам"""
+        """Проверка подключения к активному vLLM серверу"""
         self.available_models = []
         self.model_limits = {}
         self.healthy_endpoints = {}
         
-        for model_name, endpoint in self.model_endpoints.items():
-            try:
-                response = requests.get(f"{endpoint}/health", timeout=5)
-                if response.status_code == 200:
-                    self.healthy_endpoints[model_name] = endpoint
-                    
-                    # Получаем информацию о модели
-                    models_response = requests.get(f"{endpoint}/v1/models", timeout=5)
-                    if models_response.status_code == 200:
-                        models_data = models_response.json()
-                        for model in models_data.get("data", []):
-                            if model["id"] == model_name:
-                                self.available_models.append(model_name)
-                                self.model_limits[model_name] = model.get("max_model_len", 1024)
-                                break
-                    
-                    st.success(f"✅ {model_name.split('/')[-1]} подключен ({endpoint})")
-                else:
-                    st.warning(f"⚠️ {model_name.split('/')[-1]} недоступен ({endpoint})")
-            except Exception as e:
-                st.warning(f"⚠️ {model_name.split('/')[-1]} недоступен: {str(e)[:50]}...")
+        # Получаем активную модель от менеджера контейнеров
+        active_model_key = self.container_manager.get_active_model()
         
-        if self.available_models:
-            st.info(f"🚀 Доступно моделей: {len(self.available_models)}")
-            return True
-        else:
-            st.error("❌ Нет доступных vLLM серверов")
+        if not active_model_key:
+            st.warning("⚠️ Нет активной модели. Выберите модель для активации.")
+            return False
+        
+        # Получаем конфигурацию активной модели
+        active_config = self.container_manager.models_config.get(active_model_key)
+        if not active_config:
+            st.error(f"❌ Конфигурация модели {active_model_key} не найдена")
+            return False
+        
+        model_path = active_config["model_path"]
+        endpoint = f"http://localhost:{active_config['port']}"
+        
+        try:
+            # Проверяем health
+            response = requests.get(f"{endpoint}/health", timeout=5)
+            if response.status_code == 200:
+                # Проверяем models endpoint
+                models_response = requests.get(f"{endpoint}/v1/models", timeout=5)
+                if models_response.status_code == 200:
+                    models_data = models_response.json()
+                    for model in models_data.get("data", []):
+                        if model["id"] == model_path:
+                            self.available_models.append(model_path)
+                            self.model_limits[model_path] = model.get("max_model_len", 1024)
+                            self.healthy_endpoints[model_path] = endpoint
+                            
+                            st.success(f"✅ {active_config['display_name']} активна и готова")
+                            return True
+                
+                st.warning(f"⚠️ Модель {model_path} не найдена в API")
+                return False
+            else:
+                st.warning(f"⚠️ {active_config['display_name']} недоступна (health check failed)")
+                return False
+                
+        except Exception as e:
+            st.warning(f"⚠️ {active_config['display_name']} недоступна: {str(e)[:50]}...")
             return False
     
     def get_endpoint_for_model(self, model_name: str) -> str:
@@ -81,16 +96,30 @@ class VLLMStreamlitAdapter:
         return self.healthy_endpoints.get(model_name, self.base_url)
     
     def ensure_model_available(self, model_name: str) -> bool:
-        """Обеспечение доступности модели (запуск контейнера при необходимости)"""
+        """Обеспечение доступности модели через менеджер контейнеров"""
+        
+        # Проверяем, активна ли уже нужная модель
         if model_name in self.healthy_endpoints:
             return True
         
-        # Пытаемся переключиться на модель через менеджер памяти
-        success, message = self.memory_manager.switch_to_model(model_name)
+        # Находим ключ модели в конфигурации менеджера
+        target_model_key = None
+        for model_key, config in self.container_manager.models_config.items():
+            if config["model_path"] == model_name:
+                target_model_key = model_key
+                break
+        
+        if not target_model_key:
+            st.error(f"❌ Модель {model_name} не найдена в конфигурации")
+            return False
+        
+        # Переключаемся на нужную модель
+        st.info(f"🔄 Переключение на {model_name.split('/')[-1]}...")
+        success, message = self.container_manager.start_single_container(target_model_key)
         
         if success:
             # Обновляем список доступных endpoints
-            time.sleep(5)  # Даем время на запуск
+            time.sleep(3)  # Даем время на стабилизацию
             self.check_all_connections()
             return model_name in self.healthy_endpoints
         else:
