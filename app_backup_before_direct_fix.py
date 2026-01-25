@@ -13,7 +13,8 @@ import html
 # Принудительная перезагрузка модулей HTML рендеринга при каждом запуске
 if 'utils.smart_content_renderer' in sys.modules:
     importlib.reload(sys.modules['utils.smart_content_renderer'])
-# HTML table renderer removed - using text-based alternatives
+if 'utils.html_table_renderer' in sys.modules:
+    importlib.reload(sys.modules['utils.html_table_renderer'])
 
 # Import UI components
 
@@ -23,31 +24,40 @@ import re
 
 def render_message_with_json_and_html_tables(content: str, role: str = "assistant"):
     """
-    ОБРАБОТКА JSON И HTML ТАБЛИЦ - ТЕКСТОВАЯ ВЕРСИЯ
-    Конвертирует JSON ответы dots.ocr в текстовые таблицы (БЕЗ HTML)
+    ОБРАБОТКА JSON И HTML ТАБЛИЦ
+    Конвертирует JSON ответы dots.ocr в красивые HTML таблицы
     """
     
     if role == "assistant":
         # Проверяем наличие JSON данных от dots.ocr
         if is_dots_ocr_json_response(content):
-            # Конвертируем JSON в текстовую таблицу (БЕЗ HTML)
-            text_table = convert_dots_ocr_json_to_text_table(content)
+            # Конвертируем JSON в HTML таблицу
+            html_table = convert_dots_ocr_json_to_html_table(content)
             
-            # Отображаем как текстовую таблицу
-            st.markdown("🔧 **JSON данные конвертированы в текстовую таблицу**")
-            st.markdown(text_table)
-            st.success("✅ JSON → Текст конвертация выполнена")
+            # Отображаем как HTML таблицу
+            st.markdown("🔧 **JSON данные конвертированы в HTML таблицу**")
+            st.markdown(html_table, unsafe_allow_html=True)
+            st.success("✅ JSON → HTML конвертация выполнена")
             return
         
-        # Проверяем наличие готовых HTML таблиц - конвертируем в текст
+        # Проверяем наличие готовых HTML таблиц
         elif '<table' in content.lower() and '</table>' in content.lower():
-            # Конвертируем HTML в текст
-            text_content = convert_html_table_to_text(content)
+            # Простые встроенные стили для HTML таблиц
+            simple_styled_content = content.replace(
+                '<table', 
+                '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+            ).replace(
+                '<th', 
+                '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+            ).replace(
+                '<td', 
+                '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+            )
             
-            # Отображаем как текст
-            st.markdown("🔧 **HTML таблица конвертирована в текст**")
-            st.markdown(text_content)
-            st.success("✅ HTML → Текст рендеринг")
+            # Отображаем HTML
+            st.markdown("🔧 **HTML таблица**")
+            st.markdown(simple_styled_content, unsafe_allow_html=True)
+            st.success("✅ HTML рендеринг")
             return
     
     # Обычное сообщение
@@ -72,8 +82,8 @@ def is_dots_ocr_json_response(content: str) -> bool:
     
     return False
 
-def convert_dots_ocr_json_to_text_table(content: str) -> str:
-    """Конвертирует JSON ответ dots.ocr в текстовую таблицу (БЕЗ HTML)"""
+def convert_dots_ocr_json_to_html_table(content: str) -> str:
+    """Конвертирует JSON ответ dots.ocr в HTML таблицу"""
     
     try:
         # Извлекаем JSON из контента
@@ -85,57 +95,26 @@ def convert_dots_ocr_json_to_text_table(content: str) -> str:
         if not isinstance(data, list) or len(data) == 0:
             return content
         
-        # Создаем текстовую таблицу
-        text_parts = []
+        # Создаем HTML таблицу
+        html_parts = []
         
-        # Заголовок
-        text_parts.append("📊 **Результаты анализа документа:**\n")
+        html_parts.append('<table style="border-collapse: collapse; width: 100%; border: 2px solid #ddd; margin: 15px 0; font-size: 14px;">')
         
-        # Статистика
-        categories = {}
-        text_elements = 0
+        # Заголовок таблицы
+        header_html = """
+        <thead>
+            <tr>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 50px;">#</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 120px;">Категория</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 180px;">BBOX координаты</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left;">Текст</th>
+            </tr>
+        </thead>
+        """
+        html_parts.append(header_html)
         
-        for item in data:
-            category = item.get('category', 'Unknown')
-            categories[category] = categories.get(category, 0) + 1
-            if item.get('text', '').strip():
-                text_elements += 1
-        
-        # Отображаем статистику в колонках
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Всего элементов", len(data))
-        with col2:
-            st.metric("Элементов с текстом", text_elements)
-        with col3:
-            st.metric("Категорий", len(categories))
-        
-        # Легенда категорий с эмодзи
-        st.markdown("**🎨 Категории:**")
-        category_emojis = {
-            'Picture': '🖼️',
-            'Section-header': '📋',
-            'Text': '📝',
-            'List-item': '📌',
-            'Table': '📊',
-            'Title': '🏷️',
-            'Formula': '🧮',
-            'Caption': '💬',
-            'Footnote': '📄',
-            'Signature': '✍️',
-            'Logo': '🏢'
-        }
-        
-        legend_cols = st.columns(min(len(categories), 4))
-        for i, (category, count) in enumerate(sorted(categories.items())):
-            col_idx = i % len(legend_cols)
-            emoji = category_emojis.get(category, '📄')
-            with legend_cols[col_idx]:
-                st.markdown(f"{emoji} **{category}**")
-                st.caption(f"Элементов: {count}")
-        
-        # Детальная информация
-        st.markdown("**📋 Детальная информация:**")
+        # Тело таблицы
+        html_parts.append('<tbody>')
         
         for i, item in enumerate(data, 1):
             bbox = item.get('bbox', [])
@@ -149,41 +128,97 @@ def convert_dots_ocr_json_to_text_table(content: str) -> str:
             if len(text) > 50:
                 text = text[:47] + "..."
             
-            # Эмодзи для категории
-            emoji = category_emojis.get(category, '📄')
+            # Экранируем HTML в тексте
+            text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            category = category.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             
-            # Отображение элемента в контейнере
-            with st.container():
-                col_num, col_cat, col_bbox, col_text = st.columns([0.5, 1.5, 2, 4])
-                
-                with col_num:
-                    st.markdown(f"**{i}**")
-                
-                with col_cat:
-                    st.markdown(f"{emoji} {category}")
-                
-                with col_bbox:
-                    st.code(bbox_str)
-                
-                with col_text:
-                    if text:
-                        st.caption(text)
-                    else:
-                        st.caption("_Нет текста_")
-                
-                # Разделитель между элементами
-                if i < len(data):
-                    st.markdown("---")
+            # Определяем цвет строки
+            row_bg = "#f1f8ff" if i % 2 == 0 else "#ffffff"
+            
+            row_html = f"""
+            <tr>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50; text-align: center; font-weight: bold;">{i}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50;">{category}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50; font-family: monospace; font-size: 12px;">{bbox_str}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50;">{text}</td>
+            </tr>
+            """
+            html_parts.append(row_html)
         
-        return ""  # Возвращаем пустую строку, так как все отображено через Streamlit элементы
+        html_parts.append('</tbody>')
+        html_parts.append('</table>')
+        
+        # Добавляем статистику
+        total_elements = len(data)
+        categories = {}
+        text_elements = 0
+        
+        for item in data:
+            category = item.get('category', 'Unknown')
+            categories[category] = categories.get(category, 0) + 1
+            if item.get('text', '').strip():
+                text_elements += 1
+        
+        stats_html = f"""
+        <div style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #2196F3;">
+            <strong>📊 Статистика анализа:</strong><br>
+            • Всего элементов: {total_elements}<br>
+            • Элементов с текстом: {text_elements}<br>
+            • Категорий: {len(categories)}<br>
+            • Распределение: {", ".join([f"{cat}: {count}" for cat, count in categories.items()])}
+        </div>
+        """
+        html_parts.append(stats_html)
+        
+        return "".join(html_parts)
         
     except Exception as e:
         # Если не удалось конвертировать, возвращаем исходный контент
-        return f"⚠️ **Не удалось конвертировать JSON:** {str(e)}\n\n```\n{content}\n```"
+        return f"<p><strong>⚠️ Не удалось конвертировать JSON:</strong> {str(e)}</p><pre>{content}</pre>"
 
 
-def convert_html_table_to_text(content: str) -> str:
-    """Конвертирует HTML таблицы в текстовый формат"""
+
+def render_message_with_markdown_tables(content: str, role: str = "assistant"):
+    """
+    КОНВЕРТАЦИЯ HTML ТАБЛИЦ В MARKDOWN
+    Если HTML не работает, используем markdown таблицы
+    """
+    
+    if role == "assistant" and '<table' in content.lower() and '</table>' in content.lower():
+        # Пытаемся сначала HTML
+        try:
+            # Простые встроенные стили
+            simple_styled_content = content.replace(
+                '<table', 
+                '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+            ).replace(
+                '<th', 
+                '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+            ).replace(
+                '<td', 
+                '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+            )
+            
+            # Отображаем HTML
+            st.markdown("🔧 **HTML таблица**")
+            st.markdown(simple_styled_content, unsafe_allow_html=True)
+            st.success("✅ HTML рендеринг")
+            
+        except Exception as e:
+            # Если HTML не работает, конвертируем в markdown
+            st.warning("⚠️ HTML не работает, конвертируем в markdown")
+            
+            # Конвертируем HTML таблицу в markdown
+            markdown_content = convert_html_table_to_markdown(content)
+            st.markdown("📊 **Markdown таблица:**")
+            st.markdown(markdown_content)
+            st.info("✅ Markdown рендеринг")
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
+def convert_html_table_to_markdown(content: str) -> str:
+    """Конвертирует HTML таблицу в markdown"""
     
     # Извлекаем все таблицы
     table_pattern = r'<table[^>]*>(.*?)</table>'
@@ -197,7 +232,8 @@ def convert_html_table_to_text(content: str) -> str:
             row_pattern = r'<tr[^>]*>(.*?)</tr>'
             rows = re.findall(row_pattern, table_html, re.DOTALL | re.IGNORECASE)
             
-            text_rows = []
+            markdown_rows = []
+            is_header = True
             
             for row in rows:
                 # Извлекаем ячейки (th или td)
@@ -217,16 +253,22 @@ def convert_html_table_to_text(content: str) -> str:
                         clean_cell = clean_cell[:27] + "..."
                     clean_cells.append(clean_cell)
                 
-                # Формируем строку
-                text_row = " | ".join(clean_cells)
-                text_rows.append(text_row)
+                # Формируем строку markdown
+                markdown_row = "| " + " | ".join(clean_cells) + " |"
+                markdown_rows.append(markdown_row)
+                
+                # Добавляем разделитель после заголовка
+                if is_header and len(clean_cells) > 0:
+                    separator = "| " + " | ".join(["---"] * len(clean_cells)) + " |"
+                    markdown_rows.append(separator)
+                    is_header = False
             
-            # Создаем текстовую таблицу
-            text_table = "\n📊 **Таблица:**\n\n" + "\n".join(text_rows) + "\n\n"
+            # Создаем markdown таблицу
+            markdown_table = "\n\n" + "\n".join(markdown_rows) + "\n\n"
             
-            # Заменяем HTML таблицу на текст
+            # Заменяем HTML таблицу на markdown
             full_table_pattern = f'<table[^>]*>{re.escape(table_html)}</table>'
-            result_content = re.sub(full_table_pattern, text_table, result_content, flags=re.IGNORECASE)
+            result_content = re.sub(full_table_pattern, markdown_table, result_content, flags=re.IGNORECASE)
             
         except Exception as e:
             # Если конвертация не удалась, просто убираем HTML теги
@@ -237,17 +279,348 @@ def convert_html_table_to_text(content: str) -> str:
 
 
 
-# REMOVED: HTML rendering functions - replaced with text-based alternatives
-# The following functions have been removed to prevent HTML code display:
-# - render_message_with_markdown_tables
-# - render_message_content_simple  
-# - render_message_content_ultimate
-# - display_message_with_html_support
-# - clean_html_table
-# - render_html_tables_simple
-# - html_table_to_markdown
+def render_message_content_simple(content: str, role: str = "assistant"):
+    """
+    ПРОСТОЙ И НАДЕЖНЫЙ HTML РЕНДЕРИНГ
+    Без сложных стилей, только базовая функциональность
+    """
+    
+    # Проверяем наличие HTML таблиц
+    if role == "assistant" and '<table' in content.lower() and '</table>' in content.lower():
+        # Простые встроенные стили прямо в HTML
+        simple_styled_content = content.replace(
+            '<table', 
+            '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+        ).replace(
+            '<th', 
+            '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+        ).replace(
+            '<td', 
+            '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+        )
+        
+        # Отображаем с HTML
+        st.markdown("🔧 **Простой HTML рендеринг**")
+        st.markdown(simple_styled_content, unsafe_allow_html=True)
+        st.success("✅ HTML отображен")
+        
+    else:
+        # Обычное сообщение
+        st.markdown(content)
 
-# All HTML rendering has been replaced with native Streamlit elements
+
+
+def render_message_content_ultimate(content: str, role: str = "assistant"):
+    """
+    МАКСИМАЛЬНО НАДЕЖНЫЙ HTML РЕНДЕРИНГ С ПРАВИЛЬНЫМИ ЦВЕТАМИ
+    Гарантированно читаемые цвета без проблем контрастности
+    """
+    
+    # Принудительная проверка HTML
+    has_html_table = bool(
+        '<table' in content.lower() and 
+        '</table>' in content.lower()
+    )
+    
+    if role == "assistant" and has_html_table:
+        # ПРИНУДИТЕЛЬНЫЙ HTML РЕНДЕРИНГ с контрастными цветами
+        
+        # Добавляем CSS стили с правильной контрастностью
+        styled_content = f"""
+        <div style="margin: 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <style>
+                .emergency-html-table {{
+                    border-collapse: collapse !important;
+                    width: 100% !important;
+                    margin: 15px 0 !important;
+                    font-size: 14px !important;
+                    border: 2px solid #333 !important;
+                    background-color: #ffffff !important;
+                }}
+                .emergency-html-table th {{
+                    background-color: #2c3e50 !important;
+                    color: #ffffff !important;
+                    font-weight: bold !important;
+                    padding: 12px 8px !important;
+                    text-align: left !important;
+                    border: 1px solid #34495e !important;
+                }}
+                .emergency-html-table td {{
+                    padding: 10px 8px !important;
+                    border: 1px solid #bdc3c7 !important;
+                    text-align: left !important;
+                    background-color: #ffffff !important;
+                    color: #2c3e50 !important;
+                }}
+                .emergency-html-table tr:nth-child(even) td {{
+                    background-color: #f8f9fa !important;
+                    color: #2c3e50 !important;
+                }}
+                .emergency-html-table tr:hover td {{
+                    background-color: #e9ecef !important;
+                    color: #2c3e50 !important;
+                }}
+                .bbox-table {{
+                    border-collapse: collapse !important;
+                    width: 100% !important;
+                    margin: 15px 0 !important;
+                    font-size: 14px !important;
+                    border: 2px solid #333 !important;
+                    background-color: #ffffff !important;
+                }}
+                .bbox-table th {{
+                    background-color: #1565c0 !important;
+                    color: #ffffff !important;
+                    font-weight: bold !important;
+                    padding: 12px 8px !important;
+                    text-align: left !important;
+                    border: 1px solid #0d47a1 !important;
+                }}
+                .bbox-table td {{
+                    padding: 10px 8px !important;
+                    border: 1px solid #bdc3c7 !important;
+                    text-align: left !important;
+                    background-color: #ffffff !important;
+                    color: #2c3e50 !important;
+                }}
+                .bbox-table tr:nth-child(even) td {{
+                    background-color: #f1f8ff !important;
+                    color: #2c3e50 !important;
+                }}
+                .bbox-table tr:hover td {{
+                    background-color: #e3f2fd !important;
+                    color: #1565c0 !important;
+                }}
+                
+                /* Дополнительные стили для лучшей читаемости */
+                .emergency-html-table, .bbox-table {{
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                    border-radius: 4px !important;
+                    overflow: hidden !important;
+                }}
+                
+                /* Убираем любые конфликтующие стили Streamlit */
+                .emergency-html-table *, .bbox-table * {{
+                    color: inherit !important;
+                }}
+            </style>
+            {content.replace('class="bbox-table"', 'class="bbox-table emergency-html-table"')}
+        </div>
+        """
+        
+        # ПРИНУДИТЕЛЬНОЕ отображение с HTML
+        st.markdown("🔧 **HTML таблица с улучшенными цветами**")
+        st.markdown(styled_content, unsafe_allow_html=True)
+        st.success("✅ HTML рендеринг с контрастными цветами применен")
+        
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
+from ui.styles import get_custom_css
+
+def display_message_with_html_support(content: str):
+    """Правильное отображение сообщений с поддержкой HTML таблиц"""
+    if '<table' in content and '</table>' in content:
+        # Есть HTML таблица - отображаем с unsafe_allow_html=True
+        st.markdown(content, unsafe_allow_html=True)
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
+
+
+
+        return
+    
+    # Есть HTML таблицы - обрабатываем каждую
+    remaining_content = content
+    
+    for table_html in tables:
+        # Разбиваем контент на части
+        parts = remaining_content.split(table_html, 1)
+        
+        # Отображаем текст до таблицы
+        if parts[0].strip():
+            st.markdown(parts[0])
+        
+        # Отображаем HTML таблицу с принудительным стилем
+        st.markdown("**📊 Детальная информация**")
+        
+        # Добавляем CSS стили прямо в HTML
+        styled_table = f"""
+        <div style="margin: 10px 0;">
+            <style>
+                .emergency-table {{
+                    border-collapse: collapse;
+                    width: 100%;
+                    font-size: 14px;
+                    border: 1px solid #ddd;
+                }}
+                .emergency-table th, .emergency-table td {{
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }}
+                .emergency-table th {{
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }}
+                .emergency-table tr:nth-child(even) {{
+                    background-color: #f9f9f9;
+                }}
+            </style>
+            {table_html.replace('class="bbox-table"', 'class="emergency-table"')}
+        </div>
+        """
+        
+        # Отображаем с unsafe_allow_html=True
+        st.markdown(styled_table, unsafe_allow_html=True)
+        
+        # Обновляем оставшийся контент
+        remaining_content = parts[1] if len(parts) > 1 else ""
+    
+    # Отображаем оставшийся текст
+    if remaining_content.strip():
+        st.markdown(remaining_content)
+
+
+        return
+    
+    # Есть HTML таблицы - разбиваем контент на части
+    current_pos = 0
+    
+    for table_html in tables:
+        # Находим позицию таблицы
+        table_start = content.find(table_html, current_pos)
+        
+        # Отображаем текст до таблицы
+        if table_start > current_pos:
+            text_before = content[current_pos:table_start]
+            if text_before.strip():
+                st.markdown(text_before)
+        
+        # Отображаем HTML таблицу
+        st.markdown("**📊 Детальная информация**")
+        try:
+            # Очищаем и улучшаем HTML таблицу
+            clean_table = clean_html_table(table_html)
+            st.markdown(clean_table, unsafe_allow_html=True)
+        except Exception as e:
+            # Fallback - конвертируем в markdown
+            markdown_table = html_table_to_markdown(table_html)
+            st.markdown(f"**📊 Таблица:**\n\n{markdown_table}")
+        
+        # Обновляем позицию
+        current_pos = table_start + len(table_html)
+    
+    # Отображаем оставшийся текст после последней таблицы
+    if current_pos < len(content):
+        remaining_text = content[current_pos:]
+        if remaining_text.strip():
+            st.markdown(remaining_text)
+
+def clean_html_table(table_html: str) -> str:
+    """Очистка и улучшение HTML таблицы для отображения в Streamlit"""
+    
+    # Добавляем CSS стили для лучшего отображения
+    styled_table = f"""
+    <style>
+    .bbox-table {{
+        border-collapse: collapse;
+        width: 100%;
+        margin: 10px 0;
+        font-size: 14px;
+    }}
+    .bbox-table th, .bbox-table td {{
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }}
+    .bbox-table th {{
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }}
+    .bbox-table tr:nth-child(even) {{
+        background-color: #f9f9f9;
+    }}
+    </style>
+    {table_html}
+    """
+    
+    return styled_table
+
+def render_html_tables_simple(content: str) -> str:
+    """Простая замена HTML таблиц на markdown (для обратной совместимости)"""
+    
+    # Поиск HTML таблиц
+    table_pattern = r'<table[^>]*>.*?</table>'
+    tables = re.findall(table_pattern, content, re.DOTALL | re.IGNORECASE)
+    
+    if not tables:
+        return content
+    
+    result_content = content
+    
+    for table_html in tables:
+        try:
+            # Конвертируем HTML таблицу в markdown
+            markdown_table = html_table_to_markdown(table_html)
+            
+            # Заменяем HTML таблицу на markdown
+            result_content = result_content.replace(table_html, f"\n\n**📊 Таблица:**\n\n{markdown_table}\n\n")
+            
+        except Exception as e:
+            # Fallback - просто убираем HTML теги
+            clean_table = re.sub(r'<[^>]+>', '', table_html)
+            result_content = result_content.replace(table_html, f"\n\n**📊 Таблица:**\n{clean_table}\n\n")
+    
+    return result_content
+
+def html_table_to_markdown(table_html: str) -> str:
+    """Конвертация HTML таблицы в Markdown"""
+    
+    try:
+        # Извлечение строк таблицы
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL | re.IGNORECASE)
+        
+        if not rows:
+            return "Не удалось извлечь строки таблицы"
+        
+        markdown_rows = []
+        is_header = True
+        
+        for row in rows:
+            # Извлечение ячеек
+            cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, re.DOTALL | re.IGNORECASE)
+            
+            if not cells:
+                continue
+            
+            # Очистка содержимого ячеек от HTML тегов
+            clean_cells = []
+            for cell in cells:
+                clean_cell = re.sub(r'<[^>]+>', '', cell)
+                clean_cell = html.unescape(clean_cell).strip()
+                # Ограничиваем длину ячейки
+                if len(clean_cell) > 50:
+                    clean_cell = clean_cell[:47] + "..."
+                clean_cells.append(clean_cell)
+            
+            # Формирование строки Markdown
+            markdown_row = "| " + " | ".join(clean_cells) + " |"
+            markdown_rows.append(markdown_row)
+            
+            # Добавление разделителя после заголовка
+            if is_header and len(clean_cells) > 0:
+                separator = "| " + " | ".join(["---"] * len(clean_cells)) + " |"
+                markdown_rows.append(separator)
+                is_header = False
+        
+        return "\n".join(markdown_rows)
+        
+    except Exception as e:
+        return f"Ошибка конвертации таблицы: {str(e)}"
 
 
 def clean_ocr_result(text: str) -> str:
@@ -400,66 +773,20 @@ def display_bbox_visualization_improved(ocr_result):
         st.divider()
         st.subheader("🔍 Визуализация обнаруженных элементов")
         
-        # ТЕКСТОВОЕ отображение результатов (без HTML)
-        st.markdown("**📊 Статистика:**")
-        
-        # Статистика в виде метрик
-        col1, col2, col3 = st.columns(3)
-        
-        # Подсчет статистики
-        categories = {}
-        total_area = 0
-        
-        for element in elements:
-            category = element.get('category', 'Unknown')
-            categories[category] = categories.get(category, 0) + 1
+        # HTML таблица с результатами
+        try:
+            from utils.bbox_table_renderer import BBoxTableRenderer
             
-            bbox = element.get('bbox', [0, 0, 0, 0])
-            area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
-            total_area += area
-        
-        with col1:
-            st.metric("Всего элементов", len(elements))
-        
-        with col2:
-            st.metric("Категорий", len(categories))
-        
-        with col3:
-            st.metric("Общая площадь", f"{total_area:,}")
-        
-        # Легенда в виде цветных индикаторов
-        st.markdown("**🎨 Легенда категорий:**")
-        
-        # Цвета для категорий (эмодзи)
-        category_emojis = {
-            'Picture': '🖼️',
-            'Section-header': '📋',
-            'Text': '📝',
-            'List-item': '📌',
-            'Table': '📊',
-            'Title': '🏷️',
-            'Formula': '🧮',
-            'Caption': '💬',
-            'Footnote': '📄',
-            'Page-header': '📑',
-            'Page-footer': '📄',
-            'Signature': '✍️',
-            'Stamp': '🔖',
-            'Logo': '🏢',
-            'Barcode': '📊',
-            'QR-code': '📱'
-        }
-        
-        # Отображаем категории в колонках
-        legend_cols = st.columns(min(len(categories), 4))
-        
-        for i, (category, count) in enumerate(sorted(categories.items())):
-            col_idx = i % len(legend_cols)
-            emoji = category_emojis.get(category, '📄')
+            table_renderer = BBoxTableRenderer()
             
-            with legend_cols[col_idx]:
-                st.markdown(f"{emoji} **{category}**")
-                st.caption(f"Элементов: {count}")
+            # Статистика
+            st.markdown(table_renderer.render_statistics(elements), unsafe_allow_html=True)
+            
+            # Легенда
+            st.markdown(table_renderer.render_legend(elements), unsafe_allow_html=True)
+            
+        except Exception as e:
+            st.warning(f"⚠️ Не удалось отобразить HTML таблицу: {e}")
         
         # Основное отображение
         col1, col2 = st.columns([2, 1])
@@ -476,46 +803,18 @@ def display_bbox_visualization_improved(ocr_result):
             st.metric("Всего элементов", stats.get('total_elements', 0))
             st.metric("Категорий", stats.get('unique_categories', 0))
         
-        # ТЕКСТОВАЯ детальная информация (без HTML)
+        # HTML таблица с детальной информацией
         st.markdown("### 📋 Детальная информация")
-        
-        # Отображаем элементы в виде карточек
-        for i, element in enumerate(elements, 1):
-            bbox = element.get('bbox', [0, 0, 0, 0])
-            category = element.get('category', 'Unknown')
-            text = element.get('text', '')
+        try:
+            # Генерируем HTML таблицу
+            table_html = table_renderer.render_elements_table(elements)
             
-            # Эмодзи для категории
-            emoji = category_emojis.get(category, '📄')
+            # Отображаем с HTML поддержкой
+            st.markdown(table_html, unsafe_allow_html=True)
+            st.success("✅ HTML таблица отображена")
             
-            # Форматирование BBOX
-            bbox_str = f"[{bbox[0]}, {bbox[1]}, {bbox[2]}, {bbox[3]}]"
-            
-            # Ограничение длины текста
-            display_text = text[:100] + "..." if len(text) > 100 else text
-            
-            # Отображение элемента в контейнере
-            with st.container():
-                col_num, col_cat, col_bbox, col_text = st.columns([0.5, 1.5, 2, 4])
-                
-                with col_num:
-                    st.markdown(f"**{i}**")
-                
-                with col_cat:
-                    st.markdown(f"{emoji} {category}")
-                
-                with col_bbox:
-                    st.code(bbox_str)
-                
-                with col_text:
-                    if display_text:
-                        st.caption(display_text)
-                    else:
-                        st.caption("_Нет текста_")
-                
-                # Разделитель между элементами
-                if i < len(elements):
-                    st.markdown("---")
+        except Exception as e:
+            st.warning(f"⚠️ HTML таблица не работает: {e}")
             
             # Fallback - красивое текстовое отображение
             st.markdown("**Элементы (текстовый формат):**")
