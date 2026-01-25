@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Адаптер для интеграции vLLM API с Streamlit интерфейсом
+Включает управление памятью и автоматическое переключение контейнеров
 """
 
 import requests
@@ -9,24 +10,105 @@ import time
 import streamlit as st
 from PIL import Image
 import io
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from vllm_memory_manager import VLLMMemoryManager
 
 class VLLMStreamlitAdapter:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
         self.available_models = []
-        self.check_connection()
+        
+        # Инициализация менеджера памяти
+        self.memory_manager = VLLMMemoryManager()
+        
+        # Маппинг моделей на порты для множественных контейнеров
+        self.model_endpoints = {
+            "rednote-hilab/dots.ocr": "http://localhost:8000",
+            "Qwen/Qwen2-VL-2B-Instruct": "http://localhost:8001", 
+            "Qwen/Qwen3-VL-2B-Instruct": "http://localhost:8004",
+            "microsoft/Phi-3.5-vision-instruct": "http://localhost:8002",
+            "Qwen/Qwen2-VL-7B-Instruct": "http://localhost:8003"
+        }
+        
+        # Приоритеты моделей для отображения
+        self.model_priorities = {
+            "rednote-hilab/dots.ocr": 1,
+            "Qwen/Qwen3-VL-2B-Instruct": 2,
+            "Qwen/Qwen2-VL-2B-Instruct": 3,
+            "microsoft/Phi-3.5-vision-instruct": 4,
+            "Qwen/Qwen2-VL-7B-Instruct": 5
+        }
+        
+        self.check_all_connections()
+    
+    def check_all_connections(self) -> bool:
+        """Проверка подключения ко всем vLLM серверам"""
+        self.available_models = []
+        self.model_limits = {}
+        self.healthy_endpoints = {}
+        
+        for model_name, endpoint in self.model_endpoints.items():
+            try:
+                response = requests.get(f"{endpoint}/health", timeout=5)
+                if response.status_code == 200:
+                    self.healthy_endpoints[model_name] = endpoint
+                    
+                    # Получаем информацию о модели
+                    models_response = requests.get(f"{endpoint}/v1/models", timeout=5)
+                    if models_response.status_code == 200:
+                        models_data = models_response.json()
+                        for model in models_data.get("data", []):
+                            if model["id"] == model_name:
+                                self.available_models.append(model_name)
+                                self.model_limits[model_name] = model.get("max_model_len", 1024)
+                                break
+                    
+                    st.success(f"✅ {model_name.split('/')[-1]} подключен ({endpoint})")
+                else:
+                    st.warning(f"⚠️ {model_name.split('/')[-1]} недоступен ({endpoint})")
+            except Exception as e:
+                st.warning(f"⚠️ {model_name.split('/')[-1]} недоступен: {str(e)[:50]}...")
+        
+        if self.available_models:
+            st.info(f"🚀 Доступно моделей: {len(self.available_models)}")
+            return True
+        else:
+            st.error("❌ Нет доступных vLLM серверов")
+            return False
+    
+    def get_endpoint_for_model(self, model_name: str) -> str:
+        """Получение endpoint для конкретной модели"""
+        return self.healthy_endpoints.get(model_name, self.base_url)
+    
+    def ensure_model_available(self, model_name: str) -> bool:
+        """Обеспечение доступности модели (запуск контейнера при необходимости)"""
+        if model_name in self.healthy_endpoints:
+            return True
+        
+        # Пытаемся переключиться на модель через менеджер памяти
+        success, message = self.memory_manager.switch_to_model(model_name)
+        
+        if success:
+            # Обновляем список доступных endpoints
+            time.sleep(5)  # Даем время на запуск
+            self.check_all_connections()
+            return model_name in self.healthy_endpoints
+        else:
+            st.error(f"❌ Не удалось активировать модель {model_name}: {message}")
+            return False
+    
+    def get_recommended_models(self) -> List[str]:
+        """Получение рекомендуемых моделей в порядке приоритета"""
+        # Сортируем доступные модели по приоритету
+        available_sorted = sorted(
+            self.available_models,
+            key=lambda x: self.model_priorities.get(x, 999)
+        )
+        return available_sorted
     
     def check_connection(self) -> bool:
-        """Проверка подключения к vLLM серверу"""
-        try:
-            response = requests.get(f"{self.base_url}/health", timeout=5)
-            if response.status_code == 200:
-                self.get_available_models()
-                return True
-        except Exception as e:
-            st.error(f"❌ Не удается подключиться к vLLM серверу: {e}")
-        return False
+        """Проверка подключения к vLLM серверу (legacy метод)"""
+        return self.check_all_connections()
     
     def get_available_models(self) -> list:
         """Получение списка доступных моделей"""
@@ -60,7 +142,19 @@ class VLLMStreamlitAdapter:
     
     def process_image(self, image: Image.Image, prompt: str = "Extract all text from this image", 
                      model: str = "rednote-hilab/dots.ocr", max_tokens: int = 4096) -> Optional[Dict[str, Any]]:
-        """Обработка изображения через vLLM API"""
+        """Обработка изображения через vLLM API с автоматическим управлением контейнерами"""
+        
+        # Проверяем и обеспечиваем доступность модели
+        if not self.ensure_model_available(model):
+            return {
+                "success": False,
+                "error": f"Модель {model} недоступна",
+                "text": "",
+                "processing_time": 0
+            }
+        
+        # Получаем правильный endpoint для модели
+        endpoint = self.get_endpoint_for_model(model)
         
         # Проверяем лимит токенов для модели
         model_max_tokens = self.get_model_max_tokens(model)
@@ -100,12 +194,13 @@ class VLLMStreamlitAdapter:
         }
         
         try:
-            # Отправка запроса
+            # Отправка запроса к правильному endpoint
             start_time = time.time()
             
-            with st.spinner(f"🔄 Обработка изображения через vLLM (макс. {max_tokens} токенов)..."):
+            model_display_name = model.split('/')[-1]
+            with st.spinner(f"🔄 Обработка изображения через {model_display_name} (макс. {max_tokens} токенов)..."):
                 response = requests.post(
-                    f"{self.base_url}/v1/chat/completions",
+                    f"{endpoint}/v1/chat/completions",
                     json=payload,
                     timeout=120
                 )
@@ -121,6 +216,8 @@ class VLLMStreamlitAdapter:
                     "text": content,
                     "processing_time": processing_time,
                     "model": model,
+                    "model_display_name": model_display_name,
+                    "endpoint": endpoint,
                     "mode": "vLLM",
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
                     "max_tokens_limit": model_max_tokens,
@@ -138,32 +235,35 @@ class VLLMStreamlitAdapter:
                     st.info("💡 **Решение:** Уменьшите количество токенов в настройках или используйте автоматическую коррекцию")
                 
                 st.error(f"Ответ сервера: {error_text}")
-                return None
+                return {
+                    "success": False,
+                    "error": f"API ошибка: {response.status_code}",
+                    "text": "",
+                    "processing_time": processing_time
+                }
                 
         except Exception as e:
-            st.error(f"❌ Ошибка обработки: {e}")
-            return None
+            st.error(f"❌ Ошибка обработки через {endpoint}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "text": "",
+                "processing_time": 0
+            }
     
     def get_server_status(self) -> Dict[str, Any]:
-        """Получение статуса сервера"""
-        try:
-            response = requests.get(f"{self.base_url}/health", timeout=5)
-            if response.status_code == 200:
-                return {
-                    "status": "healthy",
-                    "url": self.base_url,
-                    "models": len(self.available_models),
-                    "available_models": self.available_models,
-                    "model_limits": getattr(self, 'model_limits', {})
-                }
-        except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e),
-                "url": self.base_url
-            }
+        """Получение статуса всех серверов"""
+        healthy_count = len(self.healthy_endpoints)
+        total_count = len(self.model_endpoints)
         
-        return {"status": "unknown"}
+        return {
+            "status": "healthy" if healthy_count > 0 else "error",
+            "healthy_endpoints": healthy_count,
+            "total_endpoints": total_count,
+            "available_models": self.available_models,
+            "model_limits": getattr(self, 'model_limits', {}),
+            "endpoints": self.healthy_endpoints
+        }
 
 def create_vllm_interface():
     """Создание интерфейса для работы с vLLM"""
@@ -182,29 +282,59 @@ def create_vllm_interface():
     
     with col1:
         if status["status"] == "healthy":
-            st.success("✅ vLLM Сервер")
+            st.success(f"✅ vLLM Серверы ({status['healthy_endpoints']}/{status['total_endpoints']})")
         else:
             st.error("❌ vLLM Недоступен")
     
     with col2:
-        st.info(f"🌐 {status['url']}")
+        st.info(f"🤖 Моделей: {len(status['available_models'])}")
     
     with col3:
-        if status["status"] == "healthy":
-            st.info(f"🤖 Моделей: {status['models']}")
+        if status.get("endpoints"):
+            st.info(f"🌐 Активных портов: {len(status['endpoints'])}")
     
     if status["status"] != "healthy":
-        st.error("❌ vLLM сервер недоступен. Убедитесь, что контейнер запущен:")
-        st.code("docker-compose -f docker-compose-vllm.yml up -d dots-ocr")
+        st.error("❌ vLLM серверы недоступны. Запустите контейнеры:")
+        st.code("docker-compose -f docker-compose-vllm.yml up -d")
         return
     
-    # Выбор модели
+    # Выбор модели с улучшенным интерфейсом
     if adapter.available_models:
-        selected_model = st.selectbox(
-            "🤖 Выберите модель",
-            adapter.available_models,
-            help="Доступные модели в vLLM сервере"
-        )
+        recommended_models = adapter.get_recommended_models()
+        
+        # Отображаем статус памяти
+        memory_status = adapter.memory_manager.get_memory_status()
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            selected_model = st.selectbox(
+                "🤖 Выберите модель",
+                recommended_models,
+                help="Модели отсортированы по приоритету. Система автоматически управляет памятью."
+            )
+        
+        with col2:
+            st.metric(
+                "GPU память", 
+                f"{memory_status['current_memory_gb']:.1f}/{memory_status['max_memory_gb']} ГБ",
+                f"{memory_status['memory_usage_percent']:.1f}%"
+            )
+        
+        # Информация о выбранной модели
+        if selected_model in adapter.healthy_endpoints:
+            st.success(f"✅ {selected_model.split('/')[-1]} активна и готова к работе")
+        else:
+            st.warning(f"⚠️ {selected_model.split('/')[-1]} будет активирована автоматически при обработке")
+            
+            if st.button("🚀 Активировать модель сейчас"):
+                with st.spinner("Активация модели..."):
+                    success = adapter.ensure_model_available(selected_model)
+                    if success:
+                        st.success("✅ Модель активирована!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Ошибка активации модели")
     else:
         st.error("❌ Нет доступных моделей")
         return
@@ -269,16 +399,19 @@ def create_vllm_interface():
                     )
                     
                     # Метрики
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
                         st.metric("⏱️ Время", f"{result['processing_time']:.1f} сек")
                     
                     with col2:
-                        st.metric("🤖 Модель", result["model"].split("/")[-1])
+                        st.metric("🤖 Модель", result.get("model_display_name", result["model"].split("/")[-1]))
                     
                     with col3:
                         st.metric("🔧 Режим", result["mode"])
+                    
+                    with col4:
+                        st.metric("🔢 Токенов", result.get("tokens_used", 0))
                     
                     # Дополнительная информация
                     with st.expander("📊 Подробная информация"):

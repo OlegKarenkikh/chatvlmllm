@@ -99,11 +99,10 @@ class SmartContentRenderer:
                     
                     renderer = HTMLTableRenderer()
                     
-                    # Создаем контейнер для таблицы
-                    with container.container():
-                        st.divider()
-                        renderer.render_table_in_streamlit(tables[i])
-                        st.divider()
+                    # Простое отображение таблицы без дополнительных опций для чата
+                    clean_table = renderer.clean_html_table(tables[i])
+                    container.markdown("**📊 Таблица:**")
+                    container.markdown(clean_table, unsafe_allow_html=True)
                         
                 except Exception as e:
                     # Fallback - отображаем как HTML с unsafe_allow_html

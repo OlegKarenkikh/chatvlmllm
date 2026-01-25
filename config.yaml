@@ -57,6 +57,14 @@ vllm:
     context_length: 4096
     precision: fp16
     trust_remote_code: true
+  
+  qwen3_vl_2b_vllm:
+    model_path: Qwen/Qwen3-VL-2B-Instruct
+    name: Qwen3-VL 2B (vLLM - Рекомендуется)
+    max_new_tokens: 2048
+    context_length: 4096
+    precision: fp16
+    trust_remote_code: true
 
 # Совместимость со старой конфигурацией
 models:

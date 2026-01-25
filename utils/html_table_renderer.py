@@ -47,12 +47,12 @@ class HTMLTableRenderer:
         # Добавление базовых стилей если их нет
         if 'style=' not in table_html.lower():
             # Добавляем стили к таблице
-            table_html = table_html.replace('<table', '<table style="border-collapse: collapse; width: 100%; margin: 10px 0;"', 1)
+            table_html = table_html.replace('<table', '<table style="border-collapse: collapse; width: 100%; margin: 10px 0; background-color: white;"', 1)
         
         # Добавление стилей к ячейкам если их нет
         if 'border:' not in table_html.lower():
-            table_html = re.sub(r'<td([^>]*)>', r'<td\1 style="border: 1px solid #ddd; padding: 8px; text-align: left;">', table_html)
-            table_html = re.sub(r'<th([^>]*)>', r'<th\1 style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2; font-weight: bold;">', table_html)
+            table_html = re.sub(r'<td([^>]*)>', r'<td\1 style="border: 1px solid #ddd; padding: 8px; text-align: left; color: #333; background-color: white;">', table_html)
+            table_html = re.sub(r'<th([^>]*)>', r'<th\1 style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f8f9fa; font-weight: bold; color: #333;">', table_html)
         
         return table_html
     
@@ -145,6 +145,7 @@ class HTMLTableRenderer:
         """Рендеринг HTML таблицы в Streamlit"""
         
         self.table_counter += 1
+        table_id = f"{id(self)}_{self.table_counter}"  # Уникальный ID для каждого экземпляра
         
         if title:
             st.subheader(title)
@@ -163,18 +164,18 @@ class HTMLTableRenderer:
             
             with col1:
                 # Показать как Markdown
-                if st.button(f"📝 Показать Markdown", key=f"md_{self.table_counter}"):
+                if st.button(f"📝 Показать Markdown", key=f"md_{table_id}"):
                     markdown_table = self.table_to_markdown(table_html)
                     st.code(markdown_table, language="markdown")
             
             with col2:
                 # Показать структурированные данные
-                if st.button(f"📊 Показать данные", key=f"data_{self.table_counter}"):
+                if st.button(f"📊 Показать данные", key=f"data_{table_id}"):
                     table_data = self.extract_table_data(table_html)
                     st.json(table_data)
             
             # Исходный HTML
-            st.text_area(f"HTML код таблицы {self.table_counter}:", clean_table, height=100)
+            st.text_area(f"HTML код таблицы {self.table_counter}:", clean_table, height=100, key=f"html_{table_id}")
     
     def process_dots_ocr_response(self, response_text: str) -> Dict[str, Any]:
         """Обработка ответа dots.ocr для поиска и рендеринга таблиц"""

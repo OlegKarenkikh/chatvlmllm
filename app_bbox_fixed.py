@@ -4,6 +4,14 @@ from pathlib import Path
 from PIL import Image
 import io
 import re
+import sys
+import importlib
+
+# Принудительная перезагрузка модулей HTML рендеринга при каждом запуске
+if 'utils.smart_content_renderer' in sys.modules:
+    importlib.reload(sys.modules['utils.smart_content_renderer'])
+if 'utils.html_table_renderer' in sys.modules:
+    importlib.reload(sys.modules['utils.html_table_renderer'])
 
 # Import UI components
 from ui.styles import get_custom_css
