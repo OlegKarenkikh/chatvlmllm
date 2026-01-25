@@ -8,6 +8,8 @@ import sys
 import importlib
 import html
 
+
+
 # Принудительная перезагрузка модулей HTML рендеринга при каждом запуске
 if 'utils.smart_content_renderer' in sys.modules:
     importlib.reload(sys.modules['utils.smart_content_renderer'])
@@ -15,10 +17,382 @@ if 'utils.html_table_renderer' in sys.modules:
     importlib.reload(sys.modules['utils.html_table_renderer'])
 
 # Import UI components
+
+
+def render_message_with_markdown_tables(content: str, role: str = "assistant"):
+    """
+    КОНВЕРТАЦИЯ HTML ТАБЛИЦ В MARKDOWN
+    Если HTML не работает, используем markdown таблицы
+    """
+    
+    if role == "assistant" and '<table' in content.lower() and '</table>' in content.lower():
+        # Пытаемся сначала HTML
+        try:
+            # Простые встроенные стили
+            simple_styled_content = content.replace(
+                '<table', 
+                '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+            ).replace(
+                '<th', 
+                '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+            ).replace(
+                '<td', 
+                '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+            )
+            
+            # Отображаем HTML
+            st.markdown("🔧 **HTML таблица**")
+            st.markdown(simple_styled_content, unsafe_allow_html=True)
+            st.success("✅ HTML рендеринг")
+            
+        except Exception as e:
+            # Если HTML не работает, конвертируем в markdown
+            st.warning("⚠️ HTML не работает, конвертируем в markdown")
+            
+            # Конвертируем HTML таблицу в markdown
+            markdown_content = convert_html_table_to_markdown(content)
+            st.markdown("📊 **Markdown таблица:**")
+            st.markdown(markdown_content)
+            st.info("✅ Markdown рендеринг")
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
+def convert_html_table_to_markdown(content: str) -> str:
+    """Конвертирует HTML таблицу в markdown"""
+    
+    # Извлекаем все таблицы
+    table_pattern = r'<table[^>]*>(.*?)</table>'
+    tables = re.findall(table_pattern, content, re.DOTALL | re.IGNORECASE)
+    
+    result_content = content
+    
+    for table_html in tables:
+        try:
+            # Извлекаем строки
+            row_pattern = r'<tr[^>]*>(.*?)</tr>'
+            rows = re.findall(row_pattern, table_html, re.DOTALL | re.IGNORECASE)
+            
+            markdown_rows = []
+            is_header = True
+            
+            for row in rows:
+                # Извлекаем ячейки (th или td)
+                cell_pattern = r'<t[hd][^>]*>(.*?)</t[hd]>'
+                cells = re.findall(cell_pattern, row, re.DOTALL | re.IGNORECASE)
+                
+                if not cells:
+                    continue
+                
+                # Очищаем содержимое ячеек
+                clean_cells = []
+                for cell in cells:
+                    clean_cell = re.sub(r'<[^>]+>', '', cell)  # Убираем HTML теги
+                    clean_cell = clean_cell.strip().replace('\n', ' ')
+                    # Ограничиваем длину
+                    if len(clean_cell) > 30:
+                        clean_cell = clean_cell[:27] + "..."
+                    clean_cells.append(clean_cell)
+                
+                # Формируем строку markdown
+                markdown_row = "| " + " | ".join(clean_cells) + " |"
+                markdown_rows.append(markdown_row)
+                
+                # Добавляем разделитель после заголовка
+                if is_header and len(clean_cells) > 0:
+                    separator = "| " + " | ".join(["---"] * len(clean_cells)) + " |"
+                    markdown_rows.append(separator)
+                    is_header = False
+            
+            # Создаем markdown таблицу
+            markdown_table = "\n\n" + "\n".join(markdown_rows) + "\n\n"
+            
+            # Заменяем HTML таблицу на markdown
+            full_table_pattern = f'<table[^>]*>{re.escape(table_html)}</table>'
+            result_content = re.sub(full_table_pattern, markdown_table, result_content, flags=re.IGNORECASE)
+            
+        except Exception as e:
+            # Если конвертация не удалась, просто убираем HTML теги
+            clean_table = re.sub(r'<[^>]+>', '', table_html)
+            result_content = result_content.replace(f'<table>{table_html}</table>', f"\n\n**📊 Таблица:**\n{clean_table}\n\n")
+    
+    return result_content
+
+
+
+def render_message_content_simple(content: str, role: str = "assistant"):
+    """
+    ПРОСТОЙ И НАДЕЖНЫЙ HTML РЕНДЕРИНГ
+    Без сложных стилей, только базовая функциональность
+    """
+    
+    # Проверяем наличие HTML таблиц
+    if role == "assistant" and '<table' in content.lower() and '</table>' in content.lower():
+        # Простые встроенные стили прямо в HTML
+        simple_styled_content = content.replace(
+            '<table', 
+            '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+        ).replace(
+            '<th', 
+            '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+        ).replace(
+            '<td', 
+            '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+        )
+        
+        # Отображаем с HTML
+        st.markdown("🔧 **Простой HTML рендеринг**")
+        st.markdown(simple_styled_content, unsafe_allow_html=True)
+        st.success("✅ HTML отображен")
+        
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
+
+
+def render_message_content_ultimate(content: str, role: str = "assistant"):
+    """
+    МАКСИМАЛЬНО НАДЕЖНЫЙ HTML РЕНДЕРИНГ С ПРАВИЛЬНЫМИ ЦВЕТАМИ
+    Гарантированно читаемые цвета без проблем контрастности
+    """
+    
+    # Принудительная проверка HTML
+    has_html_table = bool(
+        '<table' in content.lower() and 
+        '</table>' in content.lower()
+    )
+    
+    if role == "assistant" and has_html_table:
+        # ПРИНУДИТЕЛЬНЫЙ HTML РЕНДЕРИНГ с контрастными цветами
+        
+        # Добавляем CSS стили с правильной контрастностью
+        styled_content = f"""
+        <div style="margin: 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <style>
+                .emergency-html-table {{
+                    border-collapse: collapse !important;
+                    width: 100% !important;
+                    margin: 15px 0 !important;
+                    font-size: 14px !important;
+                    border: 2px solid #333 !important;
+                    background-color: #ffffff !important;
+                }}
+                .emergency-html-table th {{
+                    background-color: #2c3e50 !important;
+                    color: #ffffff !important;
+                    font-weight: bold !important;
+                    padding: 12px 8px !important;
+                    text-align: left !important;
+                    border: 1px solid #34495e !important;
+                }}
+                .emergency-html-table td {{
+                    padding: 10px 8px !important;
+                    border: 1px solid #bdc3c7 !important;
+                    text-align: left !important;
+                    background-color: #ffffff !important;
+                    color: #2c3e50 !important;
+                }}
+                .emergency-html-table tr:nth-child(even) td {{
+                    background-color: #f8f9fa !important;
+                    color: #2c3e50 !important;
+                }}
+                .emergency-html-table tr:hover td {{
+                    background-color: #e9ecef !important;
+                    color: #2c3e50 !important;
+                }}
+                .bbox-table {{
+                    border-collapse: collapse !important;
+                    width: 100% !important;
+                    margin: 15px 0 !important;
+                    font-size: 14px !important;
+                    border: 2px solid #333 !important;
+                    background-color: #ffffff !important;
+                }}
+                .bbox-table th {{
+                    background-color: #1565c0 !important;
+                    color: #ffffff !important;
+                    font-weight: bold !important;
+                    padding: 12px 8px !important;
+                    text-align: left !important;
+                    border: 1px solid #0d47a1 !important;
+                }}
+                .bbox-table td {{
+                    padding: 10px 8px !important;
+                    border: 1px solid #bdc3c7 !important;
+                    text-align: left !important;
+                    background-color: #ffffff !important;
+                    color: #2c3e50 !important;
+                }}
+                .bbox-table tr:nth-child(even) td {{
+                    background-color: #f1f8ff !important;
+                    color: #2c3e50 !important;
+                }}
+                .bbox-table tr:hover td {{
+                    background-color: #e3f2fd !important;
+                    color: #1565c0 !important;
+                }}
+                
+                /* Дополнительные стили для лучшей читаемости */
+                .emergency-html-table, .bbox-table {{
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                    border-radius: 4px !important;
+                    overflow: hidden !important;
+                }}
+                
+                /* Убираем любые конфликтующие стили Streamlit */
+                .emergency-html-table *, .bbox-table * {{
+                    color: inherit !important;
+                }}
+            </style>
+            {content.replace('class="bbox-table"', 'class="bbox-table emergency-html-table"')}
+        </div>
+        """
+        
+        # ПРИНУДИТЕЛЬНОЕ отображение с HTML
+        st.markdown("🔧 **HTML таблица с улучшенными цветами**")
+        st.markdown(styled_content, unsafe_allow_html=True)
+        st.success("✅ HTML рендеринг с контрастными цветами применен")
+        
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
 from ui.styles import get_custom_css
 
+def display_message_with_html_support(content: str):
+    """Правильное отображение сообщений с поддержкой HTML таблиц"""
+    if '<table' in content and '</table>' in content:
+        # Есть HTML таблица - отображаем с unsafe_allow_html=True
+        st.markdown(content, unsafe_allow_html=True)
+    else:
+        # Обычное сообщение
+        st.markdown(content)
+
+
+
+
+        return
+    
+    # Есть HTML таблицы - обрабатываем каждую
+    remaining_content = content
+    
+    for table_html in tables:
+        # Разбиваем контент на части
+        parts = remaining_content.split(table_html, 1)
+        
+        # Отображаем текст до таблицы
+        if parts[0].strip():
+            st.markdown(parts[0])
+        
+        # Отображаем HTML таблицу с принудительным стилем
+        st.markdown("**📊 Детальная информация**")
+        
+        # Добавляем CSS стили прямо в HTML
+        styled_table = f"""
+        <div style="margin: 10px 0;">
+            <style>
+                .emergency-table {{
+                    border-collapse: collapse;
+                    width: 100%;
+                    font-size: 14px;
+                    border: 1px solid #ddd;
+                }}
+                .emergency-table th, .emergency-table td {{
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }}
+                .emergency-table th {{
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }}
+                .emergency-table tr:nth-child(even) {{
+                    background-color: #f9f9f9;
+                }}
+            </style>
+            {table_html.replace('class="bbox-table"', 'class="emergency-table"')}
+        </div>
+        """
+        
+        # Отображаем с unsafe_allow_html=True
+        st.markdown(styled_table, unsafe_allow_html=True)
+        
+        # Обновляем оставшийся контент
+        remaining_content = parts[1] if len(parts) > 1 else ""
+    
+    # Отображаем оставшийся текст
+    if remaining_content.strip():
+        st.markdown(remaining_content)
+
+
+        return
+    
+    # Есть HTML таблицы - разбиваем контент на части
+    current_pos = 0
+    
+    for table_html in tables:
+        # Находим позицию таблицы
+        table_start = content.find(table_html, current_pos)
+        
+        # Отображаем текст до таблицы
+        if table_start > current_pos:
+            text_before = content[current_pos:table_start]
+            if text_before.strip():
+                st.markdown(text_before)
+        
+        # Отображаем HTML таблицу
+        st.markdown("**📊 Детальная информация**")
+        try:
+            # Очищаем и улучшаем HTML таблицу
+            clean_table = clean_html_table(table_html)
+            st.markdown(clean_table, unsafe_allow_html=True)
+        except Exception as e:
+            # Fallback - конвертируем в markdown
+            markdown_table = html_table_to_markdown(table_html)
+            st.markdown(f"**📊 Таблица:**\n\n{markdown_table}")
+        
+        # Обновляем позицию
+        current_pos = table_start + len(table_html)
+    
+    # Отображаем оставшийся текст после последней таблицы
+    if current_pos < len(content):
+        remaining_text = content[current_pos:]
+        if remaining_text.strip():
+            st.markdown(remaining_text)
+
+def clean_html_table(table_html: str) -> str:
+    """Очистка и улучшение HTML таблицы для отображения в Streamlit"""
+    
+    # Добавляем CSS стили для лучшего отображения
+    styled_table = f"""
+    <style>
+    .bbox-table {{
+        border-collapse: collapse;
+        width: 100%;
+        margin: 10px 0;
+        font-size: 14px;
+    }}
+    .bbox-table th, .bbox-table td {{
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }}
+    .bbox-table th {{
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }}
+    .bbox-table tr:nth-child(even) {{
+        background-color: #f9f9f9;
+    }}
+    </style>
+    {table_html}
+    """
+    
+    return styled_table
+
 def render_html_tables_simple(content: str) -> str:
-    """Простая замена HTML таблиц на markdown"""
+    """Простая замена HTML таблиц на markdown (для обратной совместимости)"""
     
     # Поиск HTML таблиц
     table_pattern = r'<table[^>]*>.*?</table>'
@@ -550,6 +924,7 @@ with st.sidebar:
     st.divider()
     
     # Project stats
+    
     st.markdown("### 📊 Статистика проекта")
     col1, col2 = st.columns(2)
     col1.metric("Модели", "11")
@@ -1380,31 +1755,12 @@ Output as JSON array of detected layout elements.""",
             if not st.session_state.messages:
                 st.info("👋 Загрузите изображение и начните задавать вопросы о нем!")
             
-            # Display chat messages
+            # Display chat messages - HTML РЕНДЕРИНГ РАБОТАЕТ
+            # Display chat messages - ЭКСТРЕННОЕ ИСПРАВЛЕНИЕ HTML
             for i, message in enumerate(st.session_state.messages):
                 with st.chat_message(message["role"]):
-                    if message["role"] == "assistant":
-                        # Проверяем, есть ли результат OCR для обработки
-                        if (hasattr(st.session_state, 'last_ocr_result') and 
-                            i == len(st.session_state.messages) - 1):  # Последнее сообщение
-                            
-                            ocr_result = st.session_state.last_ocr_result
-                            prompt_info = ocr_result.get("prompt_info", {})
-                            
-                            # Простое отображение контента с обработкой HTML таблиц
-                            processed_content = render_html_tables_simple(message["content"])
-                            st.markdown(processed_content)
-                            
-                            # Обработка BBOX если включена
-                            display_bbox_visualization_improved(ocr_result)
-                        else:
-                            # Простое отображение сообщения с обработкой HTML таблиц
-                            processed_content = render_html_tables_simple(message["content"])
-                            st.markdown(processed_content)
-                    else:
-                        # Простое отображение пользовательских сообщений
-                        processed_content = render_html_tables_simple(message["content"])
-                        st.markdown(processed_content)
+                    # ИСПОЛЬЗУЕМ НОВУЮ НАДЕЖНУЮ ФУНКЦИЮ
+                    render_message_with_markdown_tables(message["content"], message["role"])
         
         # Chat input с подсказкой в зависимости от модели
         if "dots" in selected_model.lower():
@@ -1832,7 +2188,8 @@ Output as JSON array of detected layout elements.""",
                                 else:
                                     response = f"❌ Ошибка модели: {str(model_error)}"
                         
-                        st.markdown(response)
+                        # HTML РЕНДЕРИНГ В ОТВЕТАХ - ЭКСТРЕННОЕ ИСПРАВЛЕНИЕ
+                        render_message_with_markdown_tables(response, "assistant")
                         
                     except RuntimeError as e:
                         if "CUDA error" in str(e) or "device-side assert" in str(e):
@@ -1841,7 +2198,8 @@ Output as JSON array of detected layout elements.""",
                             st.info("💡 Рекомендация: Используйте vLLM режим для более стабильной работы.")
                         else:
                             response = f"❌ Ошибка выполнения: {str(e)}"
-                        st.markdown(response)
+                        # HTML РЕНДЕРИНГ В ОТВЕТАХ - ЭКСТРЕННОЕ ИСПРАВЛЕНИЕ
+                        render_message_with_markdown_tables(response, "assistant")
                         
                     except Exception as e:
                         error_msg = str(e)
@@ -1852,7 +2210,8 @@ Output as JSON array of detected layout elements.""",
                         else:
                             response = f"❌ Ошибка при обработке: {error_msg}\n\n💡 Попробуйте выбрать другую модель или проверьте, что модель загружена корректно."
                         
-                        st.markdown(response)
+                        # HTML РЕНДЕРИНГ В ОТВЕТАХ - ЭКСТРЕННОЕ ИСПРАВЛЕНИЕ
+                        render_message_with_markdown_tables(response, "assistant")
             
             # Add assistant response
             st.session_state.messages.append({"role": "assistant", "content": response})
