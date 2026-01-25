@@ -251,15 +251,15 @@ class BBoxTableRenderer:
             area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
             total_area += area
         
-        html = """
+        html = f"""
         <style>
-            .stats-container {
+            .stats-container {{
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
                 gap: 15px;
                 margin: 20px 0;
-            }
-            .stat-card {
+            }}
+            .stat-card {{
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 padding: 20px;
@@ -267,39 +267,39 @@ class BBoxTableRenderer:
                 box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                 text-align: center;
                 transition: transform 0.2s;
-            }
-            .stat-card:hover {
+            }}
+            .stat-card:hover {{
                 transform: translateY(-5px);
                 box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-            }
-            .stat-value {
+            }}
+            .stat-value {{
                 font-size: 32px;
                 font-weight: 700;
                 margin-bottom: 5px;
-            }
-            .stat-label {
+            }}
+            .stat-label {{
                 font-size: 12px;
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 opacity: 0.9;
-            }
+            }}
         </style>
         
         <div class="stats-container">
             <div class="stat-card">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{len(elements)}</div>
                 <div class="stat-label">Всего элементов</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{len(categories)}</div>
                 <div class="stat-label">Категорий</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{:,}</div>
+                <div class="stat-value">{total_area:,}</div>
                 <div class="stat-label">Общая площадь</div>
             </div>
         </div>
-        """.format(len(elements), len(categories), total_area)
+        """
         
         return html
 

@@ -804,60 +804,14 @@ def display_bbox_visualization_improved(ocr_result):
             st.metric("Категорий", stats.get('unique_categories', 0))
         
         # HTML таблица с детальной информацией
-        st.markdown("### 📋 Детальная информация")
         try:
-            # Генерируем HTML таблицу
-            table_html = table_renderer.render_elements_table(elements)
-            
-            # Отображаем с HTML поддержкой
-            st.markdown(table_html, unsafe_allow_html=True)
-            st.success("✅ HTML таблица отображена")
-            
-        except Exception as e:
-            st.warning(f"⚠️ HTML таблица не работает: {e}")
-            
-            # Fallback - красивое текстовое отображение
-            st.markdown("**Элементы (текстовый формат):**")
-            
-            for i, element in enumerate(elements, 1):
-                bbox = element.get('bbox', [0, 0, 0, 0])
-                category = element.get('category', 'Unknown')
-                text = element.get('text', '')
-                
-                # Цвет для категории (используем эмодзи как fallback)
-                category_emoji = {
-                    'Picture': '🖼️',
-                    'Section-header': '📋',
-                    'Text': '📝',
-                    'List-item': '📌',
-                    'Table': '📊',
-                    'Title': '🏷️'
-                }.get(category, '📄')
-                
-                # Форматирование BBOX
-                bbox_str = f"[{bbox[0]}, {bbox[1]}, {bbox[2]}, {bbox[3]}]"
-                
-                # Ограничение длины текста
-                display_text = text[:100] + "..." if len(text) > 100 else text
-                
-                # Отображение элемента
-                with st.container():
-                    col_num, col_cat, col_bbox, col_text = st.columns([0.5, 1.5, 2, 4])
-                    
-                    with col_num:
-                        st.markdown(f"**{i}**")
-                    
-                    with col_cat:
-                        st.markdown(f"{category_emoji} {category}")
-                    
-                    with col_bbox:
-                        st.code(bbox_str)
-                    
-                    with col_text:
-                        if display_text:
-                            st.caption(display_text)
-                        else:
-                            st.caption("_Нет текста_")
+            st.markdown("### 📋 Детальная информация")
+            st.markdown(table_renderer.render_elements_table(elements), unsafe_allow_html=True)
+        except:
+            # Fallback на обычное отображение
+            with st.expander("📊 Детали по категориям"):
+                for category, count in stats.get('categories', {}).items():
+                    st.write(f"**{category}:** {count}")
         
         # Дополнительная информация об элементах
         with st.expander("🔍 Подробная информация об элементах"):

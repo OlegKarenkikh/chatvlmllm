@@ -1,0 +1,561 @@
+#!/usr/bin/env python3
+"""
+ИСПРАВЛЕНИЕ JSON TO HTML КОНВЕРТЕРА
+Обрабатывает JSON ответы от dots.ocr и конвертирует их в HTML таблицы
+"""
+
+import re
+import json
+from pathlib import Path
+
+def create_json_to_html_converter():
+    """Создает функцию конвертации JSON в HTML таблицы"""
+    
+    converter_code = '''
+def render_message_with_json_and_html_tables(content: str, role: str = "assistant"):
+    """
+    ОБРАБОТКА JSON И HTML ТАБЛИЦ
+    Конвертирует JSON ответы dots.ocr в красивые HTML таблицы
+    """
+    
+    if role == "assistant":
+        # Проверяем наличие JSON данных от dots.ocr
+        if is_dots_ocr_json_response(content):
+            # Конвертируем JSON в HTML таблицу
+            html_table = convert_dots_ocr_json_to_html_table(content)
+            
+            # Отображаем как HTML таблицу
+            st.markdown("🔧 **JSON данные конвертированы в HTML таблицу**")
+            st.markdown(html_table, unsafe_allow_html=True)
+            st.success("✅ JSON → HTML конвертация выполнена")
+            return
+        
+        # Проверяем наличие готовых HTML таблиц
+        elif '<table' in content.lower() and '</table>' in content.lower():
+            # Простые встроенные стили для HTML таблиц
+            simple_styled_content = content.replace(
+                '<table', 
+                '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+            ).replace(
+                '<th', 
+                '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+            ).replace(
+                '<td', 
+                '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+            )
+            
+            # Отображаем HTML
+            st.markdown("🔧 **HTML таблица**")
+            st.markdown(simple_styled_content, unsafe_allow_html=True)
+            st.success("✅ HTML рендеринг")
+            return
+    
+    # Обычное сообщение
+    st.markdown(content)
+
+def is_dots_ocr_json_response(content: str) -> bool:
+    """Проверяет, является ли контент JSON ответом от dots.ocr"""
+    
+    # Ищем JSON массив с BBOX данными
+    json_pattern = r'\\[\\s*\\{[^}]*"bbox"[^}]*"category"[^}]*\\}[^\\]]*\\]'
+    
+    if re.search(json_pattern, content, re.DOTALL):
+        return True
+    
+    # Проверяем, начинается ли строка с JSON массива
+    stripped_content = content.strip()
+    if stripped_content.startswith('[{') and stripped_content.endswith('}]'):
+        try:
+            # Пытаемся парсить как JSON
+            data = json.loads(stripped_content)
+            if isinstance(data, list) and len(data) > 0:
+                # Проверяем, что это BBOX данные
+                first_item = data[0]
+                if isinstance(first_item, dict) and 'bbox' in first_item and 'category' in first_item:
+                    return True
+        except:
+            pass
+    
+    return False
+
+def convert_dots_ocr_json_to_html_table(content: str) -> str:
+    """Конвертирует JSON ответ dots.ocr в HTML таблицу"""
+    
+    try:
+        # Извлекаем JSON из контента
+        stripped_content = content.strip()
+        
+        # Если есть текст до JSON, сохраняем его
+        prefix_text = ""
+        if not stripped_content.startswith('['):
+            # Ищем начало JSON массива
+            json_start = stripped_content.find('[{')
+            if json_start > 0:
+                prefix_text = stripped_content[:json_start].strip()
+                stripped_content = stripped_content[json_start:]
+        
+        # Парсим JSON
+        data = json.loads(stripped_content)
+        
+        if not isinstance(data, list) or len(data) == 0:
+            return content
+        
+        # Создаем HTML таблицу
+        html_parts = []
+        
+        # Добавляем префикс если есть
+        if prefix_text:
+            html_parts.append(f"<p>{prefix_text}</p>")
+        
+        html_parts.append('<table style="border-collapse: collapse; width: 100%; border: 2px solid #ddd; margin: 15px 0; font-size: 14px;">')
+        
+        # Заголовок таблицы
+        html_parts.append('''
+        <thead>
+            <tr>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 50px;">#</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 120px;">Категория</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 180px;">BBOX координаты</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left;">Текст</th>
+            </tr>
+        </thead>
+        ''')
+        
+        # Тело таблицы
+        html_parts.append('<tbody>')
+        
+        for i, item in enumerate(data, 1):
+            bbox = item.get('bbox', [])
+            category = item.get('category', 'Unknown')
+            text = item.get('text', '')
+            
+            # Форматируем BBOX координаты
+            bbox_str = f"[{', '.join(map(str, bbox))}]" if bbox else "N/A"
+            
+            # Ограничиваем длину текста
+            if len(text) > 50:
+                text = text[:47] + "..."
+            
+            # Экранируем HTML в тексте
+            text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            category = category.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            # Определяем цвет строки
+            row_bg = "#f1f8ff" if i % 2 == 0 else "#ffffff"
+            
+            html_parts.append(f'''
+            <tr>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50; text-align: center; font-weight: bold;">{i}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50;">{category}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50; font-family: monospace; font-size: 12px;">{bbox_str}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50;">{text}</td>
+            </tr>
+            ''')
+        
+        html_parts.append('</tbody>')
+        html_parts.append('</table>')
+        
+        # Добавляем статистику
+        total_elements = len(data)
+        categories = {}
+        text_elements = 0
+        
+        for item in data:
+            category = item.get('category', 'Unknown')
+            categories[category] = categories.get(category, 0) + 1
+            if item.get('text', '').strip():
+                text_elements += 1
+        
+        html_parts.append(f'''
+        <div style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #2196F3;">
+            <strong>📊 Статистика анализа:</strong><br>
+            • Всего элементов: {total_elements}<br>
+            • Элементов с текстом: {text_elements}<br>
+            • Категорий: {len(categories)}<br>
+            • Распределение: {", ".join([f"{cat}: {count}" for cat, count in categories.items()])}
+        </div>
+        ''')
+        
+        return "\\n".join(html_parts)
+        
+    except Exception as e:
+        # Если не удалось конвертировать, возвращаем исходный контент
+        return f"<p><strong>⚠️ Не удалось конвертировать JSON:</strong> {str(e)}</p><pre>{content}</pre>"
+'''
+    
+    return converter_code
+
+def fix_app_with_json_converter():
+    """Исправляет app.py добавлением JSON конвертера"""
+    
+    app_file = Path("app.py")
+    
+    if not app_file.exists():
+        print("❌ Файл app.py не найден!")
+        return False
+    
+    # Читаем содержимое файла
+    with open(app_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # Добавляем JSON конвертер
+    json_converter = create_json_to_html_converter()
+    
+    # Находим место после импортов
+    import_end = content.find('# Import UI components')
+    if import_end == -1:
+        import_end = content.find('from ui.styles import get_custom_css')
+    
+    if import_end != -1:
+        # Вставляем функцию после импортов
+        insert_pos = content.find('\n', import_end) + 1
+        content = content[:insert_pos] + '\n' + json_converter + '\n' + content[insert_pos:]
+    else:
+        # Добавляем в начало файла
+        content = json_converter + '\n\n' + content
+    
+    # Заменяем все вызовы на новую функцию
+    content = content.replace(
+        'render_message_with_markdown_tables(message["content"], message["role"])',
+        'render_message_with_json_and_html_tables(message["content"], message["role"])'
+    )
+    
+    content = content.replace(
+        'render_message_with_markdown_tables(response, "assistant")',
+        'render_message_with_json_and_html_tables(response, "assistant")'
+    )
+    
+    # Сохраняем исправленный файл
+    with open(app_file, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    print("✅ app.py исправлен JSON конвертером!")
+    return True
+
+def create_json_test_app():
+    """Создает тестовое приложение для проверки JSON конвертера"""
+    
+    test_app_content = '''#!/usr/bin/env python3
+"""
+ТЕСТ JSON TO HTML КОНВЕРТЕРА
+Запуск: streamlit run json_html_test.py --server.port 8514
+"""
+
+import streamlit as st
+import json
+import re
+
+def render_message_with_json_and_html_tables(content: str, role: str = "assistant"):
+    """
+    ОБРАБОТКА JSON И HTML ТАБЛИЦ
+    Конвертирует JSON ответы dots.ocr в красивые HTML таблицы
+    """
+    
+    if role == "assistant":
+        # Проверяем наличие JSON данных от dots.ocr
+        if is_dots_ocr_json_response(content):
+            # Конвертируем JSON в HTML таблицу
+            html_table = convert_dots_ocr_json_to_html_table(content)
+            
+            # Отображаем как HTML таблицу
+            st.markdown("🔧 **JSON данные конвертированы в HTML таблицу**")
+            st.markdown(html_table, unsafe_allow_html=True)
+            st.success("✅ JSON → HTML конвертация выполнена")
+            return
+        
+        # Проверяем наличие готовых HTML таблиц
+        elif '<table' in content.lower() and '</table>' in content.lower():
+            # Простые встроенные стили для HTML таблиц
+            simple_styled_content = content.replace(
+                '<table', 
+                '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ddd; margin: 10px 0;"'
+            ).replace(
+                '<th', 
+                '<th style="background-color: #4CAF50; color: white; padding: 8px; border: 1px solid #ddd; text-align: left;"'
+            ).replace(
+                '<td', 
+                '<td style="padding: 8px; border: 1px solid #ddd; background-color: white; color: black;"'
+            )
+            
+            # Отображаем HTML
+            st.markdown("🔧 **HTML таблица**")
+            st.markdown(simple_styled_content, unsafe_allow_html=True)
+            st.success("✅ HTML рендеринг")
+            return
+    
+    # Обычное сообщение
+    st.markdown(content)
+
+def is_dots_ocr_json_response(content: str) -> bool:
+    """Проверяет, является ли контент JSON ответом от dots.ocr"""
+    
+    # Ищем JSON массив с BBOX данными
+    json_pattern = r'\\[\\s*\\{[^}]*"bbox"[^}]*"category"[^}]*\\}[^\\]]*\\]'
+    
+    if re.search(json_pattern, content, re.DOTALL):
+        return True
+    
+    # Проверяем, начинается ли строка с JSON массива
+    stripped_content = content.strip()
+    if stripped_content.startswith('[{') and stripped_content.endswith('}]'):
+        try:
+            # Пытаемся парсить как JSON
+            data = json.loads(stripped_content)
+            if isinstance(data, list) and len(data) > 0:
+                # Проверяем, что это BBOX данные
+                first_item = data[0]
+                if isinstance(first_item, dict) and 'bbox' in first_item and 'category' in first_item:
+                    return True
+        except:
+            pass
+    
+    return False
+
+def convert_dots_ocr_json_to_html_table(content: str) -> str:
+    """Конвертирует JSON ответ dots.ocr в HTML таблицу"""
+    
+    try:
+        # Извлекаем JSON из контента
+        stripped_content = content.strip()
+        
+        # Если есть текст до JSON, сохраняем его
+        prefix_text = ""
+        if not stripped_content.startswith('['):
+            # Ищем начало JSON массива
+            json_start = stripped_content.find('[{')
+            if json_start > 0:
+                prefix_text = stripped_content[:json_start].strip()
+                stripped_content = stripped_content[json_start:]
+        
+        # Парсим JSON
+        data = json.loads(stripped_content)
+        
+        if not isinstance(data, list) or len(data) == 0:
+            return content
+        
+        # Создаем HTML таблицу
+        html_parts = []
+        
+        # Добавляем префикс если есть
+        if prefix_text:
+            html_parts.append(f"<p>{prefix_text}</p>")
+        
+        html_parts.append('<table style="border-collapse: collapse; width: 100%; border: 2px solid #ddd; margin: 15px 0; font-size: 14px;">')
+        
+        # Заголовок таблицы
+        html_parts.append('''
+        <thead>
+            <tr>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 50px;">#</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 120px;">Категория</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left; width: 180px;">BBOX координаты</th>
+                <th style="background-color: #2196F3; color: white; padding: 12px 8px; border: 1px solid #1976D2; text-align: left;">Текст</th>
+            </tr>
+        </thead>
+        ''')
+        
+        # Тело таблицы
+        html_parts.append('<tbody>')
+        
+        for i, item in enumerate(data, 1):
+            bbox = item.get('bbox', [])
+            category = item.get('category', 'Unknown')
+            text = item.get('text', '')
+            
+            # Форматируем BBOX координаты
+            bbox_str = f"[{', '.join(map(str, bbox))}]" if bbox else "N/A"
+            
+            # Ограничиваем длину текста
+            if len(text) > 50:
+                text = text[:47] + "..."
+            
+            # Экранируем HTML в тексте
+            text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            category = category.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            # Определяем цвет строки
+            row_bg = "#f1f8ff" if i % 2 == 0 else "#ffffff"
+            
+            html_parts.append(f'''
+            <tr>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50; text-align: center; font-weight: bold;">{i}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50;">{category}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50; font-family: monospace; font-size: 12px;">{bbox_str}</td>
+                <td style="padding: 10px 8px; border: 1px solid #ddd; background-color: {row_bg}; color: #2c3e50;">{text}</td>
+            </tr>
+            ''')
+        
+        html_parts.append('</tbody>')
+        html_parts.append('</table>')
+        
+        # Добавляем статистику
+        total_elements = len(data)
+        categories = {}
+        text_elements = 0
+        
+        for item in data:
+            category = item.get('category', 'Unknown')
+            categories[category] = categories.get(category, 0) + 1
+            if item.get('text', '').strip():
+                text_elements += 1
+        
+        html_parts.append(f'''
+        <div style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #2196F3;">
+            <strong>📊 Статистика анализа:</strong><br>
+            • Всего элементов: {total_elements}<br>
+            • Элементов с текстом: {text_elements}<br>
+            • Категорий: {len(categories)}<br>
+            • Распределение: {", ".join([f"{cat}: {count}" for cat, count in categories.items()])}
+        </div>
+        ''')
+        
+        return "\\n".join(html_parts)
+        
+    except Exception as e:
+        # Если не удалось конвертировать, возвращаем исходный контент
+        return f"<p><strong>⚠️ Не удалось конвертировать JSON:</strong> {str(e)}</p><pre>{content}</pre>"
+
+# Настройка страницы
+st.set_page_config(
+    page_title="JSON to HTML Test",
+    page_icon="📊",
+    layout="wide"
+)
+
+# Заголовок
+st.title("📊 Тест JSON → HTML конвертера")
+st.markdown("**Конвертация JSON ответов dots.ocr в красивые HTML таблицы**")
+
+# Тестовый JSON контент (точно такой же как в чате)
+test_json = '''[{"bbox": [189, 85, 234, 104], "category": "Text", "text": "RUS"}, {"bbox": [149, 134, 294, 323], "category": "Picture"}, {"bbox": [162, 343, 175, 358], "category": "Text", "text": "6."}, {"bbox": [161, 356, 175, 370], "category": "Text", "text": "7."}, {"bbox": [310, 84, 637, 115], "category": "Section-header", "text": "ВОДИТЕЛЬСКОЕ УДОСТОВЕРЕНИЕ"}, {"bbox": [332, 121, 452, 150], "category": "List-item", "text": "1. ИВАНОВ\\n IVANOV"}, {"bbox": [332, 154, 436, 183], "category": "List-item", "text": "2. СЕРГЕЙ\\nSERGEY"}, {"bbox": [332, 187, 643, 232], "category": "List-item", "text": "3. 22.05.1955\\n ТУВИНСКАЯ АВТ. ОБЛ.\\n TUVINSKAYA AVTONOMNAYA OBLAST'"}, {"bbox": [331, 234, 462, 251], "category": "List-item", "text": "4а) 01.02.2020"}, {"bbox": [490, 234, 621, 251], "category": "List-item", "text": "4b) 01.02.2030"}, {"bbox": [331, 254, 469, 283], "category": "List-item", "text": "4с) ГИБДД 7701\\nGIBDD 7701"}, {"bbox": [331, 287, 476, 303], "category": "List-item", "text": "5. 77 07 123456"}, {"bbox": [331, 306, 460, 335], "category": "List-item", "text": "8. Г. МОСКВА\\nG. MOSKVA"}, {"bbox": [331, 338, 436, 357], "category": "Picture"}]'''
+
+# Инициализация сообщений
+if "json_test_messages" not in st.session_state:
+    st.session_state.json_test_messages = []
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("🧪 Тестирование JSON конвертера")
+    
+    if st.button("➕ Добавить JSON ответ dots.ocr", use_container_width=True):
+        st.session_state.json_test_messages.append({
+            "role": "assistant",
+            "content": test_json
+        })
+        st.rerun()
+    
+    if st.button("🗑️ Очистить", use_container_width=True):
+        st.session_state.json_test_messages = []
+        st.rerun()
+    
+    st.divider()
+    
+    st.markdown("### 🎯 Что должно произойти:")
+    st.markdown("""
+    **✅ Ожидаемый результат:**
+    - Сообщение "JSON данные конвертированы в HTML таблицу"
+    - Красивая таблица с синими заголовками
+    - Строки с BBOX координатами, категориями и текстом
+    - Статистика анализа внизу
+    - Сообщение "JSON → HTML конвертация выполнена"
+    
+    **❌ Если не работает:**
+    - Видите сырой JSON код
+    - Нет таблицы
+    - Нет сообщений подтверждения
+    """)
+
+with col2:
+    st.subheader("📊 Результат")
+    
+    if st.session_state.json_test_messages:
+        for i, message in enumerate(st.session_state.json_test_messages):
+            st.markdown(f"**Тест #{i+1}:**")
+            with st.chat_message(message["role"]):
+                render_message_with_json_and_html_tables(message["content"], message["role"])
+            st.divider()
+    else:
+        st.info("Нажмите кнопку слева для добавления тестового JSON")
+
+# Отладочная информация
+st.divider()
+st.markdown("### 🔍 Отладочная информация")
+
+with st.expander("Показать исходный JSON"):
+    st.code(test_json, language="json")
+
+with st.expander("Проверка JSON парсинга"):
+    try:
+        parsed_data = json.loads(test_json)
+        st.success(f"✅ JSON валиден. Найдено {len(parsed_data)} элементов")
+        st.json(parsed_data[:3])  # Показываем первые 3 элемента
+    except Exception as e:
+        st.error(f"❌ Ошибка парсинга JSON: {e}")
+
+st.markdown("""
+### 📋 Преимущества JSON конвертера:
+
+1. **Автоматическое распознавание** JSON ответов от dots.ocr
+2. **Красивое отображение** в виде HTML таблицы
+3. **Статистика анализа** с подсчетом элементов
+4. **Контрастные цвета** для лучшей читаемости
+5. **Обработка ошибок** с fallback на исходный контент
+
+### 🚀 Если этот тест прошел:
+Основное приложение будет правильно отображать JSON ответы dots.ocr как красивые таблицы!
+""")
+'''
+    
+    with open("json_html_test.py", 'w', encoding='utf-8') as f:
+        f.write(test_app_content)
+    
+    print("✅ Создано тестовое приложение JSON конвертера: json_html_test.py")
+
+def main():
+    """Основная функция JSON исправления"""
+    
+    print("📊 JSON TO HTML КОНВЕРТЕР ДЛЯ DOTS.OCR")
+    print("=" * 50)
+    
+    # 1. Исправляем основное приложение JSON конвертером
+    print("\n1️⃣ Исправляем app.py JSON конвертером...")
+    if fix_app_with_json_converter():
+        print("✅ app.py исправлен JSON конвертером!")
+    else:
+        print("❌ Ошибка при исправлении app.py")
+        return
+    
+    # 2. Создаем тестовое приложение с JSON конвертером
+    print("\n2️⃣ Создаем тестовое приложение с JSON конвертером...")
+    create_json_test_app()
+    
+    print("\n" + "=" * 50)
+    print("🎉 JSON КОНВЕРТЕР ГОТОВ!")
+    print("\n📋 ЧТО СДЕЛАНО:")
+    print("✅ Создан JSON → HTML конвертер для dots.ocr")
+    print("✅ Автоматическое распознавание JSON ответов")
+    print("✅ Красивые HTML таблицы с синими заголовками")
+    print("✅ Статистика анализа и подсчет элементов")
+    print("✅ Создано тестовое приложение")
+    
+    print("\n🧪 КАК ТЕСТИРОВАТЬ:")
+    print("1. Запустите тест: streamlit run json_html_test.py --server.port 8514")
+    print("2. Откройте: http://localhost:8514")
+    print("3. Нажмите 'Добавить JSON ответ dots.ocr'")
+    print("4. Проверьте результат:")
+    print("   - Должна появиться красивая таблица с синими заголовками")
+    print("   - Статистика анализа внизу")
+    print("   - Сообщения подтверждения")
+    
+    print("\n🚀 ПРЕИМУЩЕСТВА:")
+    print("• Автоматическая конвертация JSON → HTML")
+    print("• Красивое отображение BBOX данных")
+    print("• Статистика и аналитика")
+    print("• Контрастные цвета для читаемости")
+    
+    print("\n✅ РЕЗУЛЬТАТ:")
+    print("Теперь JSON ответы dots.ocr будут отображаться как красивые таблицы!")
+
+if __name__ == "__main__":
+    main()
