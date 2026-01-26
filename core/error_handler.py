@@ -1,312 +1,112 @@
-"""Centralized error handling for ChatVLMLLM.
+"""Error handling module for ChatVLMLLM.
 
-This module provides unified error handling across the application,
-eliminating code duplication and ensuring consistent error messages.
+Handles GPU errors, CUDA errors, model errors, and provides
+user-friendly error messages.
 """
-from enum import Enum, auto
-from dataclasses import dataclass, field
-from typing import List, Optional, Callable
-import logging
-import traceback
 
-try:
-    import streamlit as st
-    HAS_STREAMLIT = True
-except ImportError:
-    HAS_STREAMLIT = False
-
-logger = logging.getLogger(__name__)
-
-
-class ErrorType(Enum):
-    """Types of errors that can occur in the application."""
-    CUDA_ERROR = auto()
-    MODEL_LOAD_ERROR = auto()
-    API_ERROR = auto()
-    TIMEOUT_ERROR = auto()
-    VALIDATION_ERROR = auto()
-    CONTAINER_ERROR = auto()
-    NETWORK_ERROR = auto()
-    UNKNOWN_ERROR = auto()
-
-
-@dataclass
-class ErrorResult:
-    """Result of error analysis."""
-    type: ErrorType
-    message: str
-    user_message: str
-    suggestions: List[str] = field(default_factory=list)
-    recoverable: bool = True
-    original_error: Optional[Exception] = None
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary for logging."""
-        return {
-            "type": self.type.name,
-            "message": self.message,
-            "user_message": self.user_message,
-            "suggestions": self.suggestions,
-            "recoverable": self.recoverable
-        }
+import streamlit as st
+from typing import Tuple, Optional
 
 
 class ErrorHandler:
-    """Centralized error handler for the application."""
+    """Centralized error handler for common errors."""
     
-    # Error pattern matching
-    ERROR_PATTERNS = {
-        # CUDA errors
-        "CUDA error": ErrorType.CUDA_ERROR,
-        "device-side assert": ErrorType.CUDA_ERROR,
-        "out of memory": ErrorType.CUDA_ERROR,
-        "CUDA out of memory": ErrorType.CUDA_ERROR,
-        "RuntimeError: CUDA": ErrorType.CUDA_ERROR,
-        
-        # Model loading errors
-        "video_processor": ErrorType.MODEL_LOAD_ERROR,
-        "NoneType": ErrorType.MODEL_LOAD_ERROR,
-        "model not found": ErrorType.MODEL_LOAD_ERROR,
-        "Failed to load": ErrorType.MODEL_LOAD_ERROR,
-        "could not load": ErrorType.MODEL_LOAD_ERROR,
-        
-        # API errors
-        "Connection refused": ErrorType.API_ERROR,
-        "API error": ErrorType.API_ERROR,
-        "HTTPError": ErrorType.API_ERROR,
-        "status code": ErrorType.API_ERROR,
-        
-        # Timeout errors
-        "timeout": ErrorType.TIMEOUT_ERROR,
-        "Timeout": ErrorType.TIMEOUT_ERROR,
-        "timed out": ErrorType.TIMEOUT_ERROR,
-        
-        # Container errors
-        "container": ErrorType.CONTAINER_ERROR,
-        "docker": ErrorType.CONTAINER_ERROR,
-        
-        # Network errors
-        "ConnectionError": ErrorType.NETWORK_ERROR,
-        "Network": ErrorType.NETWORK_ERROR,
-    }
-    
-    # Error responses
-    ERROR_RESPONSES = {
-        ErrorType.CUDA_ERROR: ErrorResult(
-            type=ErrorType.CUDA_ERROR,
-            message="CUDA/GPU error detected",
-            user_message="❌ Критическая ошибка GPU",
-            suggestions=[
-                "💡 Перезагрузите страницу (F5)",
-                "💡 Используйте vLLM режим для стабильности",
-                "💡 Выберите модель меньшего размера",
-                "💡 Очистите GPU память командой: nvidia-smi --gpu-reset"
-            ],
-            recoverable=False
-        ),
-        ErrorType.MODEL_LOAD_ERROR: ErrorResult(
-            type=ErrorType.MODEL_LOAD_ERROR,
-            message="Model loading failed",
-            user_message="❌ Ошибка загрузки модели",
-            suggestions=[
-                "💡 Проверьте наличие модели в директории",
-                "💡 Убедитесь в достаточности GPU памяти",
-                "💡 Попробуйте vLLM режим",
-                "💡 Выберите другую модель"
-            ],
-            recoverable=True
-        ),
-        ErrorType.API_ERROR: ErrorResult(
-            type=ErrorType.API_ERROR,
-            message="API communication error",
-            user_message="❌ Ошибка связи с API",
-            suggestions=[
-                "💡 Проверьте статус контейнера vLLM",
-                "💡 Подождите завершения загрузки модели",
-                "💡 Проверьте сетевое подключение"
-            ],
-            recoverable=True
-        ),
-        ErrorType.TIMEOUT_ERROR: ErrorResult(
-            type=ErrorType.TIMEOUT_ERROR,
-            message="Operation timed out",
-            user_message="❌ Превышено время ожидания",
-            suggestions=[
-                "💡 Попробуйте снова",
-                "💡 Уменьшите размер изображения",
-                "💡 Уменьшите количество токенов"
-            ],
-            recoverable=True
-        ),
-        ErrorType.CONTAINER_ERROR: ErrorResult(
-            type=ErrorType.CONTAINER_ERROR,
-            message="Container operation failed",
-            user_message="❌ Ошибка контейнера",
-            suggestions=[
-                "💡 Перезапустите контейнер",
-                "💡 Проверьте Docker статус",
-                "💡 Освободите GPU память"
-            ],
-            recoverable=True
-        ),
-        ErrorType.NETWORK_ERROR: ErrorResult(
-            type=ErrorType.NETWORK_ERROR,
-            message="Network connection error",
-            user_message="❌ Ошибка сети",
-            suggestions=[
-                "💡 Проверьте сетевое подключение",
-                "💡 Убедитесь, что сервер запущен"
-            ],
-            recoverable=True
-        ),
-        ErrorType.VALIDATION_ERROR: ErrorResult(
-            type=ErrorType.VALIDATION_ERROR,
-            message="Input validation failed",
-            user_message="❌ Ошибка входных данных",
-            suggestions=[
-                "💡 Проверьте формат входных данных",
-                "💡 Убедитесь в корректности изображения"
-            ],
-            recoverable=True
-        ),
-        ErrorType.UNKNOWN_ERROR: ErrorResult(
-            type=ErrorType.UNKNOWN_ERROR,
-            message="Unknown error occurred",
-            user_message="❌ Неизвестная ошибка",
-            suggestions=[
-                "💡 Попробуйте перезагрузить страницу",
-                "💡 Обратитесь к администратору"
-            ],
-            recoverable=True
-        ),
-    }
-    
-    @classmethod
-    def analyze(cls, error: Exception) -> ErrorResult:
-        """Analyze an exception and return appropriate ErrorResult.
+    @staticmethod
+    def is_cuda_error(error: Exception) -> bool:
+        """Check if error is a CUDA-related error.
         
         Args:
-            error: The exception to analyze
+            error: Exception to check
             
         Returns:
-            ErrorResult with type, messages, and suggestions
+            True if CUDA error, False otherwise
         """
-        error_str = str(error)
-        error_type_name = type(error).__name__
-        
-        # Check against known patterns
-        for pattern, error_type in cls.ERROR_PATTERNS.items():
-            if pattern.lower() in error_str.lower() or pattern in error_type_name:
-                result = cls.ERROR_RESPONSES[error_type]
-                # Create new instance with original error
-                return ErrorResult(
-                    type=result.type,
-                    message=f"{result.message}: {error_str[:200]}",
-                    user_message=result.user_message,
-                    suggestions=result.suggestions.copy(),
-                    recoverable=result.recoverable,
-                    original_error=error
-                )
-        
-        # Unknown error
-        return ErrorResult(
-            type=ErrorType.UNKNOWN_ERROR,
-            message=f"Unknown error: {error_str[:200]}",
-            user_message="❌ Произошла непредвиденная ошибка",
-            suggestions=[
-                "💡 Попробуйте перезагрузить страницу",
-                "💡 Обратитесь к администратору с описанием проблемы"
-            ],
-            recoverable=True,
-            original_error=error
-        )
+        error_msg = str(error)
+        return "CUDA error" in error_msg or "device-side assert" in error_msg
     
-    @classmethod
-    def handle(cls, error: Exception, show_ui: bool = True) -> ErrorResult:
-        """Handle an error: analyze, log, and optionally display in UI.
+    @staticmethod
+    def is_model_loading_error(error: Exception) -> bool:
+        """Check if error is a model loading error.
         
         Args:
-            error: The exception to handle
-            show_ui: Whether to display error in Streamlit UI
+            error: Exception to check
             
         Returns:
-            ErrorResult for further processing
+            True if model loading error, False otherwise
         """
-        result = cls.analyze(error)
-        
-        # Log the error
-        logger.error(
-            f"Error handled: {result.type.name} - {result.message}",
-            exc_info=True
-        )
-        
-        # Display in UI if requested and Streamlit is available
-        if show_ui and HAS_STREAMLIT:
-            cls.display(result)
-        
-        return result
+        error_msg = str(error)
+        return "video_processor" in error_msg or "NoneType" in error_msg
     
-    @classmethod
-    def display(cls, result: ErrorResult):
-        """Display error in Streamlit UI.
+    @staticmethod
+    def is_out_of_memory_error(error: Exception) -> bool:
+        """Check if error is an OOM error.
         
         Args:
-            result: ErrorResult to display
-        """
-        if not HAS_STREAMLIT:
-            return
-        
-        st.error(result.user_message)
-        
-        # Show suggestions in expander
-        if result.suggestions:
-            with st.expander("Рекомендации", expanded=True):
-                for suggestion in result.suggestions:
-                    st.info(suggestion)
-        
-        # Show technical details in debug mode
-        if st.session_state.get('debug_mode', False):
-            with st.expander("Технические детали"):
-                st.code(result.message)
-                if result.original_error:
-                    st.code(traceback.format_exc())
-    
-    @classmethod
-    def safe_execute(
-        cls, 
-        func: Callable, 
-        *args, 
-        default_return=None,
-        show_ui: bool = True,
-        **kwargs
-    ):
-        """Safely execute a function with error handling.
-        
-        Args:
-            func: Function to execute
-            *args: Positional arguments for the function
-            default_return: Value to return on error
-            show_ui: Whether to show error in UI
-            **kwargs: Keyword arguments for the function
+            error: Exception to check
             
         Returns:
-            Function result or default_return on error
+            True if OOM error, False otherwise
         """
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            cls.handle(e, show_ui=show_ui)
-            return default_return
+        error_msg = str(error).lower()
+        return "out of memory" in error_msg or "oom" in error_msg
     
-    @classmethod
-    def get_fallback_response(cls, error_type: ErrorType) -> str:
-        """Get a fallback response string for an error type.
+    @staticmethod
+    def handle_error(error: Exception, context: str = "") -> Tuple[str, str]:
+        """Handle error and return user-friendly message.
         
         Args:
-            error_type: Type of error
+            error: Exception that occurred
+            context: Context where error occurred (e.g., "OCR processing")
             
         Returns:
-            User-friendly error message string
+            Tuple of (error_message, recommendation)
         """
-        result = cls.ERROR_RESPONSES.get(error_type, cls.ERROR_RESPONSES[ErrorType.UNKNOWN_ERROR])
-        return f"{result.user_message}. Попробуйте: {result.suggestions[0] if result.suggestions else 'перезагрузить страницу'}"
+        if ErrorHandler.is_cuda_error(error):
+            return (
+                f"❌ Критическая ошибка GPU{': ' + context if context else ''}.",
+                "💡 Рекомендация: Перезагрузите страницу или используйте vLLM режим для более стабильной работы."
+            )
+        
+        elif ErrorHandler.is_model_loading_error(error):
+            return (
+                f"❌ Ошибка загрузки модели{': ' + context if context else ''}.",
+                "💡 Рекомендация: Попробуйте использовать Qwen3-VL вместо dots.ocr."
+            )
+        
+        elif ErrorHandler.is_out_of_memory_error(error):
+            return (
+                f"❌ Недостаточно памяти GPU{': ' + context if context else ''}.",
+                "💡 Рекомендация: Используйте меньшую модель или уменьшите max_tokens."
+            )
+        
+        else:
+            return (
+                f"❌ Неожиданная ошибка{': ' + context if context else ''}: {str(error)}",
+                "💡 Рекомендация: Попробуйте перезагрузить страницу или выбрать другую модель."
+            )
+    
+    @staticmethod
+    def display_error(error: Exception, context: str = ""):
+        """Display error in Streamlit UI with recommendations.
+        
+        Args:
+            error: Exception that occurred
+            context: Context where error occurred
+        """
+        error_msg, recommendation = ErrorHandler.handle_error(error, context)
+        st.error(error_msg)
+        st.info(recommendation)
+    
+    @staticmethod
+    def create_error_response(error: Exception, context: str = "") -> str:
+        """Create error response message for chat.
+        
+        Args:
+            error: Exception that occurred
+            context: Context where error occurred
+            
+        Returns:
+            Formatted error message for chat
+        """
+        error_msg, recommendation = ErrorHandler.handle_error(error, context)
+        return f"{error_msg}\n\n{recommendation}"
