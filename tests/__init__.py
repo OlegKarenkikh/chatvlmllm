@@ -1,1 +1,1 @@
-"""Test suite for ChatVLMLLM."""
+"""Test suite for ChatVLMLLM project."""

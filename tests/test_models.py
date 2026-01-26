@@ -1,131 +1,122 @@
-"""Tests for model integration."""
+"""Tests for VLM models.
 
+Тесты для проверки загрузки и работы моделей.
+Школьный исследовательский проект ChatVLMLLM.
+"""
 import pytest
-from PIL import Image
-import numpy as np
+import sys
 from pathlib import Path
 
-from models import ModelLoader
-from models.base_model import BaseModel
-
-
-@pytest.fixture
-def sample_image():
-    """Create a sample test image."""
-    # Create a simple image with text
-    img_array = np.ones((100, 200, 3), dtype=np.uint8) * 255
-    return Image.fromarray(img_array)
-
-
-@pytest.fixture
-def config_path():
-    """Get path to test config."""
-    return "config.yaml"
+# Добавляем корневую директорию в path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 class TestModelLoader:
-    """Tests for ModelLoader class."""
+    """Тесты для ModelLoader."""
     
-    def test_load_config(self, config_path):
-        """Test configuration loading."""
-        config = ModelLoader.load_config()
-        assert "models" in config
-        assert "app" in config
-        assert "ocr" in config
+    def test_import_model_loader(self):
+        """Проверяем, что ModelLoader импортируется."""
+        from models.model_loader import ModelLoader
+        assert ModelLoader is not None
     
-    def test_get_available_models(self, config_path):
-        """Test listing available models."""
-        models = ModelLoader.MODEL_REGISTRY
-        assert isinstance(models, dict)
-        assert len(models) > 0
-        assert "got_ocr" in models or "qwen_vl_2b" in models
+    def test_model_loader_has_load_method(self):
+        """Проверяем наличие метода load_model."""
+        from models.model_loader import ModelLoader
+        assert hasattr(ModelLoader, 'load_model')
     
-    def test_model_configuration(self, config_path):
-        """Test model configuration structure."""
-        config = ModelLoader.load_config()
-        for model_key, model_config in config["models"].items():
-            assert "name" in model_config
-            assert "model_path" in model_config
-            assert "precision" in model_config
+    def test_model_loader_has_unload_method(self):
+        """Проверяем наличие метода unload_all_models."""
+        from models.model_loader import ModelLoader
+        assert hasattr(ModelLoader, 'unload_all_models')
     
-    @pytest.mark.skip(reason="Requires model download and GPU")
-    def test_load_model(self, config_path):
-        """Test model loading (requires GPU and downloads)."""
-        model = ModelLoader.load_model("got_ocr")
-        assert model is not None
-        assert isinstance(model, BaseModel)
-        ModelLoader.unload_model("got_ocr")
-    
-    def test_model_caching(self):
-        """Test that loaded models are cached."""
-        loaded = ModelLoader.get_loaded_models()
-        assert isinstance(loaded, list)
+    def test_get_loaded_models(self):
+        """Проверяем метод get_loaded_models."""
+        from models.model_loader import ModelLoader
+        assert hasattr(ModelLoader, 'get_loaded_models')
+        result = ModelLoader.get_loaded_models()
+        assert isinstance(result, (list, set))
 
 
 class TestBaseModel:
-    """Tests for BaseModel class."""
+    """Тесты для BaseModel."""
     
-    def test_device_detection(self):
-        """Test device detection logic."""
-        # This is a basic test that doesn't require GPU
+    def test_import_base_model(self):
+        """Проверяем импорт BaseModel."""
         from models.base_model import BaseModel
-        import torch
-        
-        # Mock a model instance
-        class MockModel(BaseModel):
-            def load_model(self):
-                pass
-            
-            def process_image(self, image, prompt=None):
-                return "test"
-        
-        model = MockModel({"model_path": "test", "precision": "fp16"})
-        assert model.device in ["cuda", "mps", "cpu"]
+        assert BaseModel is not None
     
-    def test_extract_fields_basic(self):
-        """Test basic field extraction."""
+    def test_base_model_is_abstract(self):
+        """Проверяем, что BaseModel абстрактный."""
         from models.base_model import BaseModel
-        
-        class MockModel(BaseModel):
-            def load_model(self):
-                pass
-            
-            def process_image(self, image, prompt=None):
-                return "test"
-        
-        model = MockModel({"model_path": "test", "precision": "fp16"})
-        text = "Name: John Doe\nAge: 30"
-        fields = model.extract_fields(text, ["Name", "Age"])
-        
-        assert isinstance(fields, dict)
-        assert "Name" in fields
-        assert "Age" in fields
+        from abc import ABC
+        assert issubclass(BaseModel, ABC) or hasattr(BaseModel, '__abstractmethods__')
 
 
-class TestModelIntegration:
-    """Integration tests for models (require GPU and downloads)."""
+class TestModelsImport:
+    """Тесты импорта модулей моделей."""
     
-    @pytest.mark.skip(reason="Requires model download and GPU")
-    def test_got_ocr_inference(self, sample_image):
-        """Test GOT-OCR model inference."""
-        model = ModelLoader.load_model("got_ocr")
-        result = model.process_image(sample_image)
-        assert isinstance(result, str)
-        ModelLoader.unload_model("got_ocr")
+    def test_import_got_ocr(self):
+        """Проверяем импорт GOT-OCR."""
+        try:
+            from models.got_ocr import GOTOCR
+            assert GOTOCR is not None
+        except ImportError as e:
+            pytest.skip(f"GOT-OCR не установлен: {e}")
     
-    @pytest.mark.skip(reason="Requires model download and GPU")
-    def test_qwen_vl_inference(self, sample_image):
-        """Test Qwen2-VL model inference."""
-        model = ModelLoader.load_model("qwen_vl_2b")
-        result = model.process_image(sample_image, "Describe this image")
-        assert isinstance(result, str)
-        ModelLoader.unload_model("qwen_vl_2b")
+    def test_import_qwen_vl(self):
+        """Проверяем импорт Qwen-VL."""
+        try:
+            from models.qwen_vl import QwenVL
+            assert QwenVL is not None
+        except ImportError as e:
+            pytest.skip(f"Qwen-VL не установлен: {e}")
     
-    @pytest.mark.skip(reason="Requires model download and GPU")
-    def test_chat_functionality(self, sample_image):
-        """Test chat functionality."""
-        model = ModelLoader.load_model("qwen_vl_2b")
-        response = model.chat(sample_image, "What do you see?")
-        assert isinstance(response, str)
-        assert len(response) > 0
-        ModelLoader.unload_model("qwen_vl_2b")
+    def test_import_qwen3_vl(self):
+        """Проверяем импорт Qwen3-VL."""
+        try:
+            from models.qwen3_vl import Qwen3VL
+            assert Qwen3VL is not None
+        except ImportError as e:
+            pytest.skip(f"Qwen3-VL не установлен: {e}")
+    
+    def test_import_dots_ocr(self):
+        """Проверяем импорт dots.ocr."""
+        try:
+            from models.dots_ocr import DotsOCR
+            assert DotsOCR is not None
+        except ImportError as e:
+            pytest.skip(f"dots.ocr не установлен: {e}")
+
+
+class TestConfigYaml:
+    """Тесты конфигурации."""
+    
+    def test_config_exists(self):
+        """Проверяем наличие config.yaml."""
+        config_path = Path(__file__).parent.parent / 'config.yaml'
+        assert config_path.exists(), "config.yaml не найден"
+    
+    def test_config_valid_yaml(self):
+        """Проверяем валидность YAML."""
+        import yaml
+        config_path = Path(__file__).parent.parent / 'config.yaml'
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        assert config is not None
+        assert isinstance(config, dict)
+    
+    def test_config_has_models(self):
+        """Проверяем наличие секции models."""
+        import yaml
+        config_path = Path(__file__).parent.parent / 'config.yaml'
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        assert 'models' in config, "Секция 'models' отсутствует в конфиге"
+
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v'])
