@@ -648,6 +648,14 @@ with st.sidebar:
             if "vllm_adapter" not in st.session_state:
                 st.session_state.vllm_adapter = VLLMStreamlitAdapter()
             
+            # ИСПРАВЛЕНИЕ: Кнопка принудительного обновления статуса моделей
+            if st.button("🔄 Обновить статус моделей", help="Принудительно обновить список активных контейнеров", key="refresh_models_sidebar"):
+                st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                if "single_container_manager" in st.session_state:
+                    st.session_state.single_container_manager = SingleContainerManager()
+                st.success("✅ Статус моделей обновлен!")
+                st.rerun()
+            
             if "single_container_manager" not in st.session_state:
                 st.session_state.single_container_manager = SingleContainerManager()
             
@@ -1219,8 +1227,15 @@ elif "📄 Режим OCR" in page:
                             try:
                                 from vllm_streamlit_adapter import VLLMStreamlitAdapter
                                 
+                                # ИСПРАВЛЕНИЕ: Принудительное обновление адаптера для обнаружения новых контейнеров
                                 if "vllm_adapter" not in st.session_state:
                                     st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                                
+                                # Добавляем кнопку для принудительного обновления
+                                if st.button("🔄 Обновить статус моделей", key="refresh_adapter_ocr", help="Обновить список активных моделей"):
+                                    st.session_state.vllm_adapter = VLLMStreamlitAdapter()
+                                    st.success("✅ Статус моделей обновлен!")
+                                    st.rerun()
                                 
                                 adapter = st.session_state.vllm_adapter
                                 
