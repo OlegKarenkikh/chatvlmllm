@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-01-25T00:01:01.629633",
+  "test_type": "new_dots_ocr_features",
+  "test_results": [
+    {
+      "prompt_name": "🔍 Полный анализ с BBOX",
+      "prompt": "Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.\n\n1. Bbox format: [x1, y1, x2, y2]\n\n2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].\n\n3. Text Extraction & Formatting Rules:\n    - Picture: For the 'Picture' category, the text field should be omitted.\n    - Formula: Format its text as LaTeX.\n    - Table: Format its text as HTML.\n    - All Others (Text, Title, etc.): Format their text as Markdown.\n\n4. Constraints:\n    - The output text must be the original text from the image, with no translation.\n    - All layout elements must be sorted according to human reading order.\n\n5. Final Output: The entire output must be a single JSON object.",
+      "success": true,
+      "processing_time": 9.716601371765137,
+      "tokens_used": 2390,
+      "response_length": 2301,
+      "response": "[{\"bbox\": [50, 30, 480, 57], \"category\": \"Title\", \"text\": \"# ТЕСТОВЫЙ ДОКУМЕНТ ДЛЯ dots.ocr\"}, {\"bbox\": [609, 49, 691, 131], \"category\": \"Picture\"}, {\"bbox\": [50, 81, 460, 100], \"category\": \"Text\", \"text\": \"## Проверка новых возможностей ВВОХ и визуализации\"}, {\"bbox\": [50, 121, 508, 135], \"category\": \"Text\", \"text\": \"Этот документ создан для тестирования расширенных возможностей dots.ocr.\"}, {\"bbox\": [50, 141, 442, 155], \"category\": \"Text\", \"text\": \"Включает различные типы элементов для обнаружения и анализа.\"}, {\"bbox\": [50, 161, 458, 175], \"category\": \"Text\", \"text\": \"Модель должна определить ВВОХ координаты для каждого элемента.\"}, {\"bbox\": [50, 202, 237, 220], \"category\": \"Caption\", \"text\": \"### ТАБЛИЦА ПРОДУКТОВ:\"}, {\"bbox\": [50, 231, 538, 358], \"category\": \"Table\", \"text\": \"<table><thead><tr><td>Продукт</td><td>Цена</td><td>Кол-во</td><td>Сумма</td></tr></thead><tbody><tr><td>Хлеб</td><td>50Р</td><td>2</td><td>100Р</td></tr><tr><td>Молоко</td><td>80Р</td><td>1</td><td>80Р</td></tr><tr><td>Сыр</td><td>200Р</td><td>1</td><td>200Р</td></tr><tr><td>ИТОГО</td><td></td><td></td><td>380Р</td></tr></tbody></table>\"}, {\"bbox\": [50, 389, 135, 405], \"category\": \"Text\", \"text\": \"### ФОРМУЛА:\"}, {\"bbox\": [70, 415, 156, 437], \"category\": \"Formula\", \"text\": \"$$E = mc^2$$\"}, {\"bbox\": [50, 454, 368, 470], \"category\": \"Text\", \"text\": \"### СПИСОК ПРОВЕРЯЕМЫХ ЭЛЕМЕНТОВ:\"}, {\"bbox\": [70, 479, 227, 492], \"category\": \"List-item\", \"text\": \"* Заголовки и подзаголовки\"}, {\"bbox\": [70, 497, 245, 510], \"category\": \"List-item\", \"text\": \"* Обычный текст и параграфы\"}, {\"bbox\": [70, 515, 195, 528], \"category\": \"List-item\", \"text\": \"* Таблицы с данными\"}, {\"bbox\": [70, 533, 232, 546], \"category\": \"List-item\", \"text\": \"* Математические формулы\"}, {\"bbox\": [70, 551, 216, 564], \"category\": \"List-item\", \"text\": \"* Списки и перечисления\"}, {\"bbox\": [70, 570, 215, 583], \"category\": \"List-item\", \"text\": \"* Графические элементы\"}, {\"bbox\": [507, 607, 660, 689], \"category\": \"Picture\"}, {\"bbox\": [50, 708, 104, 722], \"category\": \"Text\", \"text\": \"Подпись:\"}, {\"bbox\": [130, 705, 234, 720], \"category\": \"Picture\"}, {\"bbox\": [50, 957, 252, 971], \"category\": \"Page-footer\", \"text\": \"Документ создан: 25.01.2026 00:00\"}, {\"bbox\": [405, 957, 499, 971], \"category\": \"Page-footer\", \"text\": \"Страница 1 из 1\"}]",
+      "analysis": {
+        "has_json": true,
+        "has_bbox": true,
+        "has_html_table": true,
+        "bbox_count": 22,
+        "table_count": 1,
+        "categories_found": [
+          "Text",
+          "Title",
+          "Table",
+          "Picture",
+          "Formula",
+          "Caption",
+          "List-item",
+          "Page-footer"
+        ],
+        "summary": "JSON с 22 BBOX, 8 категорий"
+      }
+    },
+    {
+      "prompt_name": "🖼️ Обнаружение изображений",
+      "prompt": "Analyze this document image and detect all visual elements including pictures, logos, stamps, signatures, and other graphical content. For each detected element, provide:\n\n1. Bbox coordinates in format [x1, y1, x2, y2]\n2. Category (Picture, Logo, Stamp, Signature, Barcode, QR-code, etc.)\n3. Brief description of the visual element\n\nOutput as JSON array with detected visual elements.",
+      "success": true,
+      "processing_time": 9.128063440322876,
+      "tokens_used": 2267,
+      "response_length": 2301,
+      "response": "[{\"bbox\": [50, 30, 480, 57], \"category\": \"Title\", \"text\": \"# ТЕСТОВЫЙ ДОКУМЕНТ ДЛЯ dots.ocr\"}, {\"bbox\": [609, 49, 691, 131], \"category\": \"Picture\"}, {\"bbox\": [50, 81, 460, 100], \"category\": \"Text\", \"text\": \"## Проверка новых возможностей ВВОХ и визуализации\"}, {\"bbox\": [50, 121, 508, 135], \"category\": \"Text\", \"text\": \"Этот документ создан для тестирования расширенных возможностей dots.ocr.\"}, {\"bbox\": [50, 141, 442, 155], \"category\": \"Text\", \"text\": \"Включает различные типы элементов для обнаружения и анализа.\"}, {\"bbox\": [50, 161, 458, 175], \"category\": \"Text\", \"text\": \"Модель должна определить ВВОХ координаты для каждого элемента.\"}, {\"bbox\": [50, 201, 237, 220], \"category\": \"Caption\", \"text\": \"### ТАБЛИЦА ПРОДУКТОВ:\"}, {\"bbox\": [50, 231, 538, 358], \"category\": \"Table\", \"text\": \"<table><thead><tr><td>Продукт</td><td>Цена</td><td>Кол-во</td><td>Сумма</td></tr></thead><tbody><tr><td>Хлеб</td><td>50Р</td><td>2</td><td>100Р</td></tr><tr><td>Молоко</td><td>80Р</td><td>1</td><td>80Р</td></tr><tr><td>Сыр</td><td>200Р</td><td>1</td><td>200Р</td></tr><tr><td>ИТОГО</td><td></td><td></td><td>380Р</td></tr></tbody></table>\"}, {\"bbox\": [50, 388, 135, 405], \"category\": \"Text\", \"text\": \"### ФОРМУЛА:\"}, {\"bbox\": [70, 414, 156, 437], \"category\": \"Formula\", \"text\": \"$$E = mc^2$$\"}, {\"bbox\": [50, 453, 368, 471], \"category\": \"Text\", \"text\": \"### СПИСОК ПРОВЕРЯЕМЫХ ЭЛЕМЕНТОВ:\"}, {\"bbox\": [70, 479, 227, 492], \"category\": \"List-item\", \"text\": \"* Заголовки и подзаголовки\"}, {\"bbox\": [70, 497, 245, 510], \"category\": \"List-item\", \"text\": \"* Обычный текст и параграфы\"}, {\"bbox\": [70, 515, 195, 528], \"category\": \"List-item\", \"text\": \"* Таблицы с данными\"}, {\"bbox\": [70, 533, 233, 546], \"category\": \"List-item\", \"text\": \"* Математические формулы\"}, {\"bbox\": [70, 551, 216, 564], \"category\": \"List-item\", \"text\": \"* Списки и перечисления\"}, {\"bbox\": [70, 570, 215, 583], \"category\": \"List-item\", \"text\": \"* Графические элементы\"}, {\"bbox\": [507, 607, 660, 689], \"category\": \"Picture\"}, {\"bbox\": [50, 708, 104, 722], \"category\": \"Text\", \"text\": \"Подпись:\"}, {\"bbox\": [131, 705, 234, 720], \"category\": \"Picture\"}, {\"bbox\": [50, 957, 252, 971], \"category\": \"Page-footer\", \"text\": \"Документ создан: 25.01.2026 00:00\"}, {\"bbox\": [405, 957, 499, 971], \"category\": \"Page-footer\", \"text\": \"Страница 1 из 1\"}]",
+      "analysis": {
+        "has_json": true,
+        "has_bbox": true,
+        "has_html_table": true,
+        "bbox_count": 22,
+        "table_count": 1,
+        "categories_found": [
+          "Text",
+          "Title",
+          "Table",
+          "Picture",
+          "Formula",
+          "Caption",
+          "List-item",
+          "Page-footer"
+        ],
+        "summary": "Найдены визуальные элементы: Picture"
+      }
+    },
+    {
+      "prompt_name": "📊 Структурированные таблицы",
+      "prompt": "Extract and format all table content from this document as structured HTML tables with proper formatting. Include:\n\n1. All table data with correct row and column structure\n2. Preserve headers and data relationships\n3. Format as clean HTML tables\n4. Include bbox coordinates for each table: [x1, y1, x2, y2]\n\nOutput format: JSON with tables array containing bbox and html_content for each table.",
+      "success": true,
+      "processing_time": 10.056246042251587,
+      "tokens_used": 2363,
+      "response_length": 2477,
+      "response": "[{\"bbox\": [49, 30, 480, 57], \"category\": \"Title\", \"text\": \"# ТЕСТОВЫЙ ДОКУМЕНТ ДЛЯ dots.ocr\"}, {\"bbox\": [49, 80, 460, 100], \"category\": \"Text\", \"text\": \"## Проверка новых возможностей ВВОХ и визуализации\"}, {\"bbox\": [633, 81, 681, 97], \"category\": \"Text\", \"text\": \"LOGO\"}, {\"bbox\": [49, 120, 508, 135], \"category\": \"Text\", \"text\": \"Этот документ создан для тестирования расширенных возможностей dots.ocr.\"}, {\"bbox\": [49, 140, 443, 155], \"category\": \"Text\", \"text\": \"Включает различные типы элементов для обнаружения и анализа.\"}, {\"bbox\": [49, 160, 459, 175], \"category\": \"Text\", \"text\": \"Модель должна определить ВВОХ координаты для каждого элемента.\"}, {\"bbox\": [49, 201, 237, 220], \"category\": \"Caption\", \"text\": \"### ТАБЛИЦА ПРОДУКТОВ:\"}, {\"bbox\": [49, 230, 538, 358], \"category\": \"Table\", \"text\": \"<table><thead><tr><td>Продукт</td><td>Цена</td><td>Кол-во</td><td>Сумма</td></tr></thead><tbody><tr><td>Хлеб</td><td>50Р</td><td>2</td><td>100Р</td></tr><tr><td>Молоко</td><td>80Р</td><td>1</td><td>80Р</td></tr><tr><td>Сыр</td><td>200Р</td><td>1</td><td>200Р</td></tr><tr><td>ИТОГО</td><td></td><td></td><td>380Р</td></tr></tbody></table>\"}, {\"bbox\": [49, 388, 135, 405], \"category\": \"Text\", \"text\": \"### ФОРМУЛА:\"}, {\"bbox\": [70, 414, 156, 437], \"category\": \"Formula\", \"text\": \"$$E = mc^2$$\"}, {\"bbox\": [49, 453, 368, 470], \"category\": \"Text\", \"text\": \"### СПИСОК ПРОВЕРЯЕМЫХ ЭЛЕМЕНТОВ:\"}, {\"bbox\": [69, 478, 227, 492], \"category\": \"List-item\", \"text\": \"* Заголовки и подзаголовки\"}, {\"bbox\": [69, 496, 245, 510], \"category\": \"List-item\", \"text\": \"* Обычный текст и параграфы\"}, {\"bbox\": [69, 514, 195, 528], \"category\": \"List-item\", \"text\": \"* Таблицы с данными\"}, {\"bbox\": [69, 532, 233, 546], \"category\": \"List-item\", \"text\": \"* Математические формулы\"}, {\"bbox\": [69, 550, 216, 564], \"category\": \"List-item\", \"text\": \"* Списки и перечисления\"}, {\"bbox\": [69, 568, 215, 583], \"category\": \"List-item\", \"text\": \"* Графические элементы\"}, {\"bbox\": [527, 622, 613, 636], \"category\": \"Text\", \"text\": \"УТВЕРЖДЕНО\"}, {\"bbox\": [537, 642, 599, 656], \"category\": \"Text\", \"text\": \"24.01.2026\"}, {\"bbox\": [542, 663, 592, 677], \"category\": \"Text\", \"text\": \"Подпись\"}, {\"bbox\": [49, 708, 104, 722], \"category\": \"Text\", \"text\": \"Подпись:\"}, {\"bbox\": [130, 705, 234, 720], \"category\": \"Picture\"}, {\"bbox\": [49, 957, 252, 971], \"category\": \"Page-footer\", \"text\": \"Документ создан: 25.01.2026 00:00\"}, {\"bbox\": [405, 957, 499, 971], \"category\": \"Page-footer\", \"text\": \"Страница 1 из 1\"}]",
+      "analysis": {
+        "has_json": true,
+        "has_bbox": true,
+        "has_html_table": true,
+        "bbox_count": 24,
+        "table_count": 1,
+        "categories_found": [
+          "Text",
+          "Title",
+          "Table",
+          "Picture",
+          "Formula",
+          "Caption",
+          "List-item",
+          "Page-footer",
+          "Logo"
+        ],
+        "summary": "Найдено 1 HTML таблиц"
+      }
+    }
+  ],
+  "summary": {
+    "total_tests": 3,
+    "successful_tests": 3,
+    "failed_tests": 0,
+    "success_rate": 100.0
+  }
+}

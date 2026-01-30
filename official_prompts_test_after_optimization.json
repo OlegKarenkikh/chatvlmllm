@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-01-24T23:38:46.276826",
+  "test_results": [
+    {
+      "prompt_name": "🔤 Простое OCR",
+      "prompt": "Extract all text from this image.",
+      "success": true,
+      "processing_time": 2.7741963863372803,
+      "tokens_used": 880,
+      "response_length": 597,
+      "response": "# ТЕСТОВЫЙ ДОКУМЕНТ\n\nЭто тестовый документ для проверки официальных промптов dots.ocr.\n\nДокумент содержит различные элементы для тестирования OCR.\n\n## ТАБЛИЦА ДАННЫХ:\n\n<table><thead><tr><td>Название</td><td>Количество</td><td>Цена</td><td>Сумма</td></tr></thead><tbody><tr><td>Товар А</td><td>10</td><td>100</td><td>1000</td></tr><tr><td>Товар Б</td><td>5</td><td>200</td><td>1000</td></tr><tr><td>Товар В</td><td>3</td><td>300</td><td>900</td></tr></tbody></table>\n\n## Дополнительная информация:\n\n* Пункт 1: Важная информация\n\n* Пункт 2: Дополнительные данные\n\n* Пункт 3: Заключительные замечания",
+      "quality": {
+        "contains_table": true,
+        "contains_structure": false,
+        "contains_text": true,
+        "different_from_simple": true
+      }
+    },
+    {
+      "prompt_name": "📋 Детальное OCR",
+      "prompt": "Extract all text content from this image while maintaining reading order. Exclude headers and footers.",
+      "success": true,
+      "processing_time": 2.0595438480377197,
+      "tokens_used": 891,
+      "response_length": 597,
+      "response": "# ТЕСТОВЫЙ ДОКУМЕНТ\n\nЭто тестовый документ для проверки официальных промптов dots.ocr.\n\nДокумент содержит различные элементы для тестирования OCR.\n\n## ТАБЛИЦА ДАННЫХ:\n\n<table><thead><tr><td>Название</td><td>Количество</td><td>Цена</td><td>Сумма</td></tr></thead><tbody><tr><td>Товар А</td><td>10</td><td>100</td><td>1000</td></tr><tr><td>Товар Б</td><td>5</td><td>200</td><td>1000</td></tr><tr><td>Товар В</td><td>3</td><td>300</td><td>900</td></tr></tbody></table>\n\n## Дополнительная информация:\n\n* Пункт 1: Важная информация\n\n* Пункт 2: Дополнительные данные\n\n* Пункт 3: Заключительные замечания",
+      "quality": {
+        "contains_table": true,
+        "contains_structure": false,
+        "contains_text": true,
+        "different_from_simple": true
+      }
+    },
+    {
+      "prompt_name": "🏗️ Анализ структуры",
+      "prompt": "Extract text, layout, and structure from this document image. Include bounding boxes, categories, and format tables as HTML, formulas as LaTeX, and text as Markdown.",
+      "success": true,
+      "processing_time": 2.0800135135650635,
+      "tokens_used": 906,
+      "response_length": 597,
+      "response": "# ТЕСТОВЫЙ ДОКУМЕНТ\n\nЭто тестовый документ для проверки официальных промптов dots.ocr.\n\nДокумент содержит различные элементы для тестирования OCR.\n\n## ТАБЛИЦА ДАННЫХ:\n\n<table><thead><tr><td>Название</td><td>Количество</td><td>Цена</td><td>Сумма</td></tr></thead><tbody><tr><td>Товар А</td><td>10</td><td>100</td><td>1000</td></tr><tr><td>Товар Б</td><td>5</td><td>200</td><td>1000</td></tr><tr><td>Товар В</td><td>3</td><td>300</td><td>900</td></tr></tbody></table>\n\n## Дополнительная информация:\n\n* Пункт 1: Важная информация\n\n* Пункт 2: Дополнительные данные\n\n* Пункт 3: Заключительные замечания",
+      "quality": {
+        "contains_table": true,
+        "contains_structure": false,
+        "contains_text": true,
+        "different_from_simple": true
+      }
+    },
+    {
+      "prompt_name": "📊 Извлечение таблиц",
+      "prompt": "Extract and format the table content from this document as structured data.",
+      "success": true,
+      "processing_time": 2.46514630317688,
+      "tokens_used": 941,
+      "response_length": 789,
+      "response": "<table>\n   <thead>\n    <tr>\n     <td>\n      Название\n     </td>\n     <td>\n      Количество\n     </td>\n     <td>\n      Цена\n     </td>\n     <td>\n      Сумма\n     </td>\n    </tr>\n   </thead>\n   <tbody>\n    <tr>\n     <td>\n      Товар А\n     </td>\n     <td>\n      10\n     </td>\n     <td>\n      100\n     </td>\n     <td>\n      1000\n     </td>\n    </tr>\n    <tr>\n     <td>\n      Товар Б\n     </td>\n     <td>\n      5\n     </td>\n     <td>\n      200\n     </td>\n     <td>\n      1000\n     </td>\n    </tr>\n    <tr>\n     <td>\n      Товар В\n     </td>\n     <td>\n      3\n     </td>\n     <td>\n      300\n     </td>\n     <td>\n      900\n     </td>\n    </tr>\n   </tbody>\n  </table>\n\nДополнительная информация:\n\n• Пункт 1: Важная информация\n\n• Пункт 2: Дополнительные данные\n\n• Пункт 3: Заключительные замечания",
+      "quality": {
+        "contains_table": true,
+        "contains_structure": false,
+        "contains_text": true,
+        "different_from_simple": true
+      }
+    },
+    {
+      "prompt_name": "📄 Структурированное извлечение",
+      "prompt": "Analyze this document and extract structured information including text, tables, and layout elements.",
+      "success": true,
+      "processing_time": 2.0636000633239746,
+      "tokens_used": 890,
+      "response_length": 597,
+      "response": "# ТЕСТОВЫЙ ДОКУМЕНТ\n\nЭто тестовый документ для проверки официальных промптов dots.ocr.\n\nДокумент содержит различные элементы для тестирования OCR.\n\n## ТАБЛИЦА ДАННЫХ:\n\n<table><thead><tr><td>Название</td><td>Количество</td><td>Цена</td><td>Сумма</td></tr></thead><tbody><tr><td>Товар А</td><td>10</td><td>100</td><td>1000</td></tr><tr><td>Товар Б</td><td>5</td><td>200</td><td>1000</td></tr><tr><td>Товар В</td><td>3</td><td>300</td><td>900</td></tr></tbody></table>\n\n## Дополнительная информация:\n\n* Пункт 1: Важная информация\n\n* Пункт 2: Дополнительные данные\n\n* Пункт 3: Заключительные замечания",
+      "quality": {
+        "contains_table": true,
+        "contains_structure": false,
+        "contains_text": true,
+        "different_from_simple": true
+      }
+    }
+  ],
+  "summary": {
+    "total_tests": 5,
+    "successful_tests": 5,
+    "failed_tests": 0,
+    "success_rate": 100.0,
+    "unique_responses": 2
+  }
+}

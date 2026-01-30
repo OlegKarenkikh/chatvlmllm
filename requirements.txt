@@ -1,0 +1,27 @@
+# Core ML
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.36.0
+accelerate>=0.25.0
+
+# VLM specific
+qwen-vl-utils
+flash-attn>=2.3.0
+bitsandbytes>=0.41.0
+
+# API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# UI
+streamlit>=1.28.0
+
+# Utils
+Pillow>=10.0.0
+PyYAML>=6.0
+requests>=2.31.0
+numpy>=1.24.0
+pandas>=2.0.0
+opencv-python-headless>=4.8.0
+python-magic>=0.4.27

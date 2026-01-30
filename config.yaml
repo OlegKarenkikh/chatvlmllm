@@ -1,0 +1,135 @@
+emergency_mode:
+  disabled_features:
+  - flash_attention
+  - 8bit_quantization
+  - 4bit_quantization
+  - tf32_optimization
+  - cudnn_benchmark
+  - sdpa_attention
+  enabled: true
+  reason: Critical CUDA errors detected in logs
+  timestamp: '2026-01-24T22:53:33.044348'
+
+# Transformers режим - стабильные модели
+transformers:
+  qwen_vl_2b:
+    attn_implementation: eager
+    context_length: 4096
+    device_map: auto
+    load_in_4bit: false
+    load_in_8bit: false
+    max_new_tokens: 2048
+    model_path: Qwen/Qwen2-VL-2B-Instruct
+    name: Qwen2-VL 2B (Transformers)
+    precision: fp16
+    torch_dtype: float16
+    trust_remote_code: true
+    use_flash_attention: false
+  
+  qwen3_vl_2b:
+    attn_implementation: eager
+    context_length: 4096
+    device_map: auto
+    load_in_4bit: false
+    load_in_8bit: false
+    max_new_tokens: 2048
+    model_path: Qwen/Qwen3-VL-2B-Instruct
+    name: Qwen3-VL 2B (Transformers)
+    precision: fp16
+    torch_dtype: float16
+    trust_remote_code: true
+    use_flash_attention: false
+
+# vLLM режим - включая dots.ocr
+vllm:
+  dots_ocr:
+    model_path: rednote-hilab/dots.ocr
+    name: dots.ocr (vLLM - Рекомендуется)
+    max_new_tokens: 1024
+    context_length: 2048
+    precision: fp16
+    trust_remote_code: true
+  
+  qwen_vl_2b_vllm:
+    model_path: Qwen/Qwen2-VL-2B-Instruct
+    name: Qwen2-VL 2B (vLLM)
+    max_new_tokens: 2048
+    context_length: 4096
+    precision: fp16
+    trust_remote_code: true
+  
+  qwen3_vl_2b_vllm:
+    model_path: Qwen/Qwen3-VL-2B-Instruct
+    name: Qwen3-VL 2B (vLLM - Рекомендуется)
+    max_new_tokens: 2048
+    context_length: 4096
+    precision: fp16
+    trust_remote_code: true
+
+# Совместимость со старой конфигурацией
+models:
+  # dots_ocr: # Отключено в Transformers - используйте vLLM режим
+  #   attn_implementation: eager
+  #   context_length: 2048
+  #   device_map: auto
+  #   load_in_4bit: false
+  #   load_in_8bit: false
+  #   max_new_tokens: 1024
+  #   model_path: rednote-hilab/dots.ocr
+  #   name: dots.ocr (Отключено - используйте vLLM)
+  #   precision: fp16
+  #   torch_dtype: float16
+  #   trust_remote_code: true
+  #   use_flash_attention: false
+  qwen3_vl_2b:
+    attn_implementation: eager
+    context_length: 4096
+    device_map: auto
+    load_in_4bit: false
+    load_in_8bit: false
+    max_new_tokens: 2048
+    model_path: Qwen/Qwen3-VL-2B-Instruct
+    name: Qwen3-VL 2B (Emergency Mode)
+    precision: fp16
+    torch_dtype: float16
+    trust_remote_code: true
+    use_flash_attention: false
+ocr:
+  supported_formats: ["jpg", "jpeg", "png", "bmp", "tiff"]
+  max_image_size: 10485760
+  resize_max_dimension: 2048
+  enable_preprocessing: true
+  preprocessing_steps: ["resize", "normalize", "enhance"]
+
+document_templates:
+  passport:
+    name: "Паспорт"
+    fields: ["document_number", "surname", "given_names", "nationality", 
+             "date_of_birth", "sex", "place_of_birth", "date_of_issue", 
+             "date_of_expiry", "authority"]
+  invoice:
+    name: "Счет"
+    fields: ["invoice_number", "date", "seller_name", "seller_address",
+             "buyer_name", "buyer_address", "items", "subtotal", "tax", "total_amount"]
+  receipt:
+    name: "Чек"
+    fields: ["store_name", "store_address", "date", "time", "items",
+             "subtotal", "tax", "total", "payment_method"]
+
+performance:
+  blackwell_optimizations:
+    enable_cudnn_benchmark: false
+    enable_sdpa: false
+    enable_tf32: false
+    force_eager_attention: true
+    use_bfloat16: false
+  generation_settings:
+    default_max_tokens: 1024
+    max_context_length: 2048
+    repetition_penalty: 1.1
+    temperature: 0.7
+    top_p: 0.9
+  memory_management:
+    clear_cache_before_load: true
+    force_gc_collection: true
+    max_memory_per_gpu: 8GB
